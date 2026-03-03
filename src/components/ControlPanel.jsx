@@ -25,7 +25,11 @@ export function ControlPanel({
   availableLines = {},
   selectedLines = [],
   onLineToggle = () => {},
-  onClearLines = () => {}
+  onClearLines = () => {},
+  operators = [],
+  activeOperators = [],
+  onRegionSelect = () => {},
+  effectiveInterval = 2000,
 }) {
   const [collapsed, setCollapsed] = useState(false);
   const [lineFilterExpanded, setLineFilterExpanded] = useState(false);
@@ -57,7 +61,7 @@ export function ControlPanel({
   return (
     <div className={`control-panel ${collapsed ? 'collapsed' : ''}`}>
       <div className="control-header">
-        <h2>Stockholm Real-Time Transit</h2>
+        <h2>Sweden Real-Time Transit</h2>
         <button
           className="collapse-btn"
           onClick={() => setCollapsed(!collapsed)}
@@ -69,10 +73,33 @@ export function ControlPanel({
 
       {!collapsed && (
         <>
+          <div className="region-selector">
+            <h3>Regions</h3>
+            <div className="region-chips">
+              <button className="region-all" onClick={() => onRegionSelect(null)}>
+                All Sweden
+              </button>
+              {operators.map(op => (
+                <button
+                  key={op.slug}
+                  className={`region-chip ${activeOperators.includes(op.slug) ? 'active' : ''}`}
+                  onClick={() => onRegionSelect(op.slug)}
+                  title={op.region}
+                >
+                  {op.name}
+                </button>
+              ))}
+            </div>
+          </div>
+
           <div className="stats">
             <div className="stat-item">
               <span className="stat-label">Total vehicles:</span>
               <span className="stat-value">{totalVisible}</span>
+            </div>
+            <div className="stat-item">
+              <span className="stat-label">Active operators:</span>
+              <span className="stat-value">{activeOperators.length}</span>
             </div>
             {lastUpdate && (
               <div className="stat-item">
@@ -205,7 +232,7 @@ export function ControlPanel({
           )}
 
           <div className="info">
-            <small>Updates every 2 seconds</small>
+            <small>Updates every {effectiveInterval / 1000}s</small>
           </div>
         </>
       )}

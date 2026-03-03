@@ -33,35 +33,75 @@ function escapeHtml(str) {
 // Use globalThis.Map to avoid collision with React component name
 const JSMap = globalThis.Map;
 
-export function Map({ vehicles = [], center = [59.3293, 18.0686], zoom = 11 }) {
+export function Map({ vehicles = [], center = [59.3293, 18.0686], zoom = 11, onBoundsChange = null }) {
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const markersRef = useRef(new JSMap());
   const markerLayerRef = useRef(null);
+  const boundsTimerRef = useRef(null);
+  const onBoundsChangeRef = useRef(onBoundsChange);
+  const initialRenderRef = useRef(true);
+
+  // Keep callback ref up to date
+  useEffect(() => {
+    onBoundsChangeRef.current = onBoundsChange;
+  }, [onBoundsChange]);
 
   // Initialize map
   useEffect(() => {
     if (!mapInstanceRef.current && mapRef.current) {
-      mapInstanceRef.current = L.map(mapRef.current, {
+      const map = L.map(mapRef.current, {
         preferCanvas: true // Better performance for many markers
       }).setView(center, zoom);
+
+      mapInstanceRef.current = map;
 
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> | Data: <a href="https://trafiklab.se">Trafiklab</a>',
         maxZoom: 19,
-      }).addTo(mapInstanceRef.current);
+      }).addTo(map);
 
       // Create layer for markers
-      markerLayerRef.current = L.layerGroup().addTo(mapInstanceRef.current);
+      markerLayerRef.current = L.layerGroup().addTo(map);
+
+      // Viewport bounds reporting (debounced 300ms)
+      const reportBounds = () => {
+        clearTimeout(boundsTimerRef.current);
+        boundsTimerRef.current = setTimeout(() => {
+          const b = map.getBounds();
+          if (onBoundsChangeRef.current) {
+            onBoundsChangeRef.current({
+              south: b.getSouth(), west: b.getWest(),
+              north: b.getNorth(), east: b.getEast(),
+            });
+          }
+        }, 300);
+      };
+
+      map.on('moveend', reportBounds);
+      map.on('zoomend', reportBounds);
+      reportBounds(); // initial bounds
     }
 
     return () => {
+      clearTimeout(boundsTimerRef.current);
       if (mapInstanceRef.current) {
         mapInstanceRef.current.remove();
         mapInstanceRef.current = null;
       }
     };
   }, []);
+
+  // Fly to new center/zoom when props change (skip first render)
+  useEffect(() => {
+    if (initialRenderRef.current) {
+      initialRenderRef.current = false;
+      return;
+    }
+    if (mapInstanceRef.current) {
+      mapInstanceRef.current.flyTo(center, zoom, { duration: 1 });
+    }
+  }, [center, zoom]);
 
   // Update vehicle markers
   useEffect(() => {
@@ -149,7 +189,7 @@ function createPopupContent(vehicle) {
   return `
     <div style="font-family: sans-serif; min-width: 150px;">
       <strong style="font-size: 14px; text-transform: capitalize;">${escapeHtml(vehicle.mode)} ${escapeHtml(vehicle.line)}</strong><br/>
-      ${vehicle.lineName ? `<em style="color: #666; font-size: 12px;">${escapeHtml(vehicle.lineName)}</em><br/>` : ''}
+      ${vehicle.operator ? `<em style="color: #666; font-size: 12px;">${escapeHtml(vehicle.operator.toUpperCase())}</em><br/>` : ''}
       <hr style="margin: 5px 0; border: none; border-top: 1px solid #eee;"/>
       Speed: ${speedKmh} km/h<br/>
       Bearing: ${vehicle.bearing}°<br/>

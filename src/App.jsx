@@ -2,14 +2,24 @@ import { useState, useMemo } from 'react';
 import { Map } from './components/Map';
 import { ControlPanel } from './components/ControlPanel';
 import { useRealtimeVehicles } from './hooks/useRealtimeVehicles';
+import { OPERATORS, OPERATOR_MAP, SWEDEN_CENTER, SWEDEN_ZOOM, getVisibleOperators } from './config/operators';
 
 function App() {
   const [enabledModes, setEnabledModes] = useState([
     'metro', 'bus', 'train', 'tram', 'ship', 'ferry', 'unknown'
   ]);
   const [selectedLines, setSelectedLines] = useState([]);
+  const [mapCenter, setMapCenter] = useState([59.3293, 18.0686]);
+  const [mapZoom, setMapZoom] = useState(11);
+  const [viewportBounds, setViewportBounds] = useState(null);
 
-  const { vehicles: allVehicles, error, loading, lastUpdate, refresh } = useRealtimeVehicles(2000, true);
+  const visibleOperators = useMemo(() => {
+    if (!viewportBounds) return ['sl'];
+    return getVisibleOperators(viewportBounds);
+  }, [viewportBounds]);
+
+  const { vehicles: allVehicles, error, loading, lastUpdate, refresh, activeOperators, effectiveInterval } =
+    useRealtimeVehicles(visibleOperators, 2000, true);
 
   // Build available lines grouped by mode, only from enabled modes
   const availableLines = useMemo(() => {
@@ -71,9 +81,31 @@ function App() {
     setSelectedLines([]);
   };
 
+  const handleBoundsChange = (bounds) => {
+    setViewportBounds(bounds);
+  };
+
+  const handleRegionSelect = (slug) => {
+    if (slug === null) {
+      setMapCenter(SWEDEN_CENTER);
+      setMapZoom(SWEDEN_ZOOM);
+    } else {
+      const op = OPERATOR_MAP.get(slug);
+      if (op) {
+        setMapCenter(op.center);
+        setMapZoom(10);
+      }
+    }
+  };
+
   return (
     <div style={{ position: 'relative', width: '100%', height: '100%' }}>
-      <Map vehicles={filteredVehicles} />
+      <Map
+        vehicles={filteredVehicles}
+        center={mapCenter}
+        zoom={mapZoom}
+        onBoundsChange={handleBoundsChange}
+      />
       <ControlPanel
         vehicles={filteredVehicles}
         loading={loading}
@@ -86,6 +118,10 @@ function App() {
         selectedLines={selectedLines}
         onLineToggle={handleLineToggle}
         onClearLines={handleClearLines}
+        operators={OPERATORS}
+        activeOperators={activeOperators}
+        onRegionSelect={handleRegionSelect}
+        effectiveInterval={effectiveInterval}
       />
     </div>
   );
