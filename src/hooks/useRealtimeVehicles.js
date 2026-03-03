@@ -1,7 +1,7 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { fetchVehiclePositions } from '../services/trafiklab';
 
-export function useRealtimeVehicles(interval = 2000, enabled = true) {
+export function useRealtimeVehicles(operatorSlugs = ['sl'], baseInterval = 2000, enabled = true) {
   const [vehicles, setVehicles] = useState([]);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -9,12 +9,19 @@ export function useRealtimeVehicles(interval = 2000, enabled = true) {
   const intervalRef = useRef(null);
   const isActiveRef = useRef(true);
 
+  const operatorKey = useMemo(() => operatorSlugs.slice().sort().join(','), [operatorSlugs]);
+
+  const effectiveInterval = useMemo(
+    () => Math.max(baseInterval, operatorSlugs.length * baseInterval),
+    [operatorSlugs.length, baseInterval]
+  );
+
   useEffect(() => {
     isActiveRef.current = true;
 
     const fetchData = async () => {
       try {
-        const data = await fetchVehiclePositions();
+        const data = await fetchVehiclePositions(operatorSlugs);
         if (isActiveRef.current) {
           setVehicles(data);
           setError(null);
@@ -31,7 +38,7 @@ export function useRealtimeVehicles(interval = 2000, enabled = true) {
 
     const startPolling = () => {
       if (!intervalRef.current) {
-        intervalRef.current = setInterval(fetchData, interval);
+        intervalRef.current = setInterval(fetchData, effectiveInterval);
       }
     };
 
@@ -62,12 +69,12 @@ export function useRealtimeVehicles(interval = 2000, enabled = true) {
       stopPolling();
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [interval, enabled]);
+  }, [effectiveInterval, enabled, operatorKey]);
 
   const refresh = async () => {
     setLoading(true);
     try {
-      const data = await fetchVehiclePositions();
+      const data = await fetchVehiclePositions(operatorSlugs);
       setVehicles(data);
       setError(null);
       setLastUpdate(new Date());
@@ -78,5 +85,5 @@ export function useRealtimeVehicles(interval = 2000, enabled = true) {
     }
   };
 
-  return { vehicles, error, loading, lastUpdate, refresh };
+  return { vehicles, error, loading, lastUpdate, refresh, activeOperators: operatorSlugs, effectiveInterval };
 }
