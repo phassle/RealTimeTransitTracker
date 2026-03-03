@@ -1,16 +1,22 @@
-# Stockholm Real-Time Transit Map
+# Real-Time Transit Tracker — Sweden
 
-A real-time map showing all public transport vehicles in Stockholm (SL) with 2-second update frequency.
+A real-time map showing public transport vehicles across Sweden with 2-second update frequency. Currently configured for Stockholm (SL), but the GTFS Sweden 3 API covers all of Sweden — the goal is to support any region by filtering vehicles within the selected map area.
 
 ## Features
 
-- 🗺️ **Live tracking** of ~1600 vehicles across Stockholm
-- 🚇 **Multiple transport modes**: Metro, Bus, Train, Tram, Ship, Ferry
-- 🔄 **Real-time updates** every 2 seconds
-- 🎨 **Color-coded** by transport mode
-- 🔍 **Clickable markers** with vehicle details
-- ✅ **Filter by transport mode**
-- 📊 **Live statistics** and vehicle counts
+- **Live tracking** of public transport vehicles in real time
+- **Multiple transport modes**: Metro, Bus, Train, Tram, Ship, Ferry
+- **Real-time updates** every 2 seconds
+- **Color-coded** by transport mode
+- **Clickable markers** with vehicle details
+- **Filter by transport mode**
+- **Live statistics** and vehicle counts
+
+## Roadmap
+
+- [ ] Support all of Sweden — show vehicles from any transit operator, not just SL
+- [ ] Area-based filtering — only fetch/display vehicles within the current map viewport
+- [ ] Operator selector — choose which transit authority to display
 
 ## Tech Stack
 
@@ -40,7 +46,7 @@ A real-time map showing all public transport vehicles in Stockholm (SL) with 2-s
 
 1. Clone and navigate to the project:
    ```bash
-   cd sl-poc
+   cd RealTimeTransitTracker
    ```
 
 2. Install dependencies:
@@ -69,7 +75,7 @@ A real-time map showing all public transport vehicles in Stockholm (SL) with 2-s
 
 ## Data Sources
 
-- **GTFS-RT Vehicle Positions**: Real-time GPS coordinates of all SL vehicles
+- **GTFS-RT Vehicle Positions**: Real-time GPS coordinates of public transport vehicles across Sweden
 - **SL Transport API**: Line information and designations
 - **OpenStreetMap**: Map tiles (free)
 
@@ -77,7 +83,7 @@ A real-time map showing all public transport vehicles in Stockholm (SL) with 2-s
 
 The app polls the GTFS-RT API every 2 seconds:
 - **Bronze tier** (free): 50 calls/minute, 30,000 calls/month
-- **Rate**: 30 calls/minute (one every 2 seconds) ✓
+- **Rate**: 30 calls/minute (one every 2 seconds)
 
 ## License
 
@@ -86,4 +92,4 @@ Data from Trafiklab under CC-BY 4.0 license.
 ## Attribution
 
 - Data: [Trafiklab.se](https://trafiklab.se)
-- Map: © [OpenStreetMap](https://www.openstreetmap.org/copyright) contributors
+- Map: [OpenStreetMap](https://www.openstreetmap.org/copyright) contributors
