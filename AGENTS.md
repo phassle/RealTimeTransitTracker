@@ -1,6 +1,11 @@
-# SL-POC — Stockholm Real-Time Transit Map
+# RealTimeTransitTracker — Sweden Real-Time Transit Map
 
-Real-time map showing ~1,600 SL public transport vehicles with 2-second polling.
+Real-time map showing ~1,600 public transport vehicles with 2-second polling. Currently Stockholm (SL), expanding to all of Sweden.
+
+## Response Style
+
+- Be extremely concise. Sacrifice grammar for concision.
+- At the end of each plan, list unresolved questions (if any).
 
 ## Tech Stack
 
@@ -16,7 +21,7 @@ Real-time map showing ~1,600 SL public transport vehicles with 2-second polling.
 ## Project Structure
 
 ```
-sl-poc/
+RealTimeTransitTracker/
 ├── src/
 │   ├── App.jsx                    # Root component, state owner
 │   ├── main.jsx                   # React DOM mount
@@ -29,14 +34,15 @@ sl-poc/
 │       └── trafiklab.js           # API client, protobuf parsing, line cache
 ├── scripts/
 │   └── build-trip-mapping.js      # GTFS static data → trip-mapping.json
-├── research/                      # Design docs (01-06)
-├── test-api.js                    # API connectivity test (hardcoded key)
-├── explore-routes.js              # GTFS-RT data inspector (hardcoded key)
-├── find-buses.js                  # Active bus line finder (hardcoded key)
+├── research/                      # Design docs (01-07)
+├── test-api.js                    # API connectivity test
+├── explore-routes.js              # GTFS-RT data inspector
+├── find-buses.js                  # Active bus line finder
 ├── index.html                     # SPA entry (loads Leaflet CSS from CDN)
 ├── vite.config.js                 # Vite config (port 3000)
 ├── package.json                   # Dependencies and scripts
-└── .env                           # API keys (VITE_TRAFIKLAB_API_KEY)
+├── .env                           # API keys (VITE_TRAFIKLAB_API_KEY)
+└── .env.example                   # Template for API keys (safe to commit)
 ```
 
 ## Data Flow
@@ -64,16 +70,14 @@ node scripts/build-trip-mapping.js   # Build GTFS static trip mapping
 
 ## Environment Variables
 
-Defined in `.env`. Keys prefixed with `VITE_` are exposed to the client via Vite.
+Defined in `.env`. Keys prefixed with `VITE_` are exposed to the client via Vite. See `.env.example` for all required keys.
 
 | Variable | Used by | Purpose |
 |----------|---------|---------|
 | `VITE_TRAFIKLAB_API_KEY` | `trafiklab.js:3` | GTFS Sweden 3 realtime API key |
 | `GTFS_REGIONAL_API_KEY` | `scripts/build-trip-mapping.js:164` | GTFS static data download |
 
-The `.env` file also provisions `VITE_GTFS_REGIONAL_REALTIME_KEY` and `VITE_GTFS_REGIONAL_STATIC_KEY`, but these are not currently consumed by any source file.
-
-Get keys from https://trafiklab.se/
+Get keys from https://developer.trafiklab.se/
 
 ## Key Implementation Details
 
@@ -92,19 +96,19 @@ Get keys from https://trafiklab.se/
 
 ## No Build System / Test Suite
 
-This is a POC. There is no test framework, CI pipeline, or linting configuration. Validation is manual via the utility scripts and browser testing.
+POC — no test framework, CI, or linting. Validation via utility scripts and browser testing.
 
 ## Git Workflow
 
 - Main branch: `main`
 - Always create feature branches (git flow)
 - Run code review before committing
-- **Run a security analysis before creating a PR** — this is mandatory. Review at minimum: API key exposure, XSS vectors, unsanitized external data, dependency vulnerabilities (`npm audit`), CSP/security headers, and build configuration (source maps, secrets in bundle)
+- **Run a security analysis before creating a PR** — mandatory. Check: API key exposure, XSS vectors, unsanitized external data, dependency vulnerabilities (`npm audit`), CSP/security headers, build config (source maps, secrets in bundle)
 
 ## Additional Docs
 
-- [docs/architectural_patterns.md](docs/architectural_patterns.md) — recurring patterns across the codebase (container/presenter split, caching, marker lifecycle, etc.)
-- [research/](research/) — 6-part design documentation covering APIs, GTFS-RT format, tech stack decisions, and implementation plan
+- [docs/architectural_patterns.md](docs/architectural_patterns.md) — recurring patterns (container/presenter split, caching, marker lifecycle)
+- [research/](research/) — 7-part design documentation covering APIs, GTFS-RT format, tech stack, implementation plan, and multi-operator expansion
 
 ## Data Attribution
 
