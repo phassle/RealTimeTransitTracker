@@ -9,4 +9,10 @@ export default defineConfig({
   build: {
     sourcemap: false,
   },
+  test: {
+    environment: 'jsdom',
+    globals: true,
+    include: ['src/**/*.{test,spec}.{js,jsx,ts,tsx}'],
+    exclude: ['**/node_modules/**', 'src/App.test.jsx'],
+  },
 });

@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { Map } from './components/Map';
 import { ControlPanel } from './components/ControlPanel';
+import { PrivacyNotice } from './components/PrivacyNotice';
 import { useRealtimeVehicles } from './hooks/useRealtimeVehicles';
 import { OPERATORS, OPERATOR_MAP, SWEDEN_CENTER, SWEDEN_ZOOM, getVisibleOperators } from './config/operators';
 
@@ -123,6 +124,7 @@ function App() {
         onRegionSelect={handleRegionSelect}
         effectiveInterval={effectiveInterval}
       />
+      <PrivacyNotice />
     </div>
   );
 }
