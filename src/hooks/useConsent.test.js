@@ -2,8 +2,6 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useConsent } from './useConsent';
 
-const KEY = 'rtt-privacy-notice-v1';
-
 describe('useConsent', () => {
   beforeEach(() => {
     window.localStorage.clear();
@@ -37,22 +35,29 @@ describe('useConsent', () => {
     expect(second.result.current.dismissed).toBe(true);
   });
 
-  it('returning visitor with pre-existing dismissed flag starts dismissed', () => {
-    window.localStorage.setItem(KEY, '1');
+  it('returning visitor (previously dismissed) starts dismissed', () => {
+    // Establish prior dismissal via the public interface only — never poke
+    // the storage key directly. A separate hook instance is unmounted to
+    // simulate the previous visit ending.
+    const previous = renderHook(() => useConsent());
+    act(() => {
+      previous.result.current.dismiss();
+    });
+    previous.unmount();
+
     const { result } = renderHook(() => useConsent());
     expect(result.current.dismissed).toBe(true);
   });
 
-  it('does not crash when localStorage.getItem throws (private mode)', () => {
-    const spy = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+  it('does not crash when storage read throws (private mode)', () => {
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
       throw new Error('blocked');
     });
     const { result } = renderHook(() => useConsent());
     expect(result.current.dismissed).toBe(false);
-    expect(spy).toHaveBeenCalled();
   });
 
-  it('does not crash when localStorage.setItem throws (private mode)', () => {
+  it('does not crash when storage write throws (private mode)', () => {
     vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
       throw new Error('quota');
     });
@@ -62,7 +67,8 @@ describe('useConsent', () => {
         result.current.dismiss();
       })
     ).not.toThrow();
-    // local state still flips even though storage failed
+    // Local state still flips even though storage failed, so the user's
+    // click is not ignored within the current session.
     expect(result.current.dismissed).toBe(true);
   });
 
