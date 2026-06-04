@@ -110,6 +110,20 @@ POC — no test framework, CI, or linting. Validation via utility scripts and br
 - [docs/architectural_patterns.md](docs/architectural_patterns.md) — recurring patterns (container/presenter split, caching, marker lifecycle)
 - [research/](research/) — 7-part design documentation covering APIs, GTFS-RT format, tech stack, implementation plan, and multi-operator expansion
 
+## Agent skills
+
+### Issue tracker
+
+GitHub issues at `phassle/RealTimeTransitTracker` via the `gh` CLI. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Default vocabulary (`needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`). See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context — `CONTEXT.md` + `docs/adr/` at repo root. See `docs/agents/domain.md`.
+
 ## Data Attribution
 
 - Trafiklab.se — GTFS-RT data (CC-BY 4.0)
