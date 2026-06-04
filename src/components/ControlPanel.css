@@ -370,7 +370,7 @@
 
 .region-chip.active {
   border-color: #4ECDC4;
-  background: #f0faf9;
+  background: #e8fbf7;
   font-weight: 600;
 }
 
@@ -390,5 +390,5 @@
 }
 
 .region-all:hover {
-  background: #f0faf9;
+  background: #e8fbf7;
 }
