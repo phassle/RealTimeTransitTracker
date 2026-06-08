@@ -1,0 +1,52 @@
+name: 💡 Idea
+description: Suggest a new feature or improvement for the transit tracker
+title: "[Idea] "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: One-sentence description of the idea.
+      placeholder: A clear and concise summary of what you want to happen.
+    validations:
+      required: true
+
+  - type: textarea
+    id: motivation
+    attributes:
+      label: Motivation
+      description: Why is this useful? What problem does it solve or experience does it improve?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behaviour
+      description: Describe how it should work from the user's perspective.
+    validations:
+      required: false
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      description: Which part of the app does this primarily affect?
+      options:
+        - Map / markers
+        - Control panel / filters
+        - Data / API
+        - Performance
+        - Privacy / legal
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: out_of_scope
+    attributes:
+      label: What is out of scope (optional)
+      description: Anything this idea should explicitly NOT include.
+    validations:
+      required: false
