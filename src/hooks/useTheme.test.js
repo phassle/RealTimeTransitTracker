@@ -95,4 +95,82 @@ describe('useTheme', () => {
     expect(typeof result.current.theme).toBe('string');
     expect(typeof result.current.toggleTheme).toBe('function');
   });
+
+  describe('OS preference', () => {
+    function mockMatchMedia(prefersDark) {
+      let currentMatches = prefersDark;
+      const listeners = [];
+      const mq = {
+        get matches() { return currentMatches; },
+        addEventListener: (_, fn) => listeners.push(fn),
+        removeEventListener: (_, fn) => {
+          const i = listeners.indexOf(fn);
+          if (i >= 0) listeners.splice(i, 1);
+        },
+      };
+      vi.stubGlobal('matchMedia', () => mq);
+      return {
+        triggerChange(matches) {
+          currentMatches = matches;
+          listeners.forEach(fn => fn({ matches }));
+        },
+      };
+    }
+
+    afterEach(() => {
+      vi.unstubAllGlobals();
+    });
+
+    it('first visit: OS dark → dark theme', () => {
+      mockMatchMedia(true);
+      const { result } = renderHook(() => useTheme());
+      expect(result.current.theme).toBe('dark');
+    });
+
+    it('first visit: OS light → light theme', () => {
+      mockMatchMedia(false);
+      const { result } = renderHook(() => useTheme());
+      expect(result.current.theme).toBe('light');
+    });
+
+    it('first visit: matchMedia unavailable → light theme', () => {
+      vi.stubGlobal('matchMedia', () => { throw new Error('not supported'); });
+      const { result } = renderHook(() => useTheme());
+      expect(result.current.theme).toBe('light');
+    });
+
+    it('explicit stored choice overrides OS preference', () => {
+      // establish dark OS, toggle to light explicitly
+      mockMatchMedia(true);
+      const setup = renderHook(() => useTheme());
+      expect(setup.result.current.theme).toBe('dark');
+      act(() => { setup.result.current.toggleTheme(); }); // dark → light (stored)
+      setup.unmount();
+
+      // new session: OS still dark, but stored explicit choice is light
+      const { result } = renderHook(() => useTheme());
+      expect(result.current.theme).toBe('light');
+    });
+
+    it('follows live OS change when no explicit choice', () => {
+      const { triggerChange } = mockMatchMedia(false);
+      const { result } = renderHook(() => useTheme());
+      expect(result.current.theme).toBe('light');
+
+      act(() => triggerChange(true));
+      expect(result.current.theme).toBe('dark');
+    });
+
+    it('ignores live OS change once explicit choice exists', () => {
+      const { triggerChange } = mockMatchMedia(true); // OS dark
+      const { result } = renderHook(() => useTheme());
+      act(() => { result.current.toggleTheme(); }); // dark → light (explicit)
+      expect(result.current.theme).toBe('light');
+
+      act(() => triggerChange(false)); // OS changes to light
+      expect(result.current.theme).toBe('light'); // stays light (explicit wins)
+      act(() => triggerChange(true));  // OS changes back to dark
+      expect(result.current.theme).toBe('light'); // still explicit light
+    });
+  });
 });
