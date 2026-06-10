@@ -3,9 +3,11 @@ import { Map } from './components/Map';
 import { ControlPanel } from './components/ControlPanel';
 import { PrivacyNotice } from './components/PrivacyNotice';
 import { useRealtimeVehicles } from './hooks/useRealtimeVehicles';
+import { useTheme } from './hooks/useTheme';
 import { OPERATORS, OPERATOR_MAP, SWEDEN_CENTER, SWEDEN_ZOOM, getVisibleOperators } from './config/operators';
 
 function App() {
+  const { theme, toggleTheme } = useTheme();
   const [enabledModes, setEnabledModes] = useState([
     'metro', 'bus', 'train', 'tram', 'ship', 'ferry', 'unknown'
   ]);
@@ -123,6 +125,8 @@ function App() {
         activeOperators={activeOperators}
         onRegionSelect={handleRegionSelect}
         effectiveInterval={effectiveInterval}
+        theme={theme}
+        onToggleTheme={toggleTheme}
       />
       <PrivacyNotice />
     </div>
