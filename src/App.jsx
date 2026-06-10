@@ -108,6 +108,7 @@ function App() {
         center={mapCenter}
         zoom={mapZoom}
         onBoundsChange={handleBoundsChange}
+        theme={theme}
       />
       <ControlPanel
         vehicles={filteredVehicles}
