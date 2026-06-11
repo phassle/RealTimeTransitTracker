@@ -99,6 +99,7 @@ Keys from https://developer.trafiklab.se/. Rate limit: Bronze, 50 calls/min — 
 
 - `.agents/skills/add-operator/SKILL.md` — add a regional operator to the map
 - `.agents/skills/refresh-trip-mapping/SKILL.md` — rebuild the GTFS static trip mapping
+- `.agents/skills/create-pr/SKILL.md` — open a PR (asks for base branch) with pre-PR gates (tests, build, security analysis)
 
 ## Data Attribution
 
