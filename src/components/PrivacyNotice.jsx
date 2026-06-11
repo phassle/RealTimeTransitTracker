@@ -30,7 +30,16 @@ export function PrivacyNotice() {
           >
             OpenStreetMap
           </a>
-          . This site stores no tracking cookies.
+          . Webcam images:{' '}
+          <a
+            href="https://www.trafikverket.se/"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Trafikverket
+          </a>{' '}
+          (hotlinked stills, fetched only when the Webcams layer is enabled).
+          This site stores no tracking cookies.
         </p>
         <button
           type="button"

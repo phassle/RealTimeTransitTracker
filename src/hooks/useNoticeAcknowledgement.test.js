@@ -69,6 +69,17 @@ describe('useNoticeAcknowledgement', () => {
     expect(result.current.acknowledged).toBe(true);
   });
 
+  it('returning visitor who acknowledged the prior notice version is re-disclosed', () => {
+    // Simulates a user who dismissed the previous version of the Privacy
+    // Notice (pre-webcam-sources). Per ADR 0001, bumping the notice version
+    // must re-disclose to every returning user exactly once.
+    window.localStorage.setItem('rtt-privacy-notice-v1', '1');
+
+    const { result } = renderHook(() => useNoticeAcknowledgement());
+
+    expect(result.current.acknowledged).toBe(false);
+  });
+
   it('exposes exactly { acknowledged, acknowledge }', () => {
     const { result } = renderHook(() => useNoticeAcknowledgement());
     expect(Object.keys(result.current).sort()).toEqual(['acknowledge', 'acknowledged']);
