@@ -32,6 +32,11 @@ export function ControlPanel({
   effectiveInterval = 2000,
   theme = 'light',
   onToggleTheme = () => {},
+  webcamsEnabled = false,
+  onWebcamsToggle = () => {},
+  webcamsLoading = false,
+  webcamsError = null,
+  webcamCount = 0,
 }) {
   const [collapsed, setCollapsed] = useState(false);
   const [lineFilterExpanded, setLineFilterExpanded] = useState(false);
@@ -116,6 +121,32 @@ export function ControlPanel({
               <div className="stat-item">
                 <span className="stat-label">Last update:</span>
                 <span className="stat-value">{lastUpdate.toLocaleTimeString('sv-SE')}</span>
+              </div>
+            )}
+          </div>
+
+          <div className="webcam-layer">
+            <h3>Layers</h3>
+            <label className="mode-filter">
+              <input
+                type="checkbox"
+                checked={webcamsEnabled}
+                onChange={onWebcamsToggle}
+                aria-label="Toggle webcams layer"
+              />
+              <span className="mode-color" style={{ backgroundColor: '#2c3e50' }} />
+              <span className="mode-label">Webcams</span>
+              <span className="mode-count">
+                {webcamsLoading
+                  ? '(…)'
+                  : webcamsEnabled
+                    ? `(${webcamCount})`
+                    : ''}
+              </span>
+            </label>
+            {webcamsEnabled && webcamsError && (
+              <div className="error-message" role="alert">
+                ⚠️ Webcams unavailable
               </div>
             )}
           </div>

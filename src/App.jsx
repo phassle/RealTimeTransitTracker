@@ -8,6 +8,7 @@ import { useRealtimeVehicles } from './hooks/useRealtimeVehicles';
 import { useTheme } from './hooks/useTheme';
 import { useConnectivity } from './hooks/useConnectivity';
 import { useUpdatePrompt } from './hooks/useUpdatePrompt';
+import { useWebcams } from './hooks/useWebcams';
 import { OPERATORS, OPERATOR_MAP, SWEDEN_CENTER, SWEDEN_ZOOM, getVisibleOperators } from './config/operators';
 
 function App() {
@@ -21,6 +22,9 @@ function App() {
   const [mapCenter, setMapCenter] = useState([59.3293, 18.0686]);
   const [mapZoom, setMapZoom] = useState(11);
   const [viewportBounds, setViewportBounds] = useState(null);
+  const [webcamsEnabled, setWebcamsEnabled] = useState(false);
+
+  const { cameras, error: webcamsError, loading: webcamsLoading } = useWebcams(webcamsEnabled);
 
   const visibleOperators = useMemo(() => {
     if (!viewportBounds) return ['sl'];
@@ -111,6 +115,7 @@ function App() {
     <div style={{ position: 'relative', width: '100%', height: '100%' }}>
       <Map
         vehicles={filteredVehicles}
+        cameras={webcamsEnabled ? cameras : []}
         center={mapCenter}
         zoom={mapZoom}
         onBoundsChange={handleBoundsChange}
@@ -134,6 +139,11 @@ function App() {
         effectiveInterval={effectiveInterval}
         theme={theme}
         onToggleTheme={toggleTheme}
+        webcamsEnabled={webcamsEnabled}
+        onWebcamsToggle={() => setWebcamsEnabled(v => !v)}
+        webcamsLoading={webcamsLoading}
+        webcamsError={webcamsError}
+        webcamCount={cameras.length}
       />
       <OfflineBanner isOnline={isOnline} />
       <UpdateToast isVisible={needRefresh} onReload={updateServiceWorker} onDismiss={dismissUpdate} />
