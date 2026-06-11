@@ -1,7 +1,11 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
-import { precacheGlobPatterns, precacheGlobIgnores } from './src/config/swCacheConfig.js';
+import {
+  precacheGlobPatterns,
+  precacheGlobIgnores,
+  runtimeCacheRoutes,
+} from './src/config/swCacheConfig.js';
 import { manifestConfig } from './src/config/manifestConfig.js';
 
 export default defineConfig({
@@ -15,6 +19,7 @@ export default defineConfig({
         globPatterns: precacheGlobPatterns,
         globIgnores: precacheGlobIgnores,
         navigateFallback: 'index.html',
+        runtimeCaching: runtimeCacheRoutes,
       },
       manifest: manifestConfig,
     }),
