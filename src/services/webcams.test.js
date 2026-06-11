@@ -39,10 +39,11 @@ describe('webcams service — fetchCameras', () => {
     });
 
     const { cameras, errors } = await fetchCameras();
+    const tv = cameras.filter(c => c.source === 'trafikverket');
 
     expect(errors).toEqual([]);
-    expect(cameras).toHaveLength(1);
-    const cam = cameras[0];
+    expect(tv).toHaveLength(1);
+    const cam = tv[0];
     expect(cam.name).toBe('E4 Rotebro');
     expect(cam.type).toBe('traffic');
     expect(cam.media).toBe('image');
@@ -69,9 +70,10 @@ describe('webcams service — fetchCameras', () => {
     });
 
     const { cameras } = await fetchCameras();
+    const tv = cameras.filter(c => c.source === 'trafikverket');
 
-    expect(cameras).toHaveLength(5);
-    for (const cam of cameras) {
+    expect(tv).toHaveLength(5);
+    for (const cam of tv) {
       expect(cam.media).toBe('image');
       expect(cam.type).toBe('traffic');
       expect(cam.source).toBe('trafikverket');
@@ -89,42 +91,46 @@ describe('webcams service — fetchCameras', () => {
     });
 
     const { cameras } = await fetchCameras();
+    const tv = cameras.filter(c => c.source === 'trafikverket');
 
-    expect(cameras).toHaveLength(1);
-    expect(cameras[0].name).toBe('E4 Rotebro');
+    expect(tv).toHaveLength(1);
+    expect(tv[0].name).toBe('E4 Rotebro');
   });
 
-  it('on HTTP error: zero cameras, surfaces error for the source', async () => {
+  it('on HTTP error: zero Trafikverket cameras, surfaces error for the source', async () => {
     fetch.mockResolvedValueOnce({ ok: false, status: 503 });
 
     const { cameras, errors } = await fetchCameras();
+    const tv = cameras.filter(c => c.source === 'trafikverket');
 
-    expect(cameras).toEqual([]);
+    expect(tv).toEqual([]);
     expect(errors).toHaveLength(1);
     expect(errors[0].source).toBe('trafikverket');
     expect(errors[0].message).toMatch(/503|HTTP/i);
   });
 
-  it('on network error: zero cameras, surfaces error for the source', async () => {
+  it('on network error: zero Trafikverket cameras, surfaces error for the source', async () => {
     fetch.mockRejectedValueOnce(new Error('network down'));
 
     const { cameras, errors } = await fetchCameras();
+    const tv = cameras.filter(c => c.source === 'trafikverket');
 
-    expect(cameras).toEqual([]);
+    expect(tv).toEqual([]);
     expect(errors).toHaveLength(1);
     expect(errors[0].source).toBe('trafikverket');
     expect(errors[0].message).toMatch(/network down/i);
   });
 
-  it('on malformed payload: zero cameras, surfaces error for the source', async () => {
+  it('on malformed payload: zero Trafikverket cameras, surfaces error for the source', async () => {
     fetch.mockResolvedValueOnce({
       ok: true,
       json: async () => ({ wat: true }),
     });
 
     const { cameras, errors } = await fetchCameras();
+    const tv = cameras.filter(c => c.source === 'trafikverket');
 
-    expect(cameras).toEqual([]);
+    expect(tv).toEqual([]);
     expect(errors).toHaveLength(1);
     expect(errors[0].source).toBe('trafikverket');
   });
@@ -139,5 +145,46 @@ describe('webcams service — fetchCameras', () => {
     expect(Object.keys(result).sort()).toEqual(['cameras', 'errors']);
     expect(Array.isArray(result.cameras)).toBe(true);
     expect(Array.isArray(result.errors)).toBe(true);
+  });
+
+  it('combined list includes the curated webcamcollections cameras alongside Trafikverket', async () => {
+    fetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => trafikverketPayload([SAMPLE_CAMERA]),
+    });
+
+    const { cameras, errors } = await fetchCameras();
+
+    expect(errors).toEqual([]);
+    // Trafikverket SAMPLE (1) + 89 curated entries = 90 total.
+    expect(cameras.length).toBeGreaterThan(50);
+    const sources = new Set(cameras.map(c => c.source));
+    expect(sources.has('trafikverket')).toBe(true);
+    expect(sources.has('webcamcollections')).toBe(true);
+  });
+
+  it('curated cameras are media:linkout (no image fetch) per ADR 0002', async () => {
+    fetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => trafikverketPayload([]),
+    });
+
+    const { cameras } = await fetchCameras();
+    const curated = cameras.filter(c => c.source === 'webcamcollections');
+    expect(curated.length).toBeGreaterThan(0);
+    for (const cam of curated) {
+      expect(cam.media).toBe('linkout');
+    }
+  });
+
+  it('curated cameras still ship when Trafikverket is down (per-source isolation)', async () => {
+    fetch.mockRejectedValueOnce(new Error('network down'));
+
+    const { cameras, errors } = await fetchCameras();
+
+    const curated = cameras.filter(c => c.source === 'webcamcollections');
+    expect(curated.length).toBeGreaterThan(0);
+    // Trafikverket failure surfaces; the curated source still rendered.
+    expect(errors.some(e => e.source === 'trafikverket')).toBe(true);
   });
 });

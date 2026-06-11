@@ -6,8 +6,13 @@
 //   { id, name, type, media, lat, lon, imageUrl, pageUrl,
 //     source, attribution, lastUpdated }
 //
-// In this slice only Trafikverket is wired up. Windy and the curated
-// linkout dataset land in later slices.
+// Sources wired up:
+//   - Trafikverket (~450 traffic cameras, media:image)
+//   - webcamcollections (curated hand-geocoded checked-in JSON, media:linkout)
+// Windy lands in a later slice.
+
+import curatedDataset from '../../public/data/curated-cameras.json';
+import { validateCuratedDataset } from './curatedCameras';
 
 const TRAFIKVERKET_ENDPOINT = 'https://api.trafikinfo.trafikverket.se/v2/data.json';
 const TRAFIKVERKET_ATTRIBUTION = 'Trafikverket';
@@ -85,8 +90,22 @@ async function fetchTrafikverketCameras() {
   }
 }
 
+// Curated webcamcollections cameras are a checked-in JSON dataset; "fetch"
+// here is a synchronous pass-through wrapped in a promise so it composes with
+// the other source adapters. Validation runs once and a malformed dataset
+// degrades to zero cameras + a recorded error (per-source isolation).
+async function fetchCuratedCameras() {
+  try {
+    const validated = validateCuratedDataset(curatedDataset);
+    return { cameras: validated, error: null };
+  } catch (e) {
+    return { cameras: [], error: e?.message || String(e) };
+  }
+}
+
 const SOURCES = [
   { source: 'trafikverket', fetch: fetchTrafikverketCameras },
+  { source: 'webcamcollections', fetch: fetchCuratedCameras },
 ];
 
 /**

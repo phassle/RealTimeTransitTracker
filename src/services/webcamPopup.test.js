@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   cameraPopupImageContent,
   cameraPopupErrorContent,
+  cameraPopupLinkoutContent,
   cacheBustImageUrl,
 } from './webcamPopup';
 
@@ -99,6 +100,62 @@ describe('cameraPopupErrorContent', () => {
     const hostile = { ...SAMPLE_CAMERA, name: '<script>x</script>' };
     const html = cameraPopupErrorContent(hostile);
     expect(html).not.toContain('<script>x</script>');
+    expect(html).toContain('&lt;script&gt;');
+  });
+});
+
+describe('cameraPopupLinkoutContent', () => {
+  const LINKOUT_CAMERA = {
+    id: 'webcamcollections:fjallbacka',
+    name: 'Fjällbacka',
+    type: 'weather',
+    media: 'linkout',
+    lat: 58.60,
+    lon: 11.28,
+    imageUrl: null,
+    pageUrl: 'https://webcamcollections.com/countries/sweden/fjallbacka',
+    source: 'webcamcollections',
+    attribution: 'webcamcollections.com',
+    lastUpdated: null,
+  };
+
+  it('renders the camera name and attribution', () => {
+    const html = cameraPopupLinkoutContent(LINKOUT_CAMERA);
+    expect(html).toContain('Fjällbacka');
+    expect(html).toContain('webcamcollections.com');
+  });
+
+  it('includes a "view at source" link pointing to the page URL', () => {
+    const html = cameraPopupLinkoutContent(LINKOUT_CAMERA);
+    expect(html.toLowerCase()).toMatch(/view at|view source|source|see at|open/);
+    expect(html).toMatch(
+      /<a[^>]*href="https:\/\/webcamcollections\.com\/countries\/sweden\/fjallbacka"[^>]*>/,
+    );
+  });
+
+  it('source link uses rel="noopener noreferrer" target="_blank"', () => {
+    const html = cameraPopupLinkoutContent(LINKOUT_CAMERA);
+    expect(html).toMatch(/<a[^>]*target="_blank"[^>]*>/);
+    expect(html).toMatch(/<a[^>]*rel="noopener noreferrer"[^>]*>/);
+  });
+
+  it('renders NO inline image and NO iframe / embed (ADR 0002)', () => {
+    const html = cameraPopupLinkoutContent(LINKOUT_CAMERA);
+    expect(html).not.toContain('<img');
+    expect(html).not.toContain('<iframe');
+    expect(html).not.toContain('<embed');
+    expect(html).not.toContain('<video');
+  });
+
+  it('escapes hostile name and attribution as inert text', () => {
+    const hostile = {
+      ...LINKOUT_CAMERA,
+      name: '<script>alert(1)</script>',
+      attribution: '"><img src=x onerror=alert(1)>',
+    };
+    const html = cameraPopupLinkoutContent(hostile);
+    expect(html).not.toContain('<script>alert(1)</script>');
+    expect(html).not.toMatch(/<img\s+src=x\s+onerror=/);
     expect(html).toContain('&lt;script&gt;');
   });
 });

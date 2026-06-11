@@ -8,6 +8,7 @@ import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
 import {
   cameraPopupImageContent,
   cameraPopupErrorContent,
+  cameraPopupLinkoutContent,
   cacheBustImageUrl,
 } from '../services/webcamPopup';
 
@@ -239,12 +240,15 @@ export function Map({ vehicles = [], cameras = [], center = [59.3293, 18.0686], 
         icon,
         title: `${escapeHtml(cam.name)} (${escapeHtml(cam.attribution)})`,
       });
-      marker.bindPopup(() => cameraPopupImageContent(cam), {
-        closeButton: true,
-        minWidth: 240,
-        maxWidth: 320,
-      });
-      marker.on('popupopen', (event) => wireCameraPopup(event.popup, cam));
+      const isLinkout = cam.media === 'linkout';
+      marker.bindPopup(
+        () => (isLinkout ? cameraPopupLinkoutContent(cam) : cameraPopupImageContent(cam)),
+        { closeButton: true, minWidth: 240, maxWidth: 320 },
+      );
+      // Linkout cameras have nothing to wire — no img, no refresh button.
+      if (!isLinkout) {
+        marker.on('popupopen', (event) => wireCameraPopup(event.popup, cam));
+      }
       existing.set(cam.id, marker);
       toAdd.push(marker);
     });

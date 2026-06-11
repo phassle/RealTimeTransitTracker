@@ -84,6 +84,36 @@ export function cameraPopupImageContent(camera, options = {}) {
 }
 
 /**
+ * Linkout-variant popup: metadata + a "view at source" link, NO inline media.
+ *
+ * Curated webcamcollections cameras fetch nothing from third parties — per
+ * ADR 0002 the app only links. Renders the camera name, attribution, and a
+ * link to the source page; no <img>, no <iframe>, no embed.
+ */
+export function cameraPopupLinkoutContent(camera) {
+  const pageUrl = camera.pageUrl || '';
+  const attribution = camera.attribution || 'source';
+  return `
+    <div class="webcam-popup webcam-popup--linkout" style="font-family: sans-serif; min-width: 220px; max-width: 320px;">
+      <div style="padding: 4px 2px 0;">
+        <strong style="font-size: 14px;">${escapeHtml(camera.name || '')}</strong>
+        <div style="color: #666; font-size: 12px; margin-top: 2px;">
+          ${escapeHtml(attribution)}
+        </div>
+        <div style="margin-top: 8px;">
+          <a
+            href="${escapeHtml(pageUrl)}"
+            target="_blank"
+            rel="noopener noreferrer"
+            style="font-size: 13px; color: #2c3e50; font-weight: 600;"
+          >View at source ↗</a>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+/**
  * Error placeholder — shown when the hotlinked image fails to load. Keeps
  * the popup useful (name + source link) instead of looking like the app
  * is broken.
