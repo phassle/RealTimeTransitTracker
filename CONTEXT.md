@@ -18,6 +18,8 @@ Client-side storage that is **strictly necessary to provide a service the user h
 
 Storage stops being essential the moment its purpose extends beyond the user's directly-requested interaction: analytics counters, A/B-test buckets, marketing identifiers, cross-visit behavioural state, and similar are **not** essential, regardless of whether they happen to live in `localStorage`, a cookie, or anywhere else.
 
+Performance and offline caches of the app itself and of map imagery the user has already viewed are essential storage: they exist solely to deliver the service the user requested, disclose nothing to any third party, and carry no behavioural state. They do not trigger the reversal in [ADR 0001](docs/adr/0001-cookieless-no-consent-popup.md).
+
 ### Consent
 
 A real, freely given, specific, informed, and **revocable** agreement by the user to a defined act of processing or storage that would otherwise be unlawful. Consent requires a symmetric choice — accepting and refusing must be equally easy — and presupposes that there is something to accept or refuse.
