@@ -1,72 +1,106 @@
 # Architectural Patterns
 
-Recurring patterns observed across the sl-poc codebase.
+Recurring patterns across the RealTimeTransitTracker codebase. Follow these when extending the app; deviations deserve an ADR.
 
 ## 1. Container/Presenter Component Split
 
-The app separates state management from rendering. `App.jsx` owns all state and passes filtered data as props to pure rendering components (`Map`, `ControlPanel`). Neither child component fetches data or manages global state.
+`App.jsx` owns all state and passes filtered data as props to pure rendering components. Children never fetch data or own global state.
 
-- Container: `src/App.jsx:6-41`
-- Presenters: `src/components/Map.jsx:28-134`, `src/components/ControlPanel.jsx:14-102`
+- Container: `src/App.jsx:9-135`
+- Presenters: `src/components/Map.jsx:37-191`, `src/components/ControlPanel.jsx:17`, `src/components/PrivacyNotice.jsx`
 
-## 2. Custom Hook for Data Fetching
+## 2. Custom Hook per Concern
 
-All API interaction is isolated behind a single custom hook (`useRealtimeVehicles`) that encapsulates polling, error handling, loading state, and cleanup. Components never call services directly.
+Each stateful concern is isolated behind a hook: polling (`useRealtimeVehicles`), theming (`useTheme`), privacy-notice dismissal (`useConsent`). Components never call services or `localStorage` directly.
 
-- Hook: `src/hooks/useRealtimeVehicles.js:4-64`
-- Consumed at: `src/App.jsx:11`
+- `src/hooks/useRealtimeVehicles.js:4-89`, consumed at `src/App.jsx:24-25`
+- `src/hooks/useTheme.js:31-63`, `src/hooks/useConsent.js:21-30`
 
-## 3. Service Layer with Caching
+## 3. Module-Scope Tri-State Cache
 
-External API calls live in a dedicated service module. The service caches responses that don't change frequently (SL line metadata) at module scope using a simple `let` variable, avoiding redundant network calls.
+Static data that rarely changes is cached in a module-level variable with three states: `undefined` = not loaded yet, `null` = fetch attempted and unavailable (don't retry), object = loaded. Prevents both redundant fetches and retry storms.
 
-- Cache declaration: `src/services/trafiklab.js:7`
-- Cache check: `src/services/trafiklab.js:13`
-- Cache population: `src/services/trafiklab.js:36`
+- Declaration: `src/services/trafiklab.js:6`
+- Load + state transitions: `src/services/trafiklab.js:38-54`
 
-## 4. Parallel Data Fetching
+## 4. Partial-Failure-Tolerant Fan-Out
 
-When multiple independent API calls are needed, `Promise.all` is used to fetch them concurrently rather than sequentially.
+Multi-operator fetches use `Promise.allSettled`, not `Promise.all`: one operator's feed failing must not blank the whole map. Failures are logged per-operator and skipped.
 
-- `src/services/trafiklab.js:49-54` — fetches line metadata and vehicle positions in parallel
+- `src/services/trafiklab.js:121-133`
 
-## 5. Color Constant Maps
+## 5. Color Constant Maps (Known Duplication)
 
-Transport mode colors are defined as plain objects (not enums or classes) and duplicated across components that need them. Both `Map.jsx` and `ControlPanel.jsx` maintain their own color definitions.
+Transport-mode colors are plain objects duplicated in both components that need them. Kept duplicated deliberately for POC simplicity — **change both when adding a mode**.
 
-- Map colors: `src/components/Map.jsx:5-13`
-- Panel colors: `src/components/ControlPanel.jsx:4-12`
-
-This is a known duplication. A shared constants file would deduplicate but was not introduced to keep the POC simple.
+- `src/components/Map.jsx:6-14`
+- `src/components/ControlPanel.jsx:4-12`
 
 ## 6. Marker Lifecycle Management
 
-The map component manages Leaflet markers imperatively using refs, tracking them in a `Map<vehicleId, marker>`. On each update cycle it: (1) removes stale markers, (2) updates positions of existing markers, (3) creates new markers. This avoids recreating all markers every 2 seconds.
+`Map.jsx` manages Leaflet markers imperatively via a ref-held `Map<vehicleId, marker>`. Each cycle: remove stale, update existing positions, create new. Avoids recreating ~1,600 markers every poll.
 
-- Stale removal: `src/components/Map.jsx:67-72`
-- Update existing: `src/components/Map.jsx:80-83`
-- Create new: `src/components/Map.jsx:86-119`
+- Stale removal: `src/components/Map.jsx:123-128`
+- Update existing: `src/components/Map.jsx:136-139`
+- Create new: `src/components/Map.jsx:141-175`
 
 ## 7. Ref-Based Unmount Guard
 
-The polling hook uses a ref (`isActiveRef`) to prevent state updates after component unmount — a standard React pattern for async operations that may complete after teardown.
+The polling hook guards async completions with `isActiveRef` so state is never set after teardown.
 
-- Guard declaration: `src/hooks/useRealtimeVehicles.js:10`
-- Guard check: `src/hooks/useRealtimeVehicles.js:18`, `src/hooks/useRealtimeVehicles.js:25`
-- Cleanup: `src/hooks/useRealtimeVehicles.js:41-46`
+- Declaration: `src/hooks/useRealtimeVehicles.js:10`
+- Checks: `src/hooks/useRealtimeVehicles.js:25`, `:32`
+- Cleanup: `src/hooks/useRealtimeVehicles.js:67-71`
 
 ## 8. Protocol Buffer Binary Parsing
 
-GTFS-RT data arrives as Protocol Buffer binary. The service fetches raw bytes, converts to `Uint8Array`, and uses `gtfs-realtime-bindings` to decode. This pattern is reused across utility scripts (`test-api.js`, `explore-routes.js`, `find-buses.js`).
+GTFS-RT arrives as protobuf: fetch bytes → `Uint8Array` → `FeedMessage.decode`. Same shape reused in the root utility scripts (`test-api.js`, `explore-routes.js`, `find-buses.js`).
 
-- Core parsing: `src/services/trafiklab.js:60-64`
+- Core parsing: `src/services/trafiklab.js:72-74`
 
 ## 9. Utility Scripts as Standalone Node Programs
 
-Root-level `.js` files (`test-api.js`, `explore-routes.js`, `find-buses.js`) serve as ad-hoc data exploration tools. They use ESM imports, run with `node <script>`, and have no shared framework — each is self-contained.
+Root-level `.js` files are self-contained ESM scripts run with `node <script>` — no shared framework. They substitute for an e2e suite when validating data plumbing.
 
 ## 10. Memoized Derived State
 
-Filtering (vehicles by transport mode) uses `useMemo` to avoid recalculating on every render. The dependency array is explicit: `[allVehicles, enabledModes]`.
+All derived collections (available lines grouped by mode, filtered vehicles, visible operators) use `useMemo` with explicit dependency arrays.
 
-- `src/App.jsx:14-17`
+- `src/App.jsx:19-22`, `src/App.jsx:28-50`, `src/App.jsx:53-61`
+
+## 11. Graceful localStorage Degradation
+
+Every `localStorage` read/write is wrapped in `try/catch` and degrades silently (private mode, quota): the feature works for the session, the preference just doesn't persist. Never let storage failure throw into render.
+
+- `src/hooks/useTheme.js:5-29`
+- `src/hooks/useConsent.js:5-19`
+
+## 12. Viewport-Driven Operator Selection
+
+Only operators whose bounding box intersects the visible map are polled. The map reports debounced (300ms) bounds upward; `App.jsx` derives the operator list; the hook re-polls when it changes.
+
+- Bounds reporting: `src/components/Map.jsx:67-83`
+- Intersection test: `src/config/operators.js:29-37`
+- Derivation: `src/App.jsx:19-22`
+
+## 13. Adaptive Polling Interval + Visibility Pause
+
+Polling interval scales with operator count (N operators → N × 2s) to stay under the Trafiklab 50 calls/min cap, and pauses entirely while the tab is hidden, resuming with an immediate fetch.
+
+- Interval scaling: `src/hooks/useRealtimeVehicles.js:14-17`
+- Visibility handling: `src/hooks/useRealtimeVehicles.js:52-59`
+
+## 14. Theme as Data Attribute + Tile Provider Swap
+
+Theme = explicit localStorage choice ?? live OS preference. Applied two ways: `data-theme` on `<html>` for CSS, and a Leaflet tile-layer swap (light OSM / dark CARTO — ADR 0002). The OS listener detaches once the user toggles explicitly.
+
+- Resolution + attribute: `src/hooks/useTheme.js:31-54`
+- Tile swap effect: `src/components/Map.jsx:96-101`
+- Provider config: `src/components/tileLayerConfig.js:1-13`
+
+## 15. Escape External Data Before HTML Injection
+
+Feed-derived strings (line, mode, operator) pass through `escapeHtml` before being interpolated into Leaflet `divIcon`/popup HTML. Any new popup/tooltip content from the feed must do the same.
+
+- Helper: `src/components/Map.jsx:26-32`
+- Usage: `src/components/Map.jsx:160`, `:169`, `:199-200`

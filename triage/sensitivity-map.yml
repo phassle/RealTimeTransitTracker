@@ -1,0 +1,151 @@
+# Data-sensitivity policy for the /triage review gate.
+# ---------------------------------------------------------------------------
+# This file is POLICY-AS-CODE. It is the auditable, version-controlled source
+# of truth for how /triage decides whether an issue's eventual PR needs a human
+# reviewer. The model reads this map; it does not re-derive the rules each run.
+# Review it in PRs like any other security control.
+#
+# Canon:
+#  - Data classification + least privilege (security engineering): classify the
+#    data first, then grant the least autonomy that fits the class.
+#  - Policy-as-code / guardrails (harness Policy pillar): the rule lives in a
+#    file the CI and humans can audit, not in the model's head.
+#  - The Checklist Manifesto (Atul Gawande): the gate is a fixed checklist run
+#    every time, so a "trivial" change can never skip the sensitivity check.
+# ---------------------------------------------------------------------------
+#
+# Tiers (ascending sensitivity):
+#   none         - no personal or secret data (pure UI, docs, internal tooling
+#                  with no data access)
+#   internal     - non-personal business data
+#   confidential - personal data / PII, customer records (GDPR personal data)
+#   restricted   - special-category personal data, credentials / secrets / auth,
+#                  payment or financial data, anything regulated
+#
+# Review mapping (FIXED POLICY — not a per-run judgment call):
+#   none | internal           -> review:agent-auto
+#   confidential | restricted -> review:human-required
+#
+# Classification rules:
+#   - An issue is matched against BOTH the code paths/modules its slice is
+#     likely to touch AND the data-class keywords in its body + .feature files.
+#   - When multiple rules match, the HIGHEST tier wins. Fail safe.
+#   - When uncertain between two tiers, pick the higher one.
+#   - When nothing matches but data access is plausible, use `default_tier`.
+
+version: 1
+
+# Fail-safe floor when no rule matches but the slice plausibly touches data.
+# confidential -> review:human-required, so an unclassifiable slice never
+# silently becomes agent-auto.
+default_tier: confidential
+
+tiers:
+  # --- restricted: secrets, auth, payment, special-category PII, regulated ---
+  restricted:
+    description: >-
+      credentials, secrets, API keys, auth flows, payment/financial data,
+      special-category PII, anything regulated.
+    paths:
+      - ".env"
+      - ".env.*"
+      - "**/.env*"
+      - "**/*secret*"
+      - "**/*credential*"
+      - "**/*apikey*"
+      - "**/*api-key*"
+      - "**/auth/**"
+    keywords:
+      - api key
+      - apikey
+      - api_key
+      - vite_trafiklab_api_key
+      - gtfs_regional_api_key
+      - secret
+      - token
+      - credential
+      - password
+      - auth
+      - oauth
+      - session
+      - payment
+      - billing
+      - financial
+      - special category
+      - biometric
+      - health data
+
+  # --- confidential: personal data / PII, location of identifiable users ------
+  confidential:
+    description: >-
+      GDPR personal data — PII, consent records, cookies, anything that can
+      identify or track an individual user (including their location).
+    paths:
+      - "**/useConsent*"
+      - "**/consent/**"
+      - "**/*privacy*"
+      - "**/*geolocation*"
+      - "**/*tracking*"
+    keywords:
+      - personal data
+      - pii
+      - gdpr
+      - consent
+      - cookie
+      - user location
+      - geolocation
+      - tracking
+      - analytics
+      - email
+      - phone number
+      - ip address
+      - device id
+
+  # --- internal: non-personal business data -----------------------------------
+  internal:
+    description: >-
+      non-personal business data — transit feeds, line metadata, API client
+      internals, build/data tooling that does not handle secrets or PII.
+    paths:
+      - "src/services/**"
+      - "src/hooks/**"
+      - "scripts/**"
+      - "**/trafiklab*"
+      - "**/*gtfs*"
+    keywords:
+      - api endpoint
+      - rate limit
+      - cache
+      - polling
+      - vehicle position
+      - line metadata
+      - protobuf
+
+  # --- none: pure UI, docs, build config, no data access -----------------------
+  none:
+    description: >-
+      pure presentation, documentation, styling, build config — no personal or
+      secret data is read, written, or transmitted.
+    paths:
+      - "src/components/**"
+      - "docs/**"
+      - "research/**"
+      - "**/*.css"
+      - "index.html"
+      - "vite.config.js"
+      - "README*"
+    keywords:
+      - ui
+      - styling
+      - layout
+      - css
+      - documentation
+      - readme
+      - marker color
+      - legend
+      - icon
+
+# NOTE: paths intentionally overlap across tiers (e.g. src/services/** is
+# `internal`, but a service file that handles an API key matches `restricted`
+# via keyword). Highest-tier-wins makes the overlap a feature: the floor is the
+# module's baseline class, and any secret/PII keyword escalates above it.
