@@ -2,7 +2,7 @@ import { useCallback, useState } from 'react';
 
 const STORAGE_KEY = 'rtt-privacy-notice-v1';
 
-function readDismissed() {
+function readAcknowledged() {
   try {
     return window.localStorage.getItem(STORAGE_KEY) === '1';
   } catch {
@@ -10,7 +10,7 @@ function readDismissed() {
   }
 }
 
-function writeDismissed() {
+function writeAcknowledged() {
   try {
     window.localStorage.setItem(STORAGE_KEY, '1');
   } catch {
@@ -18,13 +18,13 @@ function writeDismissed() {
   }
 }
 
-export function useConsent() {
-  const [dismissed, setDismissed] = useState(readDismissed);
+export function useNoticeAcknowledgement() {
+  const [acknowledged, setAcknowledged] = useState(readAcknowledged);
 
-  const dismiss = useCallback(() => {
-    writeDismissed();
-    setDismissed(true);
+  const acknowledge = useCallback(() => {
+    writeAcknowledged();
+    setAcknowledged(true);
   }, []);
 
-  return { dismissed, dismiss };
+  return { acknowledged, acknowledge };
 }

@@ -33,9 +33,11 @@ A Privacy Notice is appropriate when there is nothing being processed conditiona
 
 ### Essential storage
 
-Client-side storage that is **strictly necessary to provide a service the user has explicitly requested**, including the record of the user's own UI choices (such as having acknowledged a Privacy Notice). Essential storage does not require Consent under EU GDPR / ePrivacy because there is no processing for the user to permit or refuse — the storage *is* the user's own action being remembered.
+Client-side storage that is **strictly necessary to provide a service the user has explicitly requested**, including the record of the user's own UI choices (such as having acknowledged a Privacy Notice, or having chosen a display theme). Essential storage does not require Consent under EU GDPR / ePrivacy because there is no processing for the user to permit or refuse — the storage *is* the user's own action being remembered.
 
 Storage stops being essential the moment its purpose extends beyond the user's directly-requested interaction: analytics counters, A/B-test buckets, marketing identifiers, cross-visit behavioural state, and similar are **not** essential, regardless of whether they happen to live in `localStorage`, a cookie, or anywhere else.
+
+Performance and offline caches of the app itself and of map imagery the user has already viewed are essential storage: they exist solely to deliver the service the user requested, disclose nothing to any third party, and carry no behavioural state. They do not trigger the reversal in [ADR 0001](docs/adr/0001-cookieless-no-consent-popup.md).
 
 ### Consent
 
