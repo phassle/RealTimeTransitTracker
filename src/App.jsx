@@ -1,13 +1,16 @@
 import { useState, useMemo } from 'react';
 import { Map } from './components/Map';
 import { ControlPanel } from './components/ControlPanel';
+import { OfflineBanner } from './components/OfflineBanner';
 import { PrivacyNotice } from './components/PrivacyNotice';
 import { useRealtimeVehicles } from './hooks/useRealtimeVehicles';
 import { useTheme } from './hooks/useTheme';
+import { useConnectivity } from './hooks/useConnectivity';
 import { OPERATORS, OPERATOR_MAP, SWEDEN_CENTER, SWEDEN_ZOOM, getVisibleOperators } from './config/operators';
 
 function App() {
   const { theme, toggleTheme } = useTheme();
+  const { isOnline } = useConnectivity();
   const [enabledModes, setEnabledModes] = useState([
     'metro', 'bus', 'train', 'tram', 'ship', 'ferry', 'unknown'
   ]);
@@ -22,7 +25,7 @@ function App() {
   }, [viewportBounds]);
 
   const { vehicles: allVehicles, error, loading, lastUpdate, refresh, activeOperators, effectiveInterval } =
-    useRealtimeVehicles(visibleOperators, 2000, true);
+    useRealtimeVehicles(visibleOperators, 2000, isOnline);
 
   // Build available lines grouped by mode, only from enabled modes
   const availableLines = useMemo(() => {
@@ -129,6 +132,7 @@ function App() {
         theme={theme}
         onToggleTheme={toggleTheme}
       />
+      <OfflineBanner isOnline={isOnline} />
       <PrivacyNotice />
     </div>
   );
