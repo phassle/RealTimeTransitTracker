@@ -2,6 +2,25 @@
 
 Shared vocabulary for the RealTimeTransitTracker app. Use these terms in issues, PR descriptions, ADRs, code comments, and test names. When a term appears here, prefer it over synonyms.
 
+## Webcam layer
+
+Terms for the webcam feature (issue #65). A **Webcam** is a camera whose owner has deliberately published its imagery openly; unsecured private surveillance cameras are never Webcams in this domain, regardless of technical reachability.
+
+### Camera type
+
+What the camera looks at: `traffic | weather | ski | construction | wildlife`. Drives the marker badge and the type filter. Deliberately does **not** include "live" — liveness is a media property, not a subject.
+
+### Media capability
+
+What the app can show for a Webcam, an explicit field: `image | linkout`.
+
+- **`image`** — the app hotlinks a static still (`<img>` fetched directly from the source, cache-busted on refresh). The only inline media this app ever renders; see the embed boundary below.
+- **`linkout`** — the app shows metadata and a link to the source page; no inline media. Stream-only cameras and catalogue-sourced cameras (webcamcollections) are `linkout`.
+
+### Embed boundary
+
+The webcam layer never embeds third-party players or iframes (Windy player, live streams). Doing so would set third-party cookies/storage and trip the reversal trigger in [ADR 0001](docs/adr/0001-cookieless-no-consent-popup.md), forcing a full Consent surface. Hotlinked static `<img>` is treated like OSM tile loading: the network request inherently exposes the IP, nothing more.
+
 ## Privacy & disclosure
 
 These three terms are deliberately kept distinct. They are commonly conflated in web product language; this project does not conflate them.
