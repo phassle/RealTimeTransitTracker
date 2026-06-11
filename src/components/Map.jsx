@@ -5,6 +5,11 @@ import { tileLayerConfig } from './tileLayerConfig';
 import 'leaflet.markercluster';
 import 'leaflet.markercluster/dist/MarkerCluster.css';
 import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
+import {
+  cameraPopupImageContent,
+  cameraPopupErrorContent,
+  cacheBustImageUrl,
+} from '../services/webcamPopup';
 
 const MODE_COLORS = {
   metro: '#FF6B35',
@@ -234,6 +239,12 @@ export function Map({ vehicles = [], cameras = [], center = [59.3293, 18.0686], 
         icon,
         title: `${escapeHtml(cam.name)} (${escapeHtml(cam.attribution)})`,
       });
+      marker.bindPopup(() => cameraPopupImageContent(cam), {
+        closeButton: true,
+        minWidth: 240,
+        maxWidth: 320,
+      });
+      marker.on('popupopen', (event) => wireCameraPopup(event.popup, cam));
       existing.set(cam.id, marker);
       toAdd.push(marker);
     });
@@ -252,6 +263,34 @@ export function Map({ vehicles = [], cameras = [], center = [59.3293, 18.0686], 
       }}
     />
   );
+}
+
+// Wire interactive bits of the camera popup after Leaflet has inserted it
+// into the DOM:
+//   * <img onerror>  → swap to error placeholder (image source down)
+//   * refresh button → re-render popup with a cache-busted image URL so the
+//                      browser doesn't serve the same cached still
+function wireCameraPopup(popup, camera) {
+  const root = popup.getElement();
+  if (!root) return;
+  const img = root.querySelector('[data-webcam-image]');
+  const btn = root.querySelector('[data-webcam-refresh]');
+
+  if (img) {
+    img.addEventListener('error', () => {
+      popup.setContent(cameraPopupErrorContent(camera));
+    }, { once: true });
+  }
+
+  if (btn) {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      const fresh = cacheBustImageUrl(camera.imageUrl, Date.now());
+      popup.setContent(cameraPopupImageContent(camera, { imageUrl: fresh }));
+      // setContent replaces DOM nodes — re-bind listeners on the new ones.
+      wireCameraPopup(popup, camera);
+    });
+  }
 }
 
 function createPopupContent(vehicle) {
