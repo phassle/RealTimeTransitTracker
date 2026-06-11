@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import { tileLayerConfig } from './tileLayerConfig';
 
 const MODE_COLORS = {
   metro: '#FF6B35',
@@ -33,11 +34,12 @@ function escapeHtml(str) {
 // Use globalThis.Map to avoid collision with React component name
 const JSMap = globalThis.Map;
 
-export function Map({ vehicles = [], center = [59.3293, 18.0686], zoom = 11, onBoundsChange = null }) {
+export function Map({ vehicles = [], center = [59.3293, 18.0686], zoom = 11, onBoundsChange = null, theme = 'light' }) {
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const markersRef = useRef(new JSMap());
   const markerLayerRef = useRef(null);
+  const tileLayerRef = useRef(null);
   const boundsTimerRef = useRef(null);
   const onBoundsChangeRef = useRef(onBoundsChange);
   const initialRenderRef = useRef(true);
@@ -56,10 +58,8 @@ export function Map({ vehicles = [], center = [59.3293, 18.0686], zoom = 11, onB
 
       mapInstanceRef.current = map;
 
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> | Data: <a href="https://trafiklab.se">Trafiklab</a>',
-        maxZoom: 19,
-      }).addTo(map);
+      const { url, attribution } = tileLayerConfig(theme);
+      tileLayerRef.current = L.tileLayer(url, { attribution, maxZoom: 19 }).addTo(map);
 
       // Create layer for markers
       markerLayerRef.current = L.layerGroup().addTo(map);
@@ -91,6 +91,14 @@ export function Map({ vehicles = [], center = [59.3293, 18.0686], zoom = 11, onB
       }
     };
   }, []);
+
+  // Swap tile layer when theme changes
+  useEffect(() => {
+    if (!mapInstanceRef.current || !tileLayerRef.current) return;
+    const { url, attribution } = tileLayerConfig(theme);
+    tileLayerRef.current.remove();
+    tileLayerRef.current = L.tileLayer(url, { attribution, maxZoom: 19 }).addTo(mapInstanceRef.current);
+  }, [theme]);
 
   // Fly to new center/zoom when props change (skip first render)
   useEffect(() => {

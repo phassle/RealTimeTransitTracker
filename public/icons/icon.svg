@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- Background circle -->
+  <circle cx="256" cy="256" r="256" fill="#4ECDC4"/>
+
+  <!-- Map pin body -->
+  <path d="M256 110 C206 110 166 150 166 200 C166 260 256 360 256 360 C256 360 346 260 346 200 C346 150 306 110 256 110Z" fill="#ffffff"/>
+
+  <!-- Inner pin circle (transit accent) -->
+  <circle cx="256" cy="200" r="42" fill="#1e1e2e"/>
+
+  <!-- Transit lines inside pin: stylised bus/rail cross -->
+  <rect x="236" y="184" width="40" height="8" rx="4" fill="#4ECDC4"/>
+  <rect x="236" y="198" width="40" height="8" rx="4" fill="#4ECDC4"/>
+  <rect x="236" y="212" width="40" height="8" rx="4" fill="#4ECDC4"/>
+</svg>

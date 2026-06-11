@@ -19,6 +19,7 @@ const GTFS_ROUTE_TYPE_TO_MODE = {
   '102': 'train',   // Long Distance Trains
   '109': 'train',   // Suburban Railway
   '400': 'metro',   // Urban Railway
+  '401': 'metro',   // Metro Service
   '700': 'bus',     // Bus Service
   '714': 'bus',     // Rail Replacement Bus
   '900': 'tram',    // Tram Service

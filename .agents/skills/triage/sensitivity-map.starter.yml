@@ -1,0 +1,66 @@
+# Data-sensitivity policy for the /triage review gate.  --- STARTER TEMPLATE ---
+# ---------------------------------------------------------------------------
+# Copy this file to `triage/sensitivity-map.yml` at the repo root, then EDIT the
+# paths/keywords to match this codebase before trusting any classification.
+# Until reviewed, every issue will tend to fail safe to `confidential`.
+#
+# This file is POLICY-AS-CODE: the auditable, version-controlled source of truth
+# for whether an issue's eventual PR needs a human reviewer. The model reads it;
+# it does not re-derive the rules each run. Review it in PRs like any other
+# security control.
+#
+# Canon: data classification + least privilege (security engineering);
+# policy-as-code / guardrails (harness Policy pillar); the gate-as-checklist
+# idea from Atul Gawande, The Checklist Manifesto.
+# ---------------------------------------------------------------------------
+#
+# Tiers (ascending):
+#   none         - no personal or secret data (pure UI, docs, internal tooling)
+#   internal     - non-personal business data
+#   confidential - personal data / PII, customer records (GDPR personal data)
+#   restricted   - special-category PII, credentials/secrets/auth, payment/
+#                  financial, regulated data
+#
+# Review mapping (FIXED POLICY):
+#   none | internal           -> review:agent-auto
+#   confidential | restricted -> review:human-required
+#
+# Rules: match an issue against the code paths its slice will touch AND the
+# data-class keywords in its body + .feature files. Highest matched tier wins.
+# When uncertain, pick higher. When nothing matches, use default_tier.
+
+version: 1
+default_tier: confidential   # fail safe — unclassifiable slices need a human
+
+tiers:
+  restricted:
+    description: credentials, secrets, auth, payment/financial, special-category PII, regulated
+    paths:
+      - ".env"
+      - "**/.env*"
+      - "**/*secret*"
+      - "**/*credential*"
+      - "**/*apikey*"
+      - "**/auth/**"
+    keywords: [api key, secret, token, credential, password, auth, oauth, payment, financial, special category, biometric, health data]
+  confidential:
+    description: GDPR personal data — PII, consent, cookies, user location/tracking
+    paths:
+      - "**/*consent*"
+      - "**/*privacy*"
+      - "**/*geolocation*"
+      - "**/*tracking*"
+    keywords: [personal data, pii, gdpr, consent, cookie, user location, geolocation, tracking, email, phone number, ip address, device id]
+  internal:
+    description: non-personal business data
+    paths:
+      - "src/services/**"
+      - "scripts/**"
+    keywords: [api endpoint, rate limit, cache, polling]
+  none:
+    description: pure UI, docs, build config — no data access
+    paths:
+      - "src/components/**"
+      - "docs/**"
+      - "**/*.css"
+    keywords: [ui, styling, layout, documentation, readme]

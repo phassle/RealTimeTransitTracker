@@ -17,6 +17,7 @@ Every comment or issue posted to the issue tracker during triage **must** start 
 
 - [AGENT-BRIEF.md](AGENT-BRIEF.md) — how to write durable agent briefs
 - [OUT-OF-SCOPE.md](OUT-OF-SCOPE.md) — how the `.out-of-scope/` knowledge base works
+- [sensitivity-map.starter.yml](sensitivity-map.starter.yml) — starter for the data-sensitivity policy (see the review gate below)
 
 ## Roles
 
@@ -62,19 +63,80 @@ Show counts and a one-line summary per issue. Let the maintainer pick.
 
 1. **Gather context.** Read the full issue (body, comments, labels, reporter, dates). Parse any prior triage notes so you don't re-ask resolved questions. Explore the codebase using the project's domain glossary, respecting ADRs in the area. Read `.out-of-scope/*.md` and surface any prior rejection that resembles this issue.
 
-2. **Recommend.** Tell the maintainer your category and state recommendation with reasoning, plus a brief codebase summary relevant to the issue. Wait for direction.
+2. **Recommend.** Tell the maintainer your category and state recommendation with reasoning, plus a brief codebase summary relevant to the issue. Then run the **data-sensitivity review gate** (see [below](#data-sensitivity-review-gate)) — this can only escalate the state recommendation toward human involvement, never relax it. Wait for direction.
 
 3. **Reproduce (bugs only).** Before any grilling, attempt reproduction: read the reporter's steps, trace the relevant code, run tests or commands. Report what happened — successful repro with code path, failed repro, or insufficient detail (a strong `needs-info` signal). A confirmed repro makes a much stronger agent brief.
 
 4. **Grill (if needed).** If the issue needs fleshing out, run a `/grill-with-docs` session.
 
-5. **Apply the outcome:**
+5. **Apply the outcome.** Always apply the two gate tags from step 2 (`data-sensitivity:<tier>` and `review:human-required`|`review:agent-auto`) alongside the state role, and respect the escalation rule: a `confidential`/`restricted` issue may never be left as agent-auto-merge. Then:
    - `ready-for-agent` — post an agent brief comment ([AGENT-BRIEF.md](AGENT-BRIEF.md)).
    - `ready-for-human` — same structure as an agent brief, but note why it can't be delegated (judgment calls, external access, design decisions, manual testing).
    - `needs-info` — post triage notes (template below).
    - `wontfix` (bug) — polite explanation, then close.
    - `wontfix` (enhancement) — write to `.out-of-scope/`, link to it from a comment, then close ([OUT-OF-SCOPE.md](OUT-OF-SCOPE.md)).
    - `needs-triage` — apply the role. Optional comment if there's partial progress.
+
+## Data-sensitivity review gate
+
+The state roles above route on **how hard** a change is (who should implement it). This gate routes on **how sensitive the data is** (whether a human must review the eventual PR). The two are independent — a one-line change to an auth module is trivial to implement and still must not be agent-auto-merged.
+
+Rationale, in canon: classify the data first, then grant the least autonomy that fits its class — *data classification + least privilege* from security engineering. The rule lives in a version-controlled file, not the model's head — *policy-as-code / guardrails* (the harness Policy pillar). And it runs every time as a fixed checklist, so a "trivial" change can never skip it — the gate-as-checklist idea from Atul Gawande, *The Checklist Manifesto*.
+
+### Load the policy
+
+The sensitivity rules are **config, not prose**. Before classifying, look for `triage/sensitivity-map.yml` at the repo root.
+
+- **If it exists**, read it and use its `paths` globs, `keywords`, and `default_tier`. Do not improvise tiers the file doesn't define.
+- **If it's missing**, scaffold it by copying [sensitivity-map.starter.yml](sensitivity-map.starter.yml) to `triage/sensitivity-map.yml`, then stop and tell the maintainer: *"Scaffolded `triage/sensitivity-map.yml` — review and tune the path globs/keywords for this repo before trusting classifications. Until then I'll fail safe to the `default_tier`."*
+
+### Classify the tier
+
+Inspect (a) the issue's `.feature` scenarios and body text, and (b) the code paths/modules the slice is likely to touch. Match both against the policy file. Tiers, ascending:
+
+- `none` — no personal or secret data (pure UI, docs, internal tooling with no data access)
+- `internal` — non-personal business data
+- `confidential` — personal data / PII, customer records (GDPR personal data)
+- `restricted` — special-category PII, credentials/secrets/auth, payment or financial data, anything regulated
+
+**Highest matched tier wins.** When uncertain between two tiers, **pick the higher one.** When nothing matches but data access is plausible, use the file's `default_tier`. Fail safe — never guess downward.
+
+### Derive the tags (fixed policy — do not re-derive per run)
+
+| Tier | Tags emitted |
+|------|--------------|
+| `none`, `internal` | `data-sensitivity:<tier>` + `review:agent-auto` |
+| `confidential`, `restricted` | `data-sensitivity:<tier>` + `review:human-required` |
+
+### Escalate the route, never downgrade
+
+Sensitivity can only push **toward more human involvement**. It maps onto the state roles like this:
+
+| Conceptual route | This tracker | Means |
+|------------------|--------------|-------|
+| AGENT-AUTO | `ready-for-agent` + `review:agent-auto` | agent implements, PR may auto-merge |
+| PAIRED | `ready-for-agent` + `review:human-required` | agent implements, a human must approve the PR |
+| HUMAN-FIRST | `ready-for-human` | a human implements |
+
+- If your complexity assessment said `ready-for-agent` but the gate says `review:human-required`, the issue stays `ready-for-agent` **but carries `review:human-required`** (= PAIRED). It can no longer be auto-merged.
+- A `restricted` issue can **never** be agent-auto, no matter how trivial. It always carries `review:human-required`. If the change also requires judgment about the sensitive data itself (secret rotation, auth flow, payment logic), recommend `ready-for-human`.
+- Never let a low tier *remove* a `ready-for-human` recommendation made on complexity grounds. The gate is a ratchet: up only.
+
+### Always emit a reason — no silent classifications
+
+For every issue, output one line:
+
+```
+#<n> — tier=<tier> (matched: <glob-or-keyword>) → <review-tag> [route: <state-role>]
+```
+
+Example: `#57 — tier=restricted (matched: keyword "api key" + path src/services/**) → review:human-required [route: ready-for-human]`
+
+### The tag is advisory until enforced
+
+End every triage run that touched the gate with this reminder:
+
+> ⚠️ `review:human-required` is **advisory** until it's wired to enforcement. A tag CI ignores is not a control. To give it teeth, connect it to GitHub branch protection / required-reviewers, or a pre-merge policy hook that blocks auto-merge when the label is present. Until then, this gate is a checklist, not a gate.
 
 ## Quick state override
 

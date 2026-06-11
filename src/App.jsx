@@ -1,11 +1,19 @@
 import { useState, useMemo } from 'react';
 import { Map } from './components/Map';
 import { ControlPanel } from './components/ControlPanel';
+import { OfflineBanner } from './components/OfflineBanner';
+import { UpdateToast } from './components/UpdateToast';
 import { PrivacyNotice } from './components/PrivacyNotice';
 import { useRealtimeVehicles } from './hooks/useRealtimeVehicles';
+import { useTheme } from './hooks/useTheme';
+import { useConnectivity } from './hooks/useConnectivity';
+import { useUpdatePrompt } from './hooks/useUpdatePrompt';
 import { OPERATORS, OPERATOR_MAP, SWEDEN_CENTER, SWEDEN_ZOOM, getVisibleOperators } from './config/operators';
 
 function App() {
+  const { theme, toggleTheme } = useTheme();
+  const { isOnline } = useConnectivity();
+  const { needRefresh, updateServiceWorker, dismissUpdate } = useUpdatePrompt();
   const [enabledModes, setEnabledModes] = useState([
     'metro', 'bus', 'train', 'tram', 'ship', 'ferry', 'unknown'
   ]);
@@ -20,7 +28,7 @@ function App() {
   }, [viewportBounds]);
 
   const { vehicles: allVehicles, error, loading, lastUpdate, refresh, activeOperators, effectiveInterval } =
-    useRealtimeVehicles(visibleOperators, 2000, true);
+    useRealtimeVehicles(visibleOperators, 2000, isOnline);
 
   // Build available lines grouped by mode, only from enabled modes
   const availableLines = useMemo(() => {
@@ -106,6 +114,7 @@ function App() {
         center={mapCenter}
         zoom={mapZoom}
         onBoundsChange={handleBoundsChange}
+        theme={theme}
       />
       <ControlPanel
         vehicles={filteredVehicles}
@@ -123,7 +132,11 @@ function App() {
         activeOperators={activeOperators}
         onRegionSelect={handleRegionSelect}
         effectiveInterval={effectiveInterval}
+        theme={theme}
+        onToggleTheme={toggleTheme}
       />
+      <OfflineBanner isOnline={isOnline} />
+      <UpdateToast isVisible={needRefresh} onReload={updateServiceWorker} onDismiss={dismissUpdate} />
       <PrivacyNotice />
     </div>
   );

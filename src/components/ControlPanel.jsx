@@ -30,6 +30,8 @@ export function ControlPanel({
   activeOperators = [],
   onRegionSelect = () => {},
   effectiveInterval = 2000,
+  theme = 'light',
+  onToggleTheme = () => {},
 }) {
   const [collapsed, setCollapsed] = useState(false);
   const [lineFilterExpanded, setLineFilterExpanded] = useState(false);
@@ -62,6 +64,15 @@ export function ControlPanel({
     <div className={`control-panel ${collapsed ? 'collapsed' : ''}`}>
       <div className="control-header">
         <h2>Sweden Real-Time Transit</h2>
+        <button
+          className="theme-btn"
+          onClick={onToggleTheme}
+          aria-label={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
+          aria-pressed={theme === 'dark'}
+          title={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
+        >
+          {theme === 'dark' ? '☀' : '🌙'}
+        </button>
         <button
           className="collapse-btn"
           onClick={() => setCollapsed(!collapsed)}

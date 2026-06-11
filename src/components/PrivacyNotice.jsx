@@ -1,10 +1,10 @@
-import { useConsent } from '../hooks/useConsent';
+import { useNoticeAcknowledgement } from '../hooks/useNoticeAcknowledgement';
 import './PrivacyNotice.css';
 
 export function PrivacyNotice() {
-  const { dismissed, dismiss } = useConsent();
+  const { acknowledged, acknowledge } = useNoticeAcknowledgement();
 
-  if (dismissed) return null;
+  if (acknowledged) return null;
 
   return (
     <section
@@ -35,7 +35,7 @@ export function PrivacyNotice() {
         <button
           type="button"
           className="privacy-notice__dismiss"
-          onClick={dismiss}
+          onClick={acknowledge}
         >
           Got it
         </button>

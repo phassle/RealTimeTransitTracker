@@ -1,3 +1,37 @@
+:root {
+  --chrome-bg: #ffffff;
+  --chrome-border: #eeeeee;
+  --chrome-text: #222222;
+  --chrome-text-muted: #666666;
+  --chrome-text-strong: #333333;
+  --chrome-hover-bg: #f5f5f5;
+  --chrome-shadow: rgba(0, 0, 0, 0.2);
+  --chrome-error-bg: #ffeeee;
+  --chrome-error-text: #cc3333;
+  --chrome-btn-color: #666666;
+  --chrome-chip-bg: #ffffff;
+  --chrome-chip-selected-bg: #f0faf9;
+  --chrome-link: #1565c0;
+  --chrome-link-hover: #0d47a1;
+}
+
+[data-theme="dark"] {
+  --chrome-bg: #1e1e2e;
+  --chrome-border: #3a3a4e;
+  --chrome-text: #e0e0f0;
+  --chrome-text-muted: #9090a8;
+  --chrome-text-strong: #d0d0e0;
+  --chrome-hover-bg: #2e2e42;
+  --chrome-shadow: rgba(0, 0, 0, 0.5);
+  --chrome-error-bg: #3a1010;
+  --chrome-error-text: #f07070;
+  --chrome-btn-color: #9090a8;
+  --chrome-chip-bg: #2a2a3e;
+  --chrome-chip-selected-bg: #1a3030;
+  --chrome-link: #7db8f7;
+  --chrome-link-hover: #aad0ff;
+}
+
 * {
   margin: 0;
   padding: 0;
