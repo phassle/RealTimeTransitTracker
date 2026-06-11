@@ -3,6 +3,7 @@ import { Map } from './components/Map';
 import { ControlPanel } from './components/ControlPanel';
 import { PrivacyNotice } from './components/PrivacyNotice';
 import { useRealtimeVehicles } from './hooks/useRealtimeVehicles';
+import { useWebcams } from './hooks/useWebcams';
 import { OPERATORS, OPERATOR_MAP, SWEDEN_CENTER, SWEDEN_ZOOM, getVisibleOperators } from './config/operators';
 
 function App() {
@@ -13,6 +14,9 @@ function App() {
   const [mapCenter, setMapCenter] = useState([59.3293, 18.0686]);
   const [mapZoom, setMapZoom] = useState(11);
   const [viewportBounds, setViewportBounds] = useState(null);
+  const [webcamsEnabled, setWebcamsEnabled] = useState(false);
+
+  const { cameras, error: webcamsError, loading: webcamsLoading } = useWebcams(webcamsEnabled);
 
   const visibleOperators = useMemo(() => {
     if (!viewportBounds) return ['sl'];
@@ -103,6 +107,7 @@ function App() {
     <div style={{ position: 'relative', width: '100%', height: '100%' }}>
       <Map
         vehicles={filteredVehicles}
+        cameras={webcamsEnabled ? cameras : []}
         center={mapCenter}
         zoom={mapZoom}
         onBoundsChange={handleBoundsChange}
@@ -123,6 +128,11 @@ function App() {
         activeOperators={activeOperators}
         onRegionSelect={handleRegionSelect}
         effectiveInterval={effectiveInterval}
+        webcamsEnabled={webcamsEnabled}
+        onWebcamsToggle={() => setWebcamsEnabled(v => !v)}
+        webcamsLoading={webcamsLoading}
+        webcamsError={webcamsError}
+        webcamCount={cameras.length}
       />
       <PrivacyNotice />
     </div>

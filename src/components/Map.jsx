@@ -1,6 +1,9 @@
 import { useEffect, useRef } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import 'leaflet.markercluster';
+import 'leaflet.markercluster/dist/MarkerCluster.css';
+import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
 
 const MODE_COLORS = {
   metro: '#FF6B35',
@@ -33,11 +36,13 @@ function escapeHtml(str) {
 // Use globalThis.Map to avoid collision with React component name
 const JSMap = globalThis.Map;
 
-export function Map({ vehicles = [], center = [59.3293, 18.0686], zoom = 11, onBoundsChange = null }) {
+export function Map({ vehicles = [], cameras = [], center = [59.3293, 18.0686], zoom = 11, onBoundsChange = null }) {
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const markersRef = useRef(new JSMap());
   const markerLayerRef = useRef(null);
+  const cameraMarkersRef = useRef(new JSMap());
+  const cameraClusterRef = useRef(null);
   const boundsTimerRef = useRef(null);
   const onBoundsChangeRef = useRef(onBoundsChange);
   const initialRenderRef = useRef(true);
@@ -57,12 +62,20 @@ export function Map({ vehicles = [], center = [59.3293, 18.0686], zoom = 11, onB
       mapInstanceRef.current = map;
 
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> | Data: <a href="https://trafiklab.se">Trafiklab</a>',
+        attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> | Data: <a href="https://trafiklab.se">Trafiklab</a>, <a href="https://www.trafikverket.se/">Trafikverket</a>',
         maxZoom: 19,
       }).addTo(map);
 
       // Create layer for markers
       markerLayerRef.current = L.layerGroup().addTo(map);
+
+      // Clustered layer dedicated to webcams — leaves the vehicle marker
+      // lifecycle above completely untouched.
+      cameraClusterRef.current = L.markerClusterGroup({
+        showCoverageOnHover: false,
+        spiderfyOnMaxZoom: true,
+        chunkedLoading: true,
+      }).addTo(map);
 
       // Viewport bounds reporting (debounced 300ms)
       const reportBounds = () => {
@@ -169,6 +182,57 @@ export function Map({ vehicles = [], center = [59.3293, 18.0686], zoom = 11, onB
 
     markersRef.current = existingMarkers;
   }, [vehicles]);
+
+  // Update camera markers (webcam layer — clustered, no popup in this slice).
+  useEffect(() => {
+    const cluster = cameraClusterRef.current;
+    if (!cluster) return;
+
+    const existing = cameraMarkersRef.current;
+    const currentIds = new Set(cameras.map(c => c.id));
+
+    for (const [id, marker] of existing.entries()) {
+      if (!currentIds.has(id)) {
+        cluster.removeLayer(marker);
+        existing.delete(id);
+      }
+    }
+
+    const toAdd = [];
+    cameras.forEach(cam => {
+      if (existing.has(cam.id)) return;
+      const icon = L.divIcon({
+        className: 'camera-marker',
+        html: `
+          <div style="
+            background: #2c3e50;
+            border: 2px solid white;
+            border-radius: 4px;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            color: white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+            cursor: pointer;
+          ">📷</div>
+        `,
+        iconSize: [28, 28],
+        iconAnchor: [14, 14],
+      });
+      const marker = L.marker([cam.lat, cam.lon], {
+        icon,
+        title: `${escapeHtml(cam.name)} (${escapeHtml(cam.attribution)})`,
+      });
+      existing.set(cam.id, marker);
+      toAdd.push(marker);
+    });
+    if (toAdd.length > 0) {
+      cluster.addLayers(toAdd);
+    }
+  }, [cameras]);
 
   return (
     <div
