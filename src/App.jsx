@@ -9,6 +9,11 @@ import { useTheme } from './hooks/useTheme';
 import { useConnectivity } from './hooks/useConnectivity';
 import { useUpdatePrompt } from './hooks/useUpdatePrompt';
 import { useWebcams } from './hooks/useWebcams';
+import {
+  CAMERA_TYPE_DEFINITIONS,
+  cameraCountsByType,
+  filterCamerasByType,
+} from './services/cameraTypeFilter';
 import { OPERATORS, OPERATOR_MAP, SWEDEN_CENTER, SWEDEN_ZOOM, getVisibleOperators } from './config/operators';
 
 function App() {
@@ -23,8 +28,17 @@ function App() {
   const [mapZoom, setMapZoom] = useState(11);
   const [viewportBounds, setViewportBounds] = useState(null);
   const [webcamsEnabled, setWebcamsEnabled] = useState(false);
+  const [enabledCameraTypes, setEnabledCameraTypes] = useState(
+    CAMERA_TYPE_DEFINITIONS.map(t => t.id),
+  );
 
   const { cameras, error: webcamsError, loading: webcamsLoading } = useWebcams(webcamsEnabled);
+
+  const cameraCounts = useMemo(() => cameraCountsByType(cameras), [cameras]);
+  const filteredCameras = useMemo(
+    () => filterCamerasByType(cameras, enabledCameraTypes),
+    [cameras, enabledCameraTypes],
+  );
 
   const visibleOperators = useMemo(() => {
     if (!viewportBounds) return ['sl'];
@@ -98,6 +112,14 @@ function App() {
     setViewportBounds(bounds);
   };
 
+  const handleCameraTypeToggle = (typeId) => {
+    setEnabledCameraTypes(prev =>
+      prev.includes(typeId)
+        ? prev.filter(t => t !== typeId)
+        : [...prev, typeId],
+    );
+  };
+
   const handleRegionSelect = (slug) => {
     if (slug === null) {
       setMapCenter(SWEDEN_CENTER);
@@ -115,7 +137,7 @@ function App() {
     <div style={{ position: 'relative', width: '100%', height: '100%' }}>
       <Map
         vehicles={filteredVehicles}
-        cameras={webcamsEnabled ? cameras : []}
+        cameras={webcamsEnabled ? filteredCameras : []}
         center={mapCenter}
         zoom={mapZoom}
         onBoundsChange={handleBoundsChange}
@@ -143,7 +165,11 @@ function App() {
         onWebcamsToggle={() => setWebcamsEnabled(v => !v)}
         webcamsLoading={webcamsLoading}
         webcamsError={webcamsError}
-        webcamCount={cameras.length}
+        webcamCount={filteredCameras.length}
+        cameraTypeDefinitions={CAMERA_TYPE_DEFINITIONS}
+        enabledCameraTypes={enabledCameraTypes}
+        cameraCounts={cameraCounts}
+        onCameraTypeToggle={handleCameraTypeToggle}
       />
       <OfflineBanner isOnline={isOnline} />
       <UpdateToast isVisible={needRefresh} onReload={updateServiceWorker} onDismiss={dismissUpdate} />
