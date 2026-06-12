@@ -12,20 +12,13 @@ import {
   cacheBustImageUrl,
 } from '../services/webcamPopup';
 import { CAMERA_TYPE_DEFINITIONS } from '../services/cameraTypeFilter';
-import { MODE_COLORS, MODE_ICONS } from '../services/modes';
+import { escapeHtml, createMarkerCollection } from '../services/markerCollection';
+import { createVehicleAdapter } from '../services/vehicleAdapter';
 
 const CAMERA_TYPE_COLOR = Object.fromEntries(
   CAMERA_TYPE_DEFINITIONS.map(t => [t.id, t.color])
 );
 const CAMERA_DEFAULT_COLOR = '#2c3e50';
-
-function escapeHtml(str) {
-  return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
 
 // Use globalThis.Map to avoid collision with React component name
 const JSMap = globalThis.Map;
@@ -33,7 +26,8 @@ const JSMap = globalThis.Map;
 export function Map({ vehicles = [], cameras = [], center = [59.3293, 18.0686], zoom = 11, onBoundsChange = null, theme = 'light' }) {
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
-  const markersRef = useRef(new JSMap());
+  const vehicleCollectionRef = useRef(null);
+  const vehicleAdapterRef = useRef(createVehicleAdapter());
   const markerLayerRef = useRef(null);
   const tileLayerRef = useRef(null);
   const cameraMarkersRef = useRef(new JSMap());
@@ -59,8 +53,9 @@ export function Map({ vehicles = [], cameras = [], center = [59.3293, 18.0686], 
       const { url, attribution } = tileLayerConfig(theme);
       tileLayerRef.current = L.tileLayer(url, { attribution, maxZoom: 19 }).addTo(map);
 
-      // Create layer for markers
+      // Create layer for vehicle markers
       markerLayerRef.current = L.layerGroup().addTo(map);
+      vehicleCollectionRef.current = createMarkerCollection(markerLayerRef.current);
 
       // Clustered layer dedicated to webcams — leaves the vehicle marker
       // lifecycle above completely untouched.
@@ -117,71 +112,9 @@ export function Map({ vehicles = [], cameras = [], center = [59.3293, 18.0686], 
     }
   }, [center, zoom]);
 
-  // Update vehicle markers
+  // Update vehicle markers via the marker-collection module
   useEffect(() => {
-    if (!markerLayerRef.current) return;
-
-    const layer = markerLayerRef.current;
-    const currentVehicleIds = new Set(vehicles.map(v => v.id));
-    const existingMarkers = markersRef.current;
-
-    // Remove markers for vehicles that no longer exist
-    for (const [vehicleId, marker] of existingMarkers.entries()) {
-      if (!currentVehicleIds.has(vehicleId)) {
-        layer.removeLayer(marker);
-        existingMarkers.delete(vehicleId);
-      }
-    }
-
-    // Update or create markers
-    vehicles.forEach(vehicle => {
-      const existingMarker = existingMarkers.get(vehicle.id);
-      const color = MODE_COLORS[vehicle.mode] || MODE_COLORS.unknown;
-      const icon = MODE_ICONS[vehicle.mode] || MODE_ICONS.unknown;
-
-      if (existingMarker) {
-        // Update existing marker
-        existingMarker.setLatLng([vehicle.latitude, vehicle.longitude]);
-        existingMarker.setPopupContent(createPopupContent(vehicle));
-      } else {
-        // Create new marker
-        const markerIcon = L.divIcon({
-          className: 'vehicle-marker',
-          html: `
-            <div style="
-              background: ${color};
-              border: 2px solid white;
-              border-radius: 50%;
-              width: 20px;
-              height: 20px;
-              display: flex;
-              align-items: center;
-              justify-content: center;
-              font-size: 10px;
-              font-weight: bold;
-              color: white;
-              box-shadow: 0 2px 4px rgba(0,0,0,0.3);
-              cursor: pointer;
-            ">
-              ${vehicle.line?.length <= 3 ? escapeHtml(vehicle.line) : icon}
-            </div>
-          `,
-          iconSize: [24, 24],
-          iconAnchor: [12, 12],
-        });
-
-        const marker = L.marker([vehicle.latitude, vehicle.longitude], {
-          icon: markerIcon,
-          title: `${escapeHtml(vehicle.mode)} ${escapeHtml(vehicle.line)}`
-        })
-          .bindPopup(createPopupContent(vehicle), { closeButton: true })
-          .addTo(layer);
-
-        existingMarkers.set(vehicle.id, marker);
-      }
-    });
-
-    markersRef.current = existingMarkers;
+    vehicleCollectionRef.current?.update(vehicles, vehicleAdapterRef.current);
   }, [vehicles]);
 
   // Update camera markers (webcam layer — clustered, no popup in this slice).
@@ -285,18 +218,3 @@ function wireCameraPopup(popup, camera) {
   }
 }
 
-function createPopupContent(vehicle) {
-  const time = new Date(vehicle.timestamp * 1000).toLocaleTimeString('sv-SE');
-  const speedKmh = (vehicle.speed * 3.6).toFixed(1);
-
-  return `
-    <div style="font-family: sans-serif; min-width: 150px;">
-      <strong style="font-size: 14px; text-transform: capitalize;">${escapeHtml(vehicle.mode)} ${escapeHtml(vehicle.line)}</strong><br/>
-      ${vehicle.operator ? `<em style="color: #666; font-size: 12px;">${escapeHtml(vehicle.operator.toUpperCase())}</em><br/>` : ''}
-      <hr style="margin: 5px 0; border: none; border-top: 1px solid #eee;"/>
-      Speed: ${speedKmh} km/h<br/>
-      Bearing: ${vehicle.bearing}°<br/>
-      Updated: ${time}
-    </div>
-  `;
-}

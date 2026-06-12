@@ -2,6 +2,14 @@
 
 Shared vocabulary for the RealTimeTransitTracker app. Use these terms in issues, PR descriptions, ADRs, code comments, and test names. When a term appears here, prefer it over synonyms.
 
+## Marker-collection module
+
+The canonical marker lifecycle (diff-by-id, remove stale, update-or-create, reuse-not-recreate, popup wiring) lives in **`src/services/markerCollection.js`**. It maintains a set of Leaflet markers keyed by item id and accepts per-update adapters (`toLatLng`, `toIcon`, `toPopup`, optional `onUpdate`) so that any item type can drive the same lifecycle without duplicating the algorithm.
+
+`escapeHtml` — the canonical HTML-escaping function (null-safe, escapes apostrophe) — is exported from this module and used by all popup paths.
+
+The **vehicle adapter** (`src/services/vehicleAdapter.js`) is the first adapter over this interface; it owns vehicle icon construction and popup markup.
+
 ## Transport modes
 
 The canonical set of vehicle transport modes, owned entirely by **`src/services/modes.js`**. That module is the single source of truth for the mode list, display label, marker/swatch color, marker icon, and the GTFS `route_type` → mode mapping. All consumers (map renderer, control panel, app state) import from it; none declare their own mode list or color table.
