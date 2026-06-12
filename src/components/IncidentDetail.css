@@ -126,6 +126,27 @@
   color: var(--text-muted, #888);
 }
 
+/* Stale banner — source feed blind, frozen as of last observation. */
+.incident-detail__stale {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+  margin-bottom: 8px;
+  border-left: 3px solid #f6a609;
+  background: rgba(246, 166, 9, 0.1);
+}
+
+.incident-detail__stale-title {
+  font-weight: 700;
+  color: #f6a609;
+}
+
+.incident-detail__stale-note {
+  font-size: 0.8rem;
+  color: var(--text-muted, #888);
+}
+
 .incident-timeline__item--verification {
   border-left-color: var(--success, #16a34a);
   background: var(--success-soft, #dcfce7);

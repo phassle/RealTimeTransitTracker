@@ -165,6 +165,83 @@ describe('clusterIncidents', () => {
     });
   });
 
+  describe('stale freeze on a blind source', () => {
+    function outage(overrides = {}) {
+      return {
+        ruleId: 'feed-fetch-failure',
+        subjectKind: 'operator',
+        operator: 'sl',
+        startedAt: 0,
+        detectedAt: 6 * 60 * 1000,
+        ...overrides,
+      };
+    }
+
+    it('marks a fresh geographic Incident not stale', () => {
+      const incidents = clusterIncidents([], [anomaly()], 6 * 60 * 1000);
+      expect(incidents[0].stale).toBe(false);
+    });
+
+    it('records the operator(s) a geographic Incident is based on', () => {
+      const incidents = clusterIncidents([], [anomaly({ operator: 'sl' })], 6 * 60 * 1000);
+      expect(incidents[0].operators).toEqual(['sl']);
+    });
+
+    it('freezes a geographic Incident (open, stale) when its operator goes blind, rather than auto-resolving', () => {
+      const open = clusterIncidents([], [anomaly({ detectedAt: 6 * 60 * 1000 })], 6 * 60 * 1000);
+      expect(open[0].status).toBe('open');
+
+      // The operator's feed goes out: an outage anomaly arrives, no fresh stationary
+      // anomaly does, and the quiet period has elapsed since the geographic incident's
+      // lastUpdate — it would normally resolve now.
+      const blindAt = 6 * 60 * 1000 + QUIET_PERIOD_MS;
+      const next = clusterIncidents(open, [outage({ detectedAt: blindAt })], blindAt);
+
+      const geo = next.find((i) => i.subject.kind === 'geographic');
+      expect(geo.status).toBe('open'); // frozen, not resolved — absence of data is not resolution
+      expect(geo.stale).toBe(true);
+    });
+
+    it('never auto-resolves while the source stays blind, however long', () => {
+      let cur = clusterIncidents([], [anomaly({ detectedAt: 6 * 60 * 1000 })], 6 * 60 * 1000);
+      for (const t of [12, 18, 24, 40].map((m) => m * 60 * 1000)) {
+        cur = clusterIncidents(cur, [outage({ detectedAt: t })], t);
+      }
+      const geo = cur.find((i) => i.subject.kind === 'geographic');
+      expect(geo.status).toBe('open');
+      expect(geo.stale).toBe(true);
+    });
+
+    it('clears the stale flag and resumes lifecycle when the feed recovers', () => {
+      const open = clusterIncidents([], [anomaly({ detectedAt: 6 * 60 * 1000 })], 6 * 60 * 1000);
+      const blindAt = 6 * 60 * 1000 + QUIET_PERIOD_MS;
+      const blind = clusterIncidents(open, [outage({ detectedAt: blindAt })], blindAt);
+      expect(blind.find((i) => i.subject.kind === 'geographic').stale).toBe(true);
+
+      // Feed recovers: no more outage anomalies. Still no fresh stationary anomaly and
+      // the quiet period is long past, so the resumed lifecycle resolves it.
+      const recoverAt = blindAt + 1000;
+      const recovered = clusterIncidents(blind, [], recoverAt);
+      const geo = recovered.find((i) => i.subject.kind === 'geographic');
+      expect(geo.stale).toBe(false);
+      expect(geo.status).toBe('resolved');
+    });
+
+    it('does not freeze a geographic Incident whose own operator is still healthy', () => {
+      const open = clusterIncidents(
+        [],
+        [anomaly({ vehicleId: 'ul:bus-9', operator: 'ul', detectedAt: 6 * 60 * 1000 })],
+        6 * 60 * 1000,
+      );
+      const blindAt = 6 * 60 * 1000 + QUIET_PERIOD_MS;
+      // A different operator ('sl') goes blind; our incident belongs to 'ul'.
+      const next = clusterIncidents(open, [outage({ operator: 'sl', detectedAt: blindAt })], blindAt);
+      const geo = next.find((i) => i.subject.kind === 'geographic');
+      expect(geo.status).toBe('resolved'); // ul healthy ⇒ normal lifecycle still applies
+      expect(geo.stale).toBe(false);
+    });
+  });
+
   describe('recurrence after resolution', () => {
     it('surfaces a new open Incident when a matching anomaly recurs, keeping the resolved one', () => {
       const open = clusterIncidents([], [anomaly({ startedAt: 0, detectedAt: 6 * 60 * 1000 })], 6 * 60 * 1000);

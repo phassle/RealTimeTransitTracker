@@ -96,6 +96,14 @@ export function IncidentDetail({ incident = null, webcams = [], onVerify = null 
 
   return (
     <div className="incident-detail">
+      {incident.stale && (
+        <div className="incident-detail__stale" role="status">
+          <span className="incident-detail__stale-title">Stale — source feed is blind</span>
+          <span className="incident-detail__stale-note">
+            Frozen as of the last observation. Absence of data is not evidence it resolved.
+          </span>
+        </div>
+      )}
       {isOutage && (
         <header className="incident-detail__subject incident-detail__subject--operator">
           <span className="incident-detail__subject-title">

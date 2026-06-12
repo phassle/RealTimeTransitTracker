@@ -43,13 +43,17 @@ export function IncidentInbox({ incidents = [], selectedIncidentId = null, onSel
         // Operator-subject (feed outage) Incidents are data problems: no line or
         // vehicle-count facts, just the affected operator's feed.
         const isOutage = inc.subject.kind === 'operator';
+        // Stale: the source operator's feed has gone blind, so this Incident is
+        // frozen and never auto-resolves (PRD #84 story 14). Flagged so the
+        // operator knows the picture is no longer live, not that it cleared.
+        const stale = Boolean(inc.stale);
         return (
           <li key={inc.id} className="incident-inbox__item">
             <button
               type="button"
               className={`incident-row${selected ? ' incident-row--selected' : ''}${
                 resolved ? ' incident-row--resolved' : ''
-              }${isOutage ? ' incident-row--outage' : ''}`}
+              }${isOutage ? ' incident-row--outage' : ''}${stale ? ' incident-row--stale' : ''}`}
               aria-pressed={selected}
               onClick={() => onSelect(inc.id)}
             >
@@ -63,6 +67,14 @@ export function IncidentInbox({ incidents = [], selectedIncidentId = null, onSel
                   <>
                     {' · '}
                     <span className="incident-row__status">Resolved</span>
+                  </>
+                )}
+                {stale && (
+                  <>
+                    {' · '}
+                    <span className="incident-row__stale" title="Source feed is blind — frozen, not resolved">
+                      Stale
+                    </span>
                   </>
                 )}
               </span>

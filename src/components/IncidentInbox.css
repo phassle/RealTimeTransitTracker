@@ -87,3 +87,17 @@
   color: #c77dff;
   font-style: italic;
 }
+
+/* Stale rows: source feed blind, frozen (not resolved). Amber, not muted —
+   the situation is still open, the data behind it just stopped flowing. */
+.incident-row--stale {
+  border-left-color: #f6a609;
+}
+
+.incident-row__stale {
+  font-weight: 600;
+  font-size: 12px;
+  color: #f6a609;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}

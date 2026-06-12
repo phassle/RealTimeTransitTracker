@@ -44,6 +44,15 @@ describe('IncidentDetail', () => {
     expect(screen.getByRole('status')).toBeDefined();
   });
 
+  it('shows a stale banner for a frozen blind-source incident, and none when healthy', () => {
+    const { rerender } = render(
+      <IncidentDetail incident={{ ...incident([anomaly()]), stale: true }} />,
+    );
+    expect(screen.getByText(/Stale/)).toBeDefined();
+    rerender(<IncidentDetail incident={{ ...incident([anomaly()]), stale: false }} />);
+    expect(screen.queryByText(/Stale/)).toBeNull();
+  });
+
   it('presents an operator-subject (feed outage) incident as a data problem', () => {
     const outageAnomaly = {
       ruleId: 'feed-fetch-failure',

@@ -17,6 +17,15 @@ function incident(overrides = {}) {
 }
 
 describe('IncidentInbox', () => {
+  it('flags a stale incident in its row and only the stale one', () => {
+    render(
+      <IncidentInbox
+        incidents={[incident({ id: 's1', stale: true }), incident({ id: 's2', stale: false })]}
+      />,
+    );
+    expect(screen.getAllByText('Stale')).toHaveLength(1);
+  });
+
   it('renders an empty state when there are no incidents', () => {
     render(<IncidentInbox incidents={[]} />);
     expect(screen.getByText('No incidents')).toBeDefined();

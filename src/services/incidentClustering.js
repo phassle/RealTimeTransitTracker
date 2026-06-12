@@ -12,8 +12,12 @@
 // longer absorb anomalies — so a recurrence of the same situation surfaces as a
 // fresh open Incident (with a distinct id) rather than reopening the old row.
 // Geographic subjects merge by vehicle identity OR spatial proximity, so nearby
-// anomalies from different vehicles fold into one Incident covering both. The
-// stale flag (frozen on a blind feed) is a later slice.
+// anomalies from different vehicles fold into one Incident covering both.
+//
+// Stale (Slice 5): a geographic Incident whose source operator's feed has gone
+// out (an operator-subject anomaly this poll) is flagged `stale` and frozen —
+// its lifecycle is suspended so a quiet period can never auto-resolve it. When
+// the feed recovers the flag clears and resolution resumes (PRD #84 story 14).
 
 import { distanceMeters } from './anomalyRules';
 
@@ -25,6 +29,7 @@ function cloneIncident(i) {
     ...i,
     lines: [...i.lines],
     vehicleIds: [...i.vehicleIds],
+    operators: [...(i.operators ?? [])],
     anomalies: [...i.anomalies],
     subject: { ...i.subject },
   };
@@ -65,8 +70,10 @@ function newIncidentFor(anomaly, now) {
       subject: { kind: 'operator', operator: anomaly.operator },
       lines: [],
       vehicleIds: [],
+      operators: [],
       startedAt: anomaly.startedAt,
       lastUpdate: anomaly.detectedAt ?? now,
+      stale: false,
       anomalies: [],
     };
   }
@@ -76,8 +83,10 @@ function newIncidentFor(anomaly, now) {
     subject: { kind: 'geographic', latitude: anomaly.latitude, longitude: anomaly.longitude },
     lines: [],
     vehicleIds: [],
+    operators: [],
     startedAt: anomaly.startedAt,
     lastUpdate: anomaly.detectedAt ?? now,
+    stale: false,
     anomalies: [],
   };
 }
@@ -108,14 +117,32 @@ export function clusterIncidents(existingIncidents, newAnomalies, now) {
       incident.subject.longitude = a.longitude;
       if (!incident.vehicleIds.includes(a.vehicleId)) incident.vehicleIds.push(a.vehicleId);
       if (a.line && !incident.lines.includes(a.line)) incident.lines.push(a.line);
+      if (a.operator && !incident.operators.includes(a.operator)) incident.operators.push(a.operator);
     }
   }
 
+  // An operator whose feed is out this poll raised an operator-subject (feed
+  // outage) anomaly above — those operators are "blind". A geographic Incident
+  // whose source operator is blind is frozen and flagged stale: absence of data
+  // is never evidence that a situation resolved (CONTEXT.md § Incident, PRD #84
+  // story 14). The blind set is the live signal, so when the feed recovers (no
+  // outage anomaly this poll) the flag clears and the lifecycle resumes.
+  const blindOperators = new Set(
+    (newAnomalies ?? []).filter(isOperatorAnomaly).map((a) => a.operator),
+  );
+
   // Resolution pass: an open Incident that has gone quiet — no anomaly within
   // QUIET_PERIOD_MS of its lastUpdate — resolves. Incidents that absorbed a
-  // fresh anomaly above kept their lastUpdate current and so stay open.
+  // fresh anomaly above kept their lastUpdate current and so stay open. A stale
+  // (blind-source) geographic Incident is frozen instead — never auto-resolved.
   for (const incident of incidents) {
-    if (incident.status === 'open' && now - incident.lastUpdate >= QUIET_PERIOD_MS) {
+    if (incident.status !== 'open') continue;
+    const stale =
+      incident.subject.kind === 'geographic' &&
+      (incident.operators ?? []).some((op) => blindOperators.has(op));
+    incident.stale = stale;
+    if (stale) continue; // frozen on a blind feed — never auto-resolve
+    if (now - incident.lastUpdate >= QUIET_PERIOD_MS) {
       incident.status = 'resolved';
       incident.resolvedAt = now;
     }
