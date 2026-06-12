@@ -27,7 +27,46 @@ function joinOrDash(values) {
   return values.length > 0 ? values.join(', ') : '—';
 }
 
-export function IncidentDetail({ incident = null }) {
+// Webcam list item. Image-capable cameras show their current still inline
+// (hotlinked; React escapes all attributes — ADR 0004). Linkout cameras show
+// only name + attribution + a link to the source: never an iframe or embed.
+function WebcamItem({ camera, onVerify }) {
+  const isImage = camera.media === 'image' && camera.imageUrl;
+  return (
+    <li className="incident-webcams__item">
+      {isImage && (
+        <img
+          className="incident-webcams__still"
+          src={camera.imageUrl}
+          alt={`Webcam: ${camera.name}`}
+          loading="lazy"
+        />
+      )}
+      <div className="incident-webcams__meta">
+        <span className="incident-webcams__name">{camera.name}</span>
+        <a
+          className="incident-webcams__source"
+          href={camera.pageUrl || camera.imageUrl || ''}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          {camera.attribution || 'Source'} ↗
+        </a>
+      </div>
+      {onVerify && (
+        <button
+          type="button"
+          className="incident-webcams__verify"
+          onClick={() => onVerify(camera)}
+        >
+          Mark as verification
+        </button>
+      )}
+    </li>
+  );
+}
+
+export function IncidentDetail({ incident = null, webcams = [], onVerify = null }) {
   const [highlightedKey, setHighlightedKey] = useState(null);
 
   if (!incident) {
@@ -40,6 +79,18 @@ export function IncidentDetail({ incident = null }) {
 
   const claims = aggregateEvidence(incident);
   const timeline = timelineAnomalies(incident);
+  const verifications = incident.verifications ?? [];
+
+  // Merge Anomalies and Verifications into one chronological timeline so a
+  // human-confirmed Verification is distinguishable from automated detection
+  // yet sits in sequence with it (PRD #84 story 21).
+  const timelineEntries = [
+    ...timeline.map((a) => {
+      const ev = anomalyEvidence(a);
+      return { kind: 'anomaly', time: ev.detectedAt, ev };
+    }),
+    ...verifications.map((v) => ({ kind: 'verification', time: v.verifiedAt, verification: v })),
+  ].sort((a, b) => (a.time ?? 0) - (b.time ?? 0));
 
   return (
     <div className="incident-detail">
@@ -85,8 +136,25 @@ export function IncidentDetail({ incident = null }) {
       <section className="incident-detail__timeline" aria-label="Incident timeline">
         <h3 className="incident-detail__heading">Timeline</h3>
         <ol className="incident-timeline" role="list">
-          {timeline.map((a) => {
-            const ev = anomalyEvidence(a);
+          {timelineEntries.map((entry) => {
+            if (entry.kind === 'verification') {
+              const v = entry.verification;
+              return (
+                <li
+                  key={`verification:${v.webcamId}:${v.verifiedAt}`}
+                  className="incident-timeline__item incident-timeline__item--verification"
+                >
+                  <time
+                    className="incident-timeline__time"
+                    dateTime={v.verifiedAt != null ? new Date(v.verifiedAt).toISOString() : undefined}
+                  >
+                    {formatTime(v.verifiedAt)}
+                  </time>
+                  <span className="incident-timeline__rule">Verified via {v.webcamName}</span>
+                </li>
+              );
+            }
+            const { ev } = entry;
             const highlighted = ev.key === highlightedKey;
             return (
               <li
@@ -113,6 +181,19 @@ export function IncidentDetail({ incident = null }) {
             );
           })}
         </ol>
+      </section>
+
+      <section className="incident-detail__webcams" aria-label="Nearby webcams">
+        <h3 className="incident-detail__heading">Nearby webcams</h3>
+        {webcams.length === 0 ? (
+          <p className="incident-webcams__empty">No webcams within range of this incident.</p>
+        ) : (
+          <ul className="incident-webcams" role="list">
+            {webcams.map((camera) => (
+              <WebcamItem key={camera.id} camera={camera} onVerify={onVerify} />
+            ))}
+          </ul>
+        )}
       </section>
     </div>
   );
