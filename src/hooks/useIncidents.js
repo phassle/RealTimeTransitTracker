@@ -28,6 +28,11 @@ export function useIncidents(vehicles, { now = () => Date.now(), feeds = [] } = 
   const [feedStatuses, setFeedStatuses] = useState(() => operatorFeedStatuses(feeds, OPERATORS));
   const [selectedIncidentId, setSelectedIncidentId] = useState(null);
 
+  // Verifications a human marked, keyed by incident id. Kept here (not on the
+  // clustered Incident, which is rebuilt fresh each poll) so they survive
+  // re-derivation. Each is { webcamId, webcamName, verifiedAt }.
+  const [verificationsById, setVerificationsById] = useState({});
+
   // Replay state. `replayTime` is the scrubbed past moment, or null when live.
   // Session bounds mirror the buffer's rolling window so the scrub control can
   // never imply history outside "since tab open, capped at the window".
@@ -78,10 +83,22 @@ export function useIncidents(vehicles, { now = () => Date.now(), feeds = [] } = 
     returnToLive: () => setReplayTime(null),
   }), [isReplaying, replayTime, sessionRange]);
 
-  const selectedIncident = useMemo(
-    () => incidents.find((i) => i.id === selectedIncidentId) ?? null,
-    [incidents, selectedIncidentId],
-  );
+  const selectedIncident = useMemo(() => {
+    const base = incidents.find((i) => i.id === selectedIncidentId) ?? null;
+    if (!base) return null;
+    return { ...base, verifications: verificationsById[base.id] ?? [] };
+  }, [incidents, selectedIncidentId, verificationsById]);
+
+  // Mark a Webcam as a Verification of the selected Incident; lands on the
+  // Incident's timeline (PRD #84 story 21). No-op if nothing is selected.
+  const verifyWebcam = (camera) => {
+    if (!selectedIncidentId || !camera) return;
+    const entry = { webcamId: camera.id, webcamName: camera.name, verifiedAt: now() };
+    setVerificationsById((prev) => ({
+      ...prev,
+      [selectedIncidentId]: [...(prev[selectedIncidentId] ?? []), entry],
+    }));
+  };
 
   const focus = useMemo(() => {
     if (!selectedIncident) return null;
@@ -112,5 +129,6 @@ export function useIncidents(vehicles, { now = () => Date.now(), feeds = [] } = 
     focus,
     replay,
     displayedVehicles,
+    verifyWebcam,
   };
 }

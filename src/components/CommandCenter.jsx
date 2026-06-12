@@ -1,9 +1,12 @@
+import { useMemo } from 'react';
 import { Map } from './Map';
 import { IncidentInbox } from './IncidentInbox';
 import { IncidentDetail } from './IncidentDetail';
 import { ReplayControls } from './ReplayControls';
 import { FeedStatus } from './FeedStatus';
 import { useIncidents } from '../hooks/useIncidents';
+import { useWebcams } from '../hooks/useWebcams';
+import { nearbyWebcams } from '../services/nearbyWebcams';
 import { SWEDEN_CENTER } from '../config/operators';
 import './CommandCenter.css';
 
@@ -17,7 +20,9 @@ const INCIDENT_FOCUS_ZOOM = 14;
 // `MapComponent` is injectable so tests can assert the focus wiring without a
 // real Leaflet instance. `now` is forwarded to useIncidents for deterministic
 // tests.
-export function CommandCenter({ vehicles = [], feeds = [], theme = 'light', MapComponent = Map, now }) {
+// `cameras` is injectable so tests can supply a fixed webcam list without the
+// fetch; in the app it falls back to the curated/live webcam sources.
+export function CommandCenter({ vehicles = [], feeds = [], theme = 'light', MapComponent = Map, now, cameras: camerasProp }) {
   const {
     incidents,
     feedStatuses,
@@ -27,7 +32,17 @@ export function CommandCenter({ vehicles = [], feeds = [], theme = 'light', MapC
     focus,
     replay,
     displayedVehicles,
+    verifyWebcam,
   } = useIncidents(vehicles, { ...(now ? { now } : {}), feeds });
+
+  // Fetch the webcam list once (only when not injected); no polling, no impact
+  // on the feed budget. Nearby ranking is a pure derivation over the selection.
+  const { cameras: fetchedCameras } = useWebcams(camerasProp === undefined);
+  const cameras = camerasProp ?? fetchedCameras;
+  const nearby = useMemo(
+    () => nearbyWebcams(selectedIncident?.subject, cameras),
+    [selectedIncident, cameras],
+  );
 
   const center = focus ? focus.center : SWEDEN_CENTER;
   const zoom = focus ? INCIDENT_FOCUS_ZOOM : 6;
@@ -55,7 +70,7 @@ export function CommandCenter({ vehicles = [], feeds = [], theme = 'light', MapC
         <ReplayControls replay={replay} />
       </main>
       <aside className="command-center__detail" aria-label="Incident detail">
-        <IncidentDetail incident={selectedIncident} />
+        <IncidentDetail incident={selectedIncident} webcams={nearby} onVerify={verifyWebcam} />
       </aside>
     </div>
   );

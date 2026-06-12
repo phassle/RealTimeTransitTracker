@@ -104,6 +104,40 @@ describe('CommandCenter', () => {
     expect(within(statusPanel).getAllByText(/not watched/i).length).toBeGreaterThan(0);
   });
 
+  it('lists nearby webcams for the selected Incident and records a Verification on its timeline', () => {
+    const { FakeMap } = makeFakeMap();
+    let t = 0;
+    const now = () => t;
+
+    // A traffic camera near the stuck bus (59.3293, 18.0686).
+    const cameras = [
+      {
+        id: 'trafikverket:1', name: 'E4 Norrtull', type: 'traffic', media: 'image',
+        lat: 59.335, lon: 18.07, imageUrl: 'https://cam.example.com/e4.jpg',
+        pageUrl: 'https://cam.example.com/e4', source: 'trafikverket', attribution: 'Trafikverket',
+      },
+    ];
+
+    const { rerender } = render(
+      <CommandCenter vehicles={stuck()} MapComponent={FakeMap} now={now} cameras={cameras} />,
+    );
+    act(() => { t = 6 * MIN; });
+    rerender(<CommandCenter vehicles={stuck()} MapComponent={FakeMap} now={now} cameras={cameras} />);
+
+    fireEvent.click(screen.getByRole('button', { name: /Line 4/ }));
+
+    // Nearby webcam appears in the detail panel.
+    const webcamSection = screen.getByLabelText('Nearby webcams');
+    expect(within(webcamSection).getByText('E4 Norrtull')).toBeDefined();
+
+    // Mark it as a Verification; it lands on the timeline naming the webcam.
+    act(() => { t = 7 * MIN; });
+    fireEvent.click(within(webcamSection).getByRole('button', { name: /mark as verification/i }));
+
+    const timeline = screen.getByLabelText('Incident timeline');
+    expect(within(timeline).getByText(/Verified via E4 Norrtull/)).toBeDefined();
+  });
+
   it('scrubbing renders past positions and shows the past-mode indicator', () => {
     const { FakeMap, props } = makeFakeMap();
     let t = 0;
