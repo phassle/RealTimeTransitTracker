@@ -9,13 +9,17 @@
 // Sources wired up:
 //   - Trafikverket (~450 traffic cameras, media:image)
 //   - webcamcollections (curated hand-geocoded checked-in JSON, media:linkout)
-// Windy lands in a later slice.
+//   - Windy (Sweden-filtered, media:linkout — terms do not permit static
+//     previews outside their player, per the HITL ruling for issue #72)
 
 import curatedDataset from '../../public/data/curated-cameras.json';
 import { validateCuratedDataset } from './curatedCameras';
 
 const TRAFIKVERKET_ENDPOINT = 'https://api.trafikinfo.trafikverket.se/v2/data.json';
 const TRAFIKVERKET_ATTRIBUTION = 'Trafikverket';
+
+const WINDY_ENDPOINT = 'https://api.windy.com/webcams/api/v3/webcams';
+const WINDY_ATTRIBUTION = 'Windy.com';
 
 function trafikverketQuery(key) {
   return (
@@ -90,6 +94,62 @@ async function fetchTrafikverketCameras() {
   }
 }
 
+// Windy Webcam API v3 — Sweden-filtered cameras, media:linkout.
+// Windy's terms do not permit displaying static preview images outside their
+// embedded player (HITL ruling, issue #72). Cameras are included as linkout:
+// name + location + link to the Windy page; no image is fetched at view time.
+// VITE_WINDY_API_KEY is optional; if absent the source silently yields zero
+// cameras without surfacing an error.
+export function normalizeWindyCamera(raw) {
+  if (!raw) return null;
+  const lat = raw.location?.latitude;
+  const lon = raw.location?.longitude;
+  if (lat == null || lon == null) return null;
+  const parsedLat = parseFloat(lat);
+  const parsedLon = parseFloat(lon);
+  if (isNaN(parsedLat) || isNaN(parsedLon)) return null;
+  return {
+    id: `windy:${raw.webcamId}`,
+    name: raw.title || '',
+    type: 'weather',
+    media: 'linkout',
+    lat: parsedLat,
+    lon: parsedLon,
+    imageUrl: null,
+    pageUrl: raw.urls?.detail || null,
+    source: 'windy',
+    attribution: WINDY_ATTRIBUTION,
+    lastUpdated: raw.lastUpdatedOn || null,
+  };
+}
+
+async function fetchWindyCameras() {
+  const apiKey = import.meta.env?.VITE_WINDY_API_KEY;
+  if (!apiKey) {
+    return { cameras: [], error: null };
+  }
+  try {
+    const response = await fetch(
+      `${WINDY_ENDPOINT}?country=SE&limit=500&include=location,urls&lang=en`,
+      { headers: { 'x-windy-api-key': apiKey } }
+    );
+    if (!response.ok) {
+      return { cameras: [], error: `HTTP ${response.status}` };
+    }
+    const data = await response.json();
+    const raw = data?.webcams;
+    if (!Array.isArray(raw)) {
+      return { cameras: [], error: 'malformed response' };
+    }
+    return {
+      cameras: raw.map(normalizeWindyCamera).filter(Boolean),
+      error: null,
+    };
+  } catch (e) {
+    return { cameras: [], error: e?.message || String(e) };
+  }
+}
+
 // Curated webcamcollections cameras are a checked-in JSON dataset; "fetch"
 // here is a synchronous pass-through wrapped in a promise so it composes with
 // the other source adapters. Validation runs once and a malformed dataset
@@ -106,6 +166,7 @@ async function fetchCuratedCameras() {
 const SOURCES = [
   { source: 'trafikverket', fetch: fetchTrafikverketCameras },
   { source: 'webcamcollections', fetch: fetchCuratedCameras },
+  { source: 'windy', fetch: fetchWindyCameras },
 ];
 
 /**
