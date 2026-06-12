@@ -1,9 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import {
   detectStationaryAnomalies,
+  learnDwellSpots,
   distanceMeters,
   STATIONARY_DURATION_MS,
   DISPLACEMENT_THRESHOLD_M,
+  DWELL_MIN_DISTINCT_VEHICLES,
 } from './anomalyRules';
 
 const MIN = 60 * 1000;
@@ -87,5 +89,77 @@ describe('detectStationaryAnomalies — stationary on active trip', () => {
       return vehicle({ latitude: 59.3293 + jitter });
     });
     expect(detectStationaryAnomalies(snaps, 6 * MIN)).toHaveLength(1);
+  });
+});
+
+// Two locations: A is a habitual stop (terminal), B is far away (~8 km).
+const SPOT_A = { latitude: 59.33, longitude: 18.07 };
+const SPOT_B = { latitude: 59.4, longitude: 18.2 };
+
+function veh(id, pos) {
+  return {
+    id,
+    operator: 'sl',
+    line: '4',
+    tripId: `trip-${id}`,
+    latitude: pos.latitude,
+    longitude: pos.longitude,
+  };
+}
+
+describe('learnDwellSpots — session-learned suppression zones', () => {
+  it('learns a Dwell spot where many distinct vehicles have stood still', () => {
+    // three distinct vehicles each stand at A across two consecutive snapshots
+    const snaps = [
+      { time: 0, vehicles: [veh('v1', SPOT_A), veh('v2', SPOT_A), veh('v3', SPOT_A)] },
+      { time: 3 * MIN, vehicles: [veh('v1', SPOT_A), veh('v2', SPOT_A), veh('v3', SPOT_A)] },
+    ];
+    const spots = learnDwellSpots(snaps);
+    expect(spots).toHaveLength(1);
+    expect(spots[0].distinctVehicles).toBe(DWELL_MIN_DISTINCT_VEHICLES);
+    expect(
+      distanceMeters(spots[0].latitude, spots[0].longitude, SPOT_A.latitude, SPOT_A.longitude),
+    ).toBeLessThan(10);
+  });
+
+  it('does not learn a spot where only one vehicle has stood (a real stall)', () => {
+    const snaps = [
+      { time: 0, vehicles: [veh('stuck', SPOT_B)] },
+      { time: 3 * MIN, vehicles: [veh('stuck', SPOT_B)] },
+      { time: 6 * MIN, vehicles: [veh('stuck', SPOT_B)] },
+    ];
+    expect(learnDwellSpots(snaps)).toHaveLength(0);
+  });
+});
+
+describe('detectStationaryAnomalies — Dwell spot suppression', () => {
+  it('suppresses a stationary detection at a learned Dwell spot', () => {
+    // history establishes A as a Dwell spot; a fourth vehicle now stands there
+    const snaps = [
+      { time: 0, vehicles: [veh('v1', SPOT_A), veh('v2', SPOT_A), veh('v3', SPOT_A), veh('v4', SPOT_A)] },
+      { time: 3 * MIN, vehicles: [veh('v1', SPOT_A), veh('v2', SPOT_A), veh('v3', SPOT_A), veh('v4', SPOT_A)] },
+      { time: 6 * MIN, vehicles: [veh('v4', SPOT_A)] },
+    ];
+    const dwellSpots = learnDwellSpots(snaps);
+    expect(detectStationaryAnomalies(snaps, 6 * MIN, { dwellSpots })).toHaveLength(0);
+  });
+
+  it('still flags a stationary vehicle away from any Dwell spot', () => {
+    // A is a Dwell spot (v1..v3); 'stuck' stands at far-away B beyond threshold
+    const snaps = [
+      { time: 0, vehicles: [veh('v1', SPOT_A), veh('v2', SPOT_A), veh('v3', SPOT_A), veh('stuck', SPOT_B)] },
+      { time: 3 * MIN, vehicles: [veh('v1', SPOT_A), veh('v2', SPOT_A), veh('v3', SPOT_A), veh('stuck', SPOT_B)] },
+      { time: 6 * MIN, vehicles: [veh('stuck', SPOT_B)] },
+    ];
+    const dwellSpots = learnDwellSpots(snaps);
+    expect(dwellSpots).toHaveLength(1); // only A learned
+    const anomalies = detectStationaryAnomalies(snaps, 6 * MIN, { dwellSpots });
+    expect(anomalies).toHaveLength(1);
+    expect(anomalies[0].vehicleId).toBe('stuck');
+  });
+
+  it('flags as usual when no Dwell spots are supplied', () => {
+    const snaps = track([0, 3 * MIN, 6 * MIN], () => vehicle());
+    expect(detectStationaryAnomalies(snaps, 6 * MIN, { dwellSpots: [] })).toHaveLength(1);
   });
 });

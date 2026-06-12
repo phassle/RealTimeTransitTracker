@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { createObservationBuffer } from '../services/observationBuffer';
-import { detectStationaryAnomalies } from '../services/anomalyRules';
+import { detectStationaryAnomalies, learnDwellSpots } from '../services/anomalyRules';
 import { detectFeedOutageAnomalies } from '../services/feedOutageRules';
 import { clusterIncidents } from '../services/incidentClustering';
 import { operatorFeedStatuses } from '../services/feedStatus';
@@ -47,8 +47,11 @@ export function useIncidents(vehicles, { now = () => Date.now(), feeds = [] } = 
     const currentFeeds = feedsRef.current;
     bufferRef.current.append({ time: t, vehicles, feeds: currentFeeds });
     const snapshots = bufferRef.current.snapshots();
+    // Dwell spots are learned from the session buffer and suppress stationary
+    // detections at habitual stops (terminals, depots) — PRD #84 story 7.
+    const dwellSpots = learnDwellSpots(snapshots);
     const anomalies = [
-      ...detectStationaryAnomalies(snapshots, t),
+      ...detectStationaryAnomalies(snapshots, t, { dwellSpots }),
       ...detectFeedOutageAnomalies(snapshots, t),
     ];
     const next = clusterIncidents(incidentsRef.current, anomalies, t);
@@ -111,7 +114,10 @@ export function useIncidents(vehicles, { now = () => Date.now(), feeds = [] } = 
       bufferRef.current.importRecording(input); // throws on invalid; no mutation
       const range = bufferRef.current.range();
       const t = range ? range.end : now();
-      const anomalies = detectStationaryAnomalies(bufferRef.current.snapshots(), t);
+      const snapshots = bufferRef.current.snapshots();
+      const anomalies = detectStationaryAnomalies(snapshots, t, {
+        dwellSpots: learnDwellSpots(snapshots),
+      });
       const next = clusterIncidents([], anomalies, t);
       incidentsRef.current = next;
       setIncidents(next);
