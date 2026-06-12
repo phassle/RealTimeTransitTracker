@@ -14,6 +14,7 @@ export function ControlPanel({
   onModeToggle = () => {},
   availableLines = {},
   selectedLines = [],
+  isLineSelected = () => false,
   onLineToggle = () => {},
   onClearLines = () => {},
   operators = [],
@@ -56,8 +57,6 @@ export function ControlPanel({
     }
     return filtered;
   }, [availableLines, lineSearch]);
-
-  const selectedLineSet = useMemo(() => new Set(selectedLines), [selectedLines]);
 
   return (
     <div className={`control-panel ${collapsed ? 'collapsed' : ''}`}>
@@ -211,22 +210,17 @@ export function ControlPanel({
 
                 {selectedLines.length > 0 && (
                   <div className="selected-lines">
-                    {selectedLines.map(key => {
-                      const sepIdx = key.indexOf(':');
-                      const mode = key.slice(0, sepIdx);
-                      const line = key.slice(sepIdx + 1);
-                      return (
-                        <span
-                          key={key}
-                          className="line-chip selected"
-                          style={{ borderColor: MODE_COLOR_MAP[mode] || '#888' }}
-                          onClick={() => onLineToggle(mode, line)}
-                        >
-                          {line}
-                          <span className="line-chip-remove">&times;</span>
-                        </span>
-                      );
-                    })}
+                    {selectedLines.map(({ mode, line }) => (
+                      <span
+                        key={`${mode}:${line}`}
+                        className="line-chip selected"
+                        style={{ borderColor: MODE_COLOR_MAP[mode] || '#888' }}
+                        onClick={() => onLineToggle(mode, line)}
+                      >
+                        {line}
+                        <span className="line-chip-remove">&times;</span>
+                      </span>
+                    ))}
                     <button className="clear-lines-btn" onClick={onClearLines}>
                       Clear all
                     </button>
@@ -245,13 +239,12 @@ export function ControlPanel({
                       </div>
                       <div className="line-group-chips">
                         {lines.map(({ line, count }) => {
-                          const key = `${mode}:${line}`;
-                          const isSelected = selectedLineSet.has(key);
+                          const selected = isLineSelected(mode, line);
                           return (
                             <span
-                              key={key}
-                              className={`line-chip ${isSelected ? 'selected' : ''}`}
-                              style={isSelected ? { borderColor: MODE_COLOR_MAP[mode] || '#888' } : {}}
+                              key={`${mode}:${line}`}
+                              className={`line-chip ${selected ? 'selected' : ''}`}
+                              style={selected ? { borderColor: MODE_COLOR_MAP[mode] || '#888' } : {}}
                               onClick={() => onLineToggle(mode, line)}
                               title={`${count} vehicle${count !== 1 ? 's' : ''}`}
                             >
