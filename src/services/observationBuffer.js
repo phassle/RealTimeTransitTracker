@@ -13,11 +13,15 @@ export function createObservationBuffer({ windowMs = DEFAULT_WINDOW_MS } = {}) {
   return {
     /**
      * Append a snapshot and trim anything outside the rolling window.
-     * @param {{ time: number, vehicles: object[] }} snapshot
+     * `feeds` are the per-operator fetch outcomes for this poll
+     * ({ operator, ok, vehicleCount, dataTimestamp }); the feed-outage rules
+     * read them across the window. No new feed calls — these are recorded from
+     * the polling that already happens.
+     * @param {{ time: number, vehicles: object[], feeds?: object[] }} snapshot
      * @returns {number} the number of snapshots retained
      */
-    append({ time, vehicles }) {
-      snapshots.push({ time, vehicles: vehicles ?? [] });
+    append({ time, vehicles, feeds }) {
+      snapshots.push({ time, vehicles: vehicles ?? [], feeds: feeds ?? [] });
       const cutoff = time - windowMs;
       snapshots = snapshots.filter(s => s.time >= cutoff);
       return snapshots.length;

@@ -43,6 +43,33 @@ describe('IncidentDetail', () => {
     expect(screen.getByRole('status')).toBeDefined();
   });
 
+  it('presents an operator-subject (feed outage) incident as a data problem', () => {
+    const outageAnomaly = {
+      ruleId: 'feed-fetch-failure',
+      subjectKind: 'operator',
+      operator: 'sl',
+      measuredFailures: 3,
+      thresholdFailures: 3,
+      startedAt: T0,
+      detectedAt: T0 + 6 * MIN,
+    };
+    const outage = {
+      id: 'feed-outage:sl:0',
+      status: 'open',
+      subject: { kind: 'operator', operator: 'sl' },
+      lines: [],
+      vehicleIds: [],
+      startedAt: T0,
+      lastUpdate: T0 + 6 * MIN,
+      anomalies: [outageAnomaly],
+    };
+    render(<IncidentDetail incident={outage} />);
+    expect(screen.getByText(/Feed outage/)).toBeDefined();
+    expect(screen.getByText(/SL/)).toBeDefined();
+    expect(screen.getByText(/data problem/i)).toBeDefined();
+    expect(screen.getAllByText('Feed fetch failures').length).toBeGreaterThan(0);
+  });
+
   // Scenario: Evidence renders structured
   it('renders, for each contributing rule, the rule, threshold, measured value, affected vehicles/lines and start time', () => {
     render(<IncidentDetail incident={incident([anomaly()])} />);

@@ -105,3 +105,23 @@
   font-size: 0.85rem;
   color: var(--text-muted, #888);
 }
+
+/* Operator-subject (feed outage) header — a data problem, no ground geometry. */
+.incident-detail__subject--operator {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+  margin-bottom: 8px;
+  border-left: 3px solid #c77dff;
+  background: rgba(199, 125, 255, 0.08);
+}
+
+.incident-detail__subject-title {
+  font-weight: 700;
+}
+
+.incident-detail__subject-note {
+  font-size: 0.8rem;
+  color: var(--text-muted, #888);
+}

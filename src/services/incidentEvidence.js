@@ -19,6 +19,21 @@ const RULE_DESCRIPTORS = {
     threshold: (a) => formatDurationMs(a.thresholdMs),
     measured: (a) => formatDurationMs(a.measuredStationaryMs),
   },
+  'feed-fetch-failure': {
+    label: 'Feed fetch failures',
+    threshold: (a) => `${a.thresholdFailures} consecutive`,
+    measured: (a) => `${a.measuredFailures} failed fetches`,
+  },
+  'feed-frozen-timestamps': {
+    label: 'Feed data frozen',
+    threshold: (a) => formatDurationMs(a.thresholdMs),
+    measured: (a) => formatDurationMs(a.measuredFrozenMs),
+  },
+  'feed-vehicle-collapse': {
+    label: 'Vehicle count collapse',
+    threshold: (a) => `≤ ${Math.round(a.baselineCount * a.collapseRatio)} of ${a.baselineCount}`,
+    measured: (a) => `${a.measuredCount} vehicles`,
+  },
 };
 
 export function ruleLabel(ruleId) {
@@ -33,9 +48,10 @@ function measuredOf(a) {
   return RULE_DESCRIPTORS[a.ruleId]?.measured?.(a) ?? null;
 }
 
-/** Stable identity for an Anomaly within one Incident's timeline. */
+/** Stable identity for an Anomaly within one Incident's timeline. Operator-
+ * subject anomalies carry no vehicleId, so they key on the operator instead. */
 export function anomalyKey(a) {
-  return `${a.ruleId}:${a.vehicleId}:${a.detectedAt}`;
+  return `${a.ruleId}:${a.vehicleId ?? a.operator}:${a.detectedAt}`;
 }
 
 /**

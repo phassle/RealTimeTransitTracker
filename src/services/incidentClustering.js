@@ -30,20 +30,56 @@ function cloneIncident(i) {
   };
 }
 
+function isOperatorAnomaly(anomaly) {
+  return anomaly.subjectKind === 'operator';
+}
+
 function matches(incident, anomaly) {
   if (incident.status !== 'open') return false;
-  if (incident.vehicleIds.includes(anomaly.vehicleId)) return true;
-  if (incident.subject.kind === 'geographic') {
-    return (
-      distanceMeters(
-        incident.subject.latitude,
-        incident.subject.longitude,
-        anomaly.latitude,
-        anomaly.longitude,
-      ) <= PROXIMITY_THRESHOLD_M
-    );
+
+  // Operator-subject (feed outage) anomalies fold by operator identity ONLY —
+  // they carry no ground geometry, so they never merge with geographic
+  // Incidents by proximity, and vice versa.
+  if (isOperatorAnomaly(anomaly)) {
+    return incident.subject.kind === 'operator' && incident.subject.operator === anomaly.operator;
   }
-  return false;
+  if (incident.subject.kind !== 'geographic') return false;
+
+  if (incident.vehicleIds.includes(anomaly.vehicleId)) return true;
+  return (
+    distanceMeters(
+      incident.subject.latitude,
+      incident.subject.longitude,
+      anomaly.latitude,
+      anomaly.longitude,
+    ) <= PROXIMITY_THRESHOLD_M
+  );
+}
+
+function newIncidentFor(anomaly, now) {
+  if (isOperatorAnomaly(anomaly)) {
+    return {
+      // startedAt keeps the id unique across recurrences of the same operator's outage.
+      id: `feed-outage:${anomaly.operator}:${anomaly.startedAt}`,
+      status: 'open',
+      subject: { kind: 'operator', operator: anomaly.operator },
+      lines: [],
+      vehicleIds: [],
+      startedAt: anomaly.startedAt,
+      lastUpdate: anomaly.detectedAt ?? now,
+      anomalies: [],
+    };
+  }
+  return {
+    id: `stationary:${anomaly.vehicleId}:${anomaly.startedAt}`,
+    status: 'open',
+    subject: { kind: 'geographic', latitude: anomaly.latitude, longitude: anomaly.longitude },
+    lines: [],
+    vehicleIds: [],
+    startedAt: anomaly.startedAt,
+    lastUpdate: anomaly.detectedAt ?? now,
+    anomalies: [],
+  };
 }
 
 /**
@@ -59,27 +95,20 @@ export function clusterIncidents(existingIncidents, newAnomalies, now) {
     let incident = incidents.find((i) => matches(i, a));
 
     if (!incident) {
-      incident = {
-        // startedAt keeps the id unique across recurrences: a resolved Incident
-        // and a fresh one for the same vehicle can coexist in the inbox.
-        id: `stationary:${a.vehicleId}:${a.startedAt}`,
-        status: 'open',
-        subject: { kind: 'geographic', latitude: a.latitude, longitude: a.longitude },
-        lines: [],
-        vehicleIds: [],
-        startedAt: a.startedAt,
-        lastUpdate: a.detectedAt ?? now,
-        anomalies: [],
-      };
+      incident = newIncidentFor(a, now);
       incidents.push(incident);
     }
 
     incident.anomalies.push(a);
     incident.lastUpdate = a.detectedAt ?? now;
-    incident.subject.latitude = a.latitude;
-    incident.subject.longitude = a.longitude;
-    if (!incident.vehicleIds.includes(a.vehicleId)) incident.vehicleIds.push(a.vehicleId);
-    if (a.line && !incident.lines.includes(a.line)) incident.lines.push(a.line);
+    // Operator-subject Incidents carry no ground geometry, lines, or vehicles —
+    // they are presented as data problems, not traffic on the ground.
+    if (incident.subject.kind === 'geographic') {
+      incident.subject.latitude = a.latitude;
+      incident.subject.longitude = a.longitude;
+      if (!incident.vehicleIds.includes(a.vehicleId)) incident.vehicleIds.push(a.vehicleId);
+      if (a.line && !incident.lines.includes(a.line)) incident.lines.push(a.line);
+    }
   }
 
   // Resolution pass: an open Incident that has gone quiet — no anomaly within

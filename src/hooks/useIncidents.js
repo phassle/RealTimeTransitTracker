@@ -1,7 +1,10 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { createObservationBuffer } from '../services/observationBuffer';
 import { detectStationaryAnomalies } from '../services/anomalyRules';
+import { detectFeedOutageAnomalies } from '../services/feedOutageRules';
 import { clusterIncidents } from '../services/incidentClustering';
+import { operatorFeedStatuses } from '../services/feedStatus';
+import { OPERATORS, OPERATOR_MAP, SWEDEN_CENTER } from '../config/operators';
 
 // useIncidents — wires the polling output (vehicle snapshots) through the
 // command-center pipeline: observation buffer → anomaly rules → incident
@@ -10,12 +13,19 @@ import { clusterIncidents } from '../services/incidentClustering';
 //
 // Selecting an Incident exposes a `focus` (map centre + involved vehicle ids)
 // so the view can focus the map on the subject and highlight the vehicles.
-export function useIncidents(vehicles, { now = () => Date.now() } = {}) {
+export function useIncidents(vehicles, { now = () => Date.now(), feeds = [] } = {}) {
   const bufferRef = useRef(null);
   if (!bufferRef.current) bufferRef.current = createObservationBuffer();
 
+  // Latest per-operator fetch outcomes, read inside the poll effect. Kept in a
+  // ref so the effect (keyed on the vehicles reference, which changes with each
+  // poll) always sees the matching feeds without a stale closure.
+  const feedsRef = useRef(feeds);
+  feedsRef.current = feeds;
+
   const incidentsRef = useRef([]);
   const [incidents, setIncidents] = useState([]);
+  const [feedStatuses, setFeedStatuses] = useState(() => operatorFeedStatuses(feeds, OPERATORS));
   const [selectedIncidentId, setSelectedIncidentId] = useState(null);
 
   // Replay state. `replayTime` is the scrubbed past moment, or null when live.
@@ -29,11 +39,17 @@ export function useIncidents(vehicles, { now = () => Date.now() } = {}) {
   // `now` is read inside the effect; it is intentionally not a dep.
   useEffect(() => {
     const t = now();
-    bufferRef.current.append({ time: t, vehicles });
-    const anomalies = detectStationaryAnomalies(bufferRef.current.snapshots(), t);
+    const currentFeeds = feedsRef.current;
+    bufferRef.current.append({ time: t, vehicles, feeds: currentFeeds });
+    const snapshots = bufferRef.current.snapshots();
+    const anomalies = [
+      ...detectStationaryAnomalies(snapshots, t),
+      ...detectFeedOutageAnomalies(snapshots, t),
+    ];
     const next = clusterIncidents(incidentsRef.current, anomalies, t);
     incidentsRef.current = next;
     setIncidents(next);
+    setFeedStatuses(operatorFeedStatuses(currentFeeds, OPERATORS));
     setSessionRange(bufferRef.current.range());
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [vehicles]);
@@ -69,14 +85,27 @@ export function useIncidents(vehicles, { now = () => Date.now() } = {}) {
 
   const focus = useMemo(() => {
     if (!selectedIncident) return null;
+    const subject = selectedIncident.subject;
+    // Operator-subject (feed outage) Incidents carry no ground geometry: indicate
+    // the operator's REGION, never a traffic point, and present as a data problem.
+    if (subject.kind === 'operator') {
+      const op = OPERATOR_MAP.get(subject.operator);
+      return {
+        center: op ? op.center : SWEDEN_CENTER,
+        vehicleIds: [],
+        isDataProblem: true,
+      };
+    }
     return {
-      center: [selectedIncident.subject.latitude, selectedIncident.subject.longitude],
+      center: [subject.latitude, subject.longitude],
       vehicleIds: selectedIncident.vehicleIds,
+      isDataProblem: false,
     };
   }, [selectedIncident]);
 
   return {
     incidents,
+    feedStatuses,
     selectedIncidentId,
     selectIncident: setSelectedIncidentId,
     selectedIncident,

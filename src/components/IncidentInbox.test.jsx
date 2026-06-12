@@ -66,6 +66,22 @@ describe('IncidentInbox', () => {
     expect(rows[1].textContent).toContain('Line 9');
   });
 
+  it('renders an operator-subject (feed outage) incident as a data problem, not a line/vehicle row', () => {
+    const outage = incident({
+      id: 'feed-outage:sl:0',
+      subject: { kind: 'operator', operator: 'sl' },
+      lines: [],
+      vehicleIds: [],
+    });
+    render(<IncidentInbox incidents={[outage]} />);
+
+    expect(screen.getByText(/Feed outage/)).toBeDefined();
+    expect(screen.getByText(/SL/)).toBeDefined(); // operator name
+    // no traffic facts: it has no lines or vehicle count
+    expect(screen.queryByText(/vehicle/)).toBeNull();
+    expect(screen.queryByText(/Line/)).toBeNull();
+  });
+
   it('marks resolved rows so they read as inactive', () => {
     const resolved = incident({ id: 'r', status: 'resolved' });
     render(<IncidentInbox incidents={[resolved]} />);

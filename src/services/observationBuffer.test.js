@@ -32,6 +32,19 @@ describe('observationBuffer', () => {
     expect(buf.snapshots()[0].vehicles).toEqual([]);
   });
 
+  it('records per-operator fetch outcomes (feeds) on the snapshot', () => {
+    const buf = createObservationBuffer();
+    const feeds = [{ operator: 'sl', ok: true, vehicleCount: 12, dataTimestamp: 1000 }];
+    buf.append({ time: 1, vehicles: [v('a')], feeds });
+    expect(buf.snapshots()[0].feeds).toEqual(feeds);
+  });
+
+  it('defaults feeds to an empty array', () => {
+    const buf = createObservationBuffer();
+    buf.append({ time: 1, vehicles: [v('a')] });
+    expect(buf.snapshots()[0].feeds).toEqual([]);
+  });
+
   it('exposes a default ~30 min window', () => {
     expect(DEFAULT_WINDOW_MS).toBe(30 * 60 * 1000);
   });

@@ -2,6 +2,7 @@ import { Map } from './Map';
 import { IncidentInbox } from './IncidentInbox';
 import { IncidentDetail } from './IncidentDetail';
 import { ReplayControls } from './ReplayControls';
+import { FeedStatus } from './FeedStatus';
 import { useIncidents } from '../hooks/useIncidents';
 import { SWEDEN_CENTER } from '../config/operators';
 import './CommandCenter.css';
@@ -16,16 +17,17 @@ const INCIDENT_FOCUS_ZOOM = 14;
 // `MapComponent` is injectable so tests can assert the focus wiring without a
 // real Leaflet instance. `now` is forwarded to useIncidents for deterministic
 // tests.
-export function CommandCenter({ vehicles = [], theme = 'light', MapComponent = Map, now }) {
+export function CommandCenter({ vehicles = [], feeds = [], theme = 'light', MapComponent = Map, now }) {
   const {
     incidents,
+    feedStatuses,
     selectedIncidentId,
     selectIncident,
     selectedIncident,
     focus,
     replay,
     displayedVehicles,
-  } = useIncidents(vehicles, now ? { now } : undefined);
+  } = useIncidents(vehicles, { ...(now ? { now } : {}), feeds });
 
   const center = focus ? focus.center : SWEDEN_CENTER;
   const zoom = focus ? INCIDENT_FOCUS_ZOOM : 6;
@@ -40,6 +42,7 @@ export function CommandCenter({ vehicles = [], theme = 'light', MapComponent = M
           selectedIncidentId={selectedIncidentId}
           onSelect={selectIncident}
         />
+        <FeedStatus statuses={feedStatuses} />
       </aside>
       <main className="command-center__map">
         <MapComponent

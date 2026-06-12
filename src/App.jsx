@@ -44,7 +44,7 @@ function App() {
     return getVisibleOperators(viewportBounds);
   }, [viewportBounds]);
 
-  const { vehicles: allVehicles, error, loading, lastUpdate, refresh, activeOperators, effectiveInterval } =
+  const { vehicles: allVehicles, feedOutcomes, error, loading, lastUpdate, refresh, activeOperators, effectiveInterval } =
     useRealtimeVehicles(visibleOperators, 2000, isOnline);
 
   const {
@@ -100,7 +100,7 @@ function App() {
   if (view === 'command') {
     return (
       <div style={{ position: 'relative', width: '100%', height: '100%' }}>
-        <CommandCenter vehicles={allVehicles} theme={theme} />
+        <CommandCenter vehicles={allVehicles} feeds={feedOutcomes} theme={theme} />
         {viewToggle}
         <OfflineBanner isOnline={isOnline} />
         <PrivacyNotice />
