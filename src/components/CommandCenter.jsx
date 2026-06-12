@@ -4,6 +4,7 @@ import { IncidentInbox } from './IncidentInbox';
 import { IncidentDetail } from './IncidentDetail';
 import { ReplayControls } from './ReplayControls';
 import { FeedStatus } from './FeedStatus';
+import { RecordingControls } from './RecordingControls';
 import { useIncidents } from '../hooks/useIncidents';
 import { useWebcams } from '../hooks/useWebcams';
 import { nearbyWebcams } from '../services/nearbyWebcams';
@@ -31,6 +32,7 @@ export function CommandCenter({ vehicles = [], feeds = [], theme = 'light', MapC
     selectedIncident,
     focus,
     replay,
+    recording,
     displayedVehicles,
     verifyWebcam,
   } = useIncidents(vehicles, { ...(now ? { now } : {}), feeds });
@@ -68,6 +70,7 @@ export function CommandCenter({ vehicles = [], feeds = [], theme = 'light', MapC
           highlightedVehicleIds={highlightedVehicleIds}
         />
         <ReplayControls replay={replay} />
+        <RecordingControls recording={recording} />
       </main>
       <aside className="command-center__detail" aria-label="Incident detail">
         <IncidentDetail incident={selectedIncident} webcams={nearby} onVerify={verifyWebcam} />
