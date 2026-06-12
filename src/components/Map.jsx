@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { tileLayerConfig } from './tileLayerConfig';
@@ -16,8 +16,15 @@ export function Map({ vehicles = [], cameras = [], center = [59.3293, 18.0686], 
   // Highlight set is read live by the adapter so selection changes are reflected.
   const highlightRef = useRef(new Set());
   highlightRef.current = new Set(highlightedVehicleIds);
+  // Current zoom, read live by the adapter; mapZoom state re-triggers the
+  // marker-update effect so existing markers swap compact/full icons on zoom.
+  const zoomRef = useRef(zoom);
+  const [mapZoom, setMapZoom] = useState(zoom);
   const vehicleAdapterRef = useRef(
-    createVehicleAdapter({ isHighlighted: (id) => highlightRef.current.has(id) }),
+    createVehicleAdapter({
+      isHighlighted: (id) => highlightRef.current.has(id),
+      getZoom: () => zoomRef.current,
+    }),
   );
   const webcamCollectionRef = useRef(null);
   const webcamAdapterRef = useRef(createWebcamAdapter());
@@ -73,6 +80,10 @@ export function Map({ vehicles = [], cameras = [], center = [59.3293, 18.0686], 
 
       map.on('moveend', reportBounds);
       map.on('zoomend', reportBounds);
+      map.on('zoomend', () => {
+        zoomRef.current = map.getZoom();
+        setMapZoom(map.getZoom());
+      });
       reportBounds(); // initial bounds
     }
 
@@ -105,11 +116,11 @@ export function Map({ vehicles = [], cameras = [], center = [59.3293, 18.0686], 
   }, [center, zoom]);
 
   // Update vehicle markers via the marker-collection module. Re-runs when the
-  // highlight set changes too, so existing markers refresh their highlight icon.
+  // highlight set or zoom changes too, so existing markers refresh their icon.
   const highlightKey = highlightedVehicleIds.join(',');
   useEffect(() => {
     vehicleCollectionRef.current?.update(vehicles, vehicleAdapterRef.current);
-  }, [vehicles, highlightKey]);
+  }, [vehicles, highlightKey, mapZoom]);
 
   // Update webcam markers via the marker-collection module (webcam adapter).
   useEffect(() => {

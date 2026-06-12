@@ -18,16 +18,44 @@ export function vehiclePopupContent(vehicle) {
   `;
 }
 
+// Below this zoom, vehicles render as small dots (no line label) so dense
+// regions stay readable. Highlighted vehicles always render full-size.
+export const FULL_MARKER_MIN_ZOOM = 12;
+
 /**
- * @param {{ isHighlighted?: (vehicleId: string) => boolean }} [opts]
+ * @param {{ isHighlighted?: (vehicleId: string) => boolean, getZoom?: () => number }} [opts]
  *   isHighlighted lets the command-center view highlight vehicles involved in a
  *   selected Incident. Default: nothing highlighted (existing map view behaviour).
+ *   getZoom supplies the current map zoom; below FULL_MARKER_MIN_ZOOM markers
+ *   render compact. Default: always full-size.
  */
-export function createVehicleAdapter({ isHighlighted = () => false } = {}) {
+export function createVehicleAdapter({ isHighlighted = () => false, getZoom = () => FULL_MARKER_MIN_ZOOM } = {}) {
+  function buildCompactIcon(color) {
+    return L.divIcon({
+      className: 'vehicle-marker vehicle-marker--compact',
+      html: `
+          <div style="
+            background: ${color};
+            border: 1px solid white;
+            border-radius: 50%;
+            width: 8px;
+            height: 8px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.3);
+            cursor: pointer;
+          "></div>
+        `,
+      iconSize: [10, 10],
+      iconAnchor: [5, 5],
+    });
+  }
+
   function buildIcon(vehicle) {
     const color = MODE_COLORS[vehicle.mode] || MODE_COLORS.unknown;
     const icon = MODE_ICONS[vehicle.mode] || MODE_ICONS.unknown;
     const highlighted = isHighlighted(vehicle.id);
+    if (!highlighted && getZoom() < FULL_MARKER_MIN_ZOOM) {
+      return buildCompactIcon(color);
+    }
     const border = highlighted ? '3px solid #ffd400' : '2px solid white';
     const shadow = highlighted
       ? '0 0 0 3px rgba(255,212,0,0.5), 0 2px 4px rgba(0,0,0,0.3)'
