@@ -107,5 +107,15 @@ export function createVehicleAdapter({ isHighlighted = () => false, getZoom = ()
       // Guarded: test fakes may not implement setIcon.
       if (typeof marker.setIcon === 'function') marker.setIcon(buildIcon(vehicle));
     },
+
+    // Moved markers must be re-added for clusters to re-bucket them. Only while
+    // clustering is active (below FULL_MARKER_MIN_ZOOM) — at higher zooms plain
+    // setLatLng keeps open popups alive.
+    shouldReadd(marker, vehicle) {
+      if (getZoom() >= FULL_MARKER_MIN_ZOOM) return false;
+      if (typeof marker.getLatLng !== 'function') return false;
+      const current = marker.getLatLng();
+      return current.lat !== vehicle.latitude || current.lng !== vehicle.longitude;
+    },
   };
 }

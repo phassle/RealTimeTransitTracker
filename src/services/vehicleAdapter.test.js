@@ -58,6 +58,19 @@ describe('createVehicleAdapter zoom-adaptive icons', () => {
     expect(icon.iconSize).toEqual([24, 24]);
   });
 
+  it('requests re-add for moved vehicles only while clustering is active', () => {
+    let zoom = FULL_MARKER_MIN_ZOOM - 2;
+    const adapter = createVehicleAdapter({ getZoom: () => zoom });
+    const movedMarker = { getLatLng: () => ({ lat: 59.0, lng: 18.0 }) };
+    const stillMarker = { getLatLng: () => ({ lat: 59.33, lng: 18.07 }) };
+
+    expect(adapter.shouldReadd(movedMarker, makeVehicle())).toBe(true);
+    expect(adapter.shouldReadd(stillMarker, makeVehicle())).toBe(false);
+
+    zoom = FULL_MARKER_MIN_ZOOM; // clustering disabled — keep popups alive
+    expect(adapter.shouldReadd(movedMarker, makeVehicle())).toBe(false);
+  });
+
   it('onUpdate swaps an existing marker icon when zoom crosses the threshold', () => {
     let zoom = FULL_MARKER_MIN_ZOOM;
     const adapter = createVehicleAdapter({ getZoom: () => zoom });

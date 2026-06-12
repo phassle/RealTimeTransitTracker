@@ -308,3 +308,61 @@ describe('vehicle adapter — coordinate validation', () => {
     expect(layer.markers.size).toBe(1);
   });
 });
+
+describe('cluster-group bulk re-add (shouldReadd)', () => {
+  function createFakeClusterLayer() {
+    const markers = new Set();
+    const calls = [];
+    return {
+      markers,
+      calls,
+      addLayer(m) { markers.add(m); },
+      removeLayer(m) { markers.delete(m); },
+      addLayers(ms) { calls.push(['addLayers', ms.length]); ms.forEach(m => markers.add(m)); },
+      removeLayers(ms) { calls.push(['removeLayers', ms.length]); ms.forEach(m => markers.delete(m)); },
+    };
+  }
+
+  const readdAdapter = {
+    toLatLng: item => [item.lat, item.lon],
+    toIcon: () => ({ _type: 'fake-icon' }),
+    toPopup: item => `<p>${item.name}</p>`,
+    shouldReadd: (marker, item) => marker.latLng[0] !== item.lat || marker.latLng[1] !== item.lon,
+  };
+
+  it('bulk re-adds moved markers so clusters re-bucket them', () => {
+    const layer = createFakeClusterLayer();
+    const { createMarker } = makeFakeMarkerFactory();
+    const collection = createMarkerCollection(layer, { createMarker });
+
+    collection.update([{ id: 'a', lat: 59.0, lon: 18.0, name: 'A' }], readdAdapter);
+    collection.update([{ id: 'a', lat: 59.5, lon: 18.0, name: 'A' }], readdAdapter);
+
+    expect(layer.calls).toEqual([['removeLayers', 1], ['addLayers', 1]]);
+    expect(layer.markers.size).toBe(1);
+    expect([...layer.markers][0].latLng).toEqual([59.5, 18.0]);
+  });
+
+  it('updates unmoved markers in place without re-adding', () => {
+    const layer = createFakeClusterLayer();
+    const { createMarker } = makeFakeMarkerFactory();
+    const collection = createMarkerCollection(layer, { createMarker });
+
+    collection.update([{ id: 'a', lat: 59.0, lon: 18.0, name: 'A' }], readdAdapter);
+    collection.update([{ id: 'a', lat: 59.0, lon: 18.0, name: 'A' }], readdAdapter);
+
+    expect(layer.calls).toEqual([]);
+  });
+
+  it('ignores shouldReadd on plain layer groups without bulk methods', () => {
+    const layer = createFakeLayer();
+    const { createMarker } = makeFakeMarkerFactory();
+    const collection = createMarkerCollection(layer, { createMarker });
+
+    collection.update([{ id: 'a', lat: 59.0, lon: 18.0, name: 'A' }], readdAdapter);
+    collection.update([{ id: 'a', lat: 59.5, lon: 18.0, name: 'A' }], readdAdapter);
+
+    expect(layer.markers.size).toBe(1);
+    expect([...layer.markers][0].latLng).toEqual([59.5, 18.0]);
+  });
+});

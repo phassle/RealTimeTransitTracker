@@ -6,7 +6,7 @@ import 'leaflet.markercluster';
 import 'leaflet.markercluster/dist/MarkerCluster.css';
 import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
 import { createMarkerCollection } from '../services/markerCollection';
-import { createVehicleAdapter } from '../services/vehicleAdapter';
+import { createVehicleAdapter, FULL_MARKER_MIN_ZOOM } from '../services/vehicleAdapter';
 import { createWebcamAdapter } from '../services/webcamAdapter';
 
 export function Map({ vehicles = [], cameras = [], center = [59.3293, 18.0686], zoom = 11, onBoundsChange = null, theme = 'light', highlightedVehicleIds = [] }) {
@@ -52,8 +52,18 @@ export function Map({ vehicles = [], cameras = [], center = [59.3293, 18.0686], 
       const { url, attribution } = tileLayerConfig(theme);
       tileLayerRef.current = L.tileLayer(url, { attribution, maxZoom: 19 }).addTo(map);
 
-      // Create layer for vehicle markers
-      markerLayerRef.current = L.layerGroup().addTo(map);
+      // Clustered layer for vehicle markers: count bubbles when zoomed out,
+      // individual markers from FULL_MARKER_MIN_ZOOM and in. Animations off —
+      // 2000+ markers are re-fed every poll.
+      markerLayerRef.current = L.markerClusterGroup({
+        disableClusteringAtZoom: FULL_MARKER_MIN_ZOOM,
+        maxClusterRadius: 50,
+        showCoverageOnHover: false,
+        spiderfyOnMaxZoom: false,
+        chunkedLoading: true,
+        animate: false,
+        animateAddingMarkers: false,
+      }).addTo(map);
       vehicleCollectionRef.current = createMarkerCollection(markerLayerRef.current);
 
       // Clustered layer for webcam markers — second adapter on the marker-collection module.

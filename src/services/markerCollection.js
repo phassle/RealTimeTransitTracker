@@ -26,9 +26,15 @@ function defaultCreateMarker(latLng, options) {
  *   toPopup(item)   → HTML string
  *   onUpdate?       → (marker, item) called when updating an existing marker
  *                     (default: setLatLng + setPopupContent)
+ *   shouldReadd?    → (marker, item) → boolean; when true and the layer is a
+ *                     cluster group (has removeLayers/addLayers), the marker is
+ *                     bulk-removed, updated, and re-added so clusters re-bucket
+ *                     moved markers (markercluster does not track setLatLng)
  */
 export function createMarkerCollection(layer, { createMarker = defaultCreateMarker } = {}) {
   const markers = new Map();
+  const layerSupportsBulkReadd =
+    typeof layer.removeLayers === 'function' && typeof layer.addLayers === 'function';
 
   function update(items, adapter) {
     const currentIds = new Set(items.map(item => item.id));
@@ -40,17 +46,26 @@ export function createMarkerCollection(layer, { createMarker = defaultCreateMark
       }
     }
 
+    function applyUpdate(marker, item, latLng) {
+      if (adapter.onUpdate) {
+        adapter.onUpdate(marker, item);
+      } else {
+        marker.setLatLng(latLng);
+        marker.setPopupContent(adapter.toPopup(item));
+      }
+    }
+
+    const readds = [];
     for (const item of items) {
       const latLng = adapter.toLatLng(item);
       if (!latLng) continue;
 
       const existing = markers.get(item.id);
       if (existing) {
-        if (adapter.onUpdate) {
-          adapter.onUpdate(existing, item);
+        if (layerSupportsBulkReadd && adapter.shouldReadd && adapter.shouldReadd(existing, item)) {
+          readds.push([existing, item, latLng]);
         } else {
-          existing.setLatLng(latLng);
-          existing.setPopupContent(adapter.toPopup(item));
+          applyUpdate(existing, item, latLng);
         }
       } else {
         const icon = adapter.toIcon(item);
@@ -64,6 +79,12 @@ export function createMarkerCollection(layer, { createMarker = defaultCreateMark
           adapter.onMarkerCreated(marker, item);
         }
       }
+    }
+
+    if (readds.length) {
+      layer.removeLayers(readds.map(([marker]) => marker));
+      for (const [marker, item, latLng] of readds) applyUpdate(marker, item, latLng);
+      layer.addLayers(readds.map(([marker]) => marker));
     }
   }
 
