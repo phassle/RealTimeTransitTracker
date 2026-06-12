@@ -30,7 +30,7 @@ export function PrivacyNotice() {
           >
             OpenStreetMap
           </a>
-          . Webcam images:{' '}
+          . Webcam data:{' '}
           <a
             href="https://www.trafikverket.se/"
             target="_blank"
@@ -38,8 +38,16 @@ export function PrivacyNotice() {
           >
             Trafikverket
           </a>{' '}
-          (hotlinked stills, fetched only when the Webcams layer is enabled).
-          This site stores no tracking cookies.
+          (hotlinked stills, fetched only when the Webcams layer is enabled),{' '}
+          <a
+            href="https://www.windy.com/webcams"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Windy
+          </a>{' '}
+          and a curated webcam catalogue (camera listings and links only — no
+          media is fetched from them). This site stores no tracking cookies.
         </p>
         <button
           type="button"

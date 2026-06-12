@@ -19,4 +19,18 @@ describe('PrivacyNotice', () => {
     expect(screen.getByText(/Trafiklab/i)).toBeTruthy();
     expect(screen.getByText(/OpenStreetMap/i)).toBeTruthy();
   });
+
+  it('names every webcam data source: Windy and the curated catalogue', () => {
+    render(<PrivacyNotice />);
+
+    expect(screen.getByText(/Windy/i)).toBeTruthy();
+    expect(screen.getByText(/curated webcam catalogue/i)).toBeTruthy();
+  });
+
+  it('reappears for users who acknowledged an older notice version (re-disclosure)', () => {
+    window.localStorage.setItem('rtt-privacy-notice-v2', '1');
+    render(<PrivacyNotice />);
+
+    expect(screen.getByText(/Windy/i)).toBeTruthy();
+  });
 });
