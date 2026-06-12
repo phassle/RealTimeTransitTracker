@@ -37,6 +37,10 @@ export function ControlPanel({
   webcamsLoading = false,
   webcamsError = null,
   webcamCount = 0,
+  cameraTypeDefinitions = [],
+  enabledCameraTypes = [],
+  cameraCounts = {},
+  onCameraTypeToggle = () => {},
 }) {
   const [collapsed, setCollapsed] = useState(false);
   const [lineFilterExpanded, setLineFilterExpanded] = useState(false);
@@ -147,6 +151,22 @@ export function ControlPanel({
             {webcamsEnabled && webcamsError && (
               <div className="error-message" role="alert">
                 ⚠️ Webcams unavailable
+              </div>
+            )}
+            {webcamsEnabled && cameraTypeDefinitions.length > 0 && (
+              <div className="camera-type-filters">
+                {cameraTypeDefinitions.map(t => (
+                  <label key={t.id} className="mode-filter">
+                    <input
+                      type="checkbox"
+                      checked={enabledCameraTypes.includes(t.id)}
+                      onChange={() => onCameraTypeToggle(t.id)}
+                      aria-label={`Toggle ${t.label} cameras`}
+                    />
+                    <span className="mode-label">{t.label}</span>
+                    <span className="mode-count">({cameraCounts[t.id] || 0})</span>
+                  </label>
+                ))}
               </div>
             )}
           </div>
