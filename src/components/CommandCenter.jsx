@@ -35,6 +35,7 @@ export function CommandCenter({ vehicles = [], feeds = [], theme = 'light', MapC
     recording,
     displayedVehicles,
     verifyWebcam,
+    injectIncident,
   } = useIncidents(vehicles, { ...(now ? { now } : {}), feeds });
 
   // Fetch the webcam list once (only when not injected); no polling, no impact
@@ -60,8 +61,15 @@ export function CommandCenter({ vehicles = [], feeds = [], theme = 'light', MapC
           onSelect={selectIncident}
         />
         <FeedStatus statuses={feedStatuses} />
+        <button
+          type="button"
+          className="command-center__inject"
+          onClick={injectIncident}
+        >
+          ⚠ Inject demo incident
+        </button>
       </aside>
-      <main className="command-center__map">
+      <main className="command-center__map" aria-label="Map">
         <MapComponent
           vehicles={displayedVehicles}
           center={center}
@@ -69,6 +77,11 @@ export function CommandCenter({ vehicles = [], feeds = [], theme = 'light', MapC
           theme={theme}
           highlightedVehicleIds={highlightedVehicleIds}
         />
+        {selectedIncident?.demo && (
+          <div className="command-center__demo-overlay" role="note">
+            Demo incident — synthetic content
+          </div>
+        )}
         <ReplayControls replay={replay} />
         <RecordingControls recording={recording} />
       </main>

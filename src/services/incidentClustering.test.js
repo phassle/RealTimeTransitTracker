@@ -165,6 +165,26 @@ describe('clusterIncidents', () => {
     });
   });
 
+  describe('injected (demo) incidents', () => {
+    it('marks an Incident as demo when its anomaly carries the demo flag', () => {
+      const incidents = clusterIncidents([], [anomaly({ demo: true })], 6 * 60 * 1000);
+      expect(incidents).toHaveLength(1);
+      expect(incidents[0].demo).toBe(true);
+    });
+
+    it('leaves real (non-injected) Incidents unmarked', () => {
+      const incidents = clusterIncidents([], [anomaly()], 6 * 60 * 1000);
+      expect(incidents[0].demo).toBeFalsy();
+    });
+
+    it('keeps the demo marker as the injected Incident absorbs further anomalies', () => {
+      const first = clusterIncidents([], [anomaly({ demo: true, detectedAt: 6 * 60 * 1000 })], 6 * 60 * 1000);
+      const second = clusterIncidents(first, [anomaly({ demo: true, detectedAt: 8 * 60 * 1000 })], 8 * 60 * 1000);
+      expect(second).toHaveLength(1);
+      expect(second[0].demo).toBe(true);
+    });
+  });
+
   describe('recurrence after resolution', () => {
     it('surfaces a new open Incident when a matching anomaly recurs, keeping the resolved one', () => {
       const open = clusterIncidents([], [anomaly({ startedAt: 0, detectedAt: 6 * 60 * 1000 })], 6 * 60 * 1000);

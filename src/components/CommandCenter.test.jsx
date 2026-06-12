@@ -138,6 +138,51 @@ describe('CommandCenter', () => {
     expect(within(timeline).getByText(/Verified via E4 Norrtull/)).toBeDefined();
   });
 
+  describe('injected (demo) incidents', () => {
+    // A traffic camera near the demo scene (central Stockholm) so the nearby-
+    // webcam panel has content when the injected incident is selected.
+    const demoCameras = [
+      {
+        id: 'trafikverket:demo', name: 'Sergels torg', type: 'traffic', media: 'image',
+        lat: 59.3326, lon: 18.0649, imageUrl: 'https://cam.example.com/s.jpg',
+        pageUrl: 'https://cam.example.com/s', source: 'trafikverket', attribution: 'Trafikverket',
+      },
+    ];
+
+    it('activating the demo control raises an Injected Incident through the real pipeline', () => {
+      const { FakeMap } = makeFakeMap();
+      render(<CommandCenter vehicles={[]} MapComponent={FakeMap} now={() => 0} cameras={demoCameras} />);
+
+      // No incidents until the presenter injects one.
+      expect(screen.getByText('No incidents')).toBeDefined();
+
+      fireEvent.click(screen.getByRole('button', { name: /inject demo/i }));
+
+      // It appears in the inbox, labelled as demo content.
+      expect(screen.getByText('Demo')).toBeDefined();
+
+      // Selecting it shows evidence, timeline and nearby webcams like any Incident.
+      fireEvent.click(screen.getByRole('button', { name: /Line/ }));
+      expect(screen.getByLabelText('Why flagged?')).toBeDefined();
+      expect(screen.getByLabelText('Incident timeline')).toBeDefined();
+      const webcamSection = screen.getByLabelText('Nearby webcams');
+      expect(within(webcamSection).getByText('Sergels torg')).toBeDefined();
+    });
+
+    it('labels the injected incident as demo on the map once it is focused', () => {
+      const { FakeMap } = makeFakeMap();
+      render(<CommandCenter vehicles={[]} MapComponent={FakeMap} now={() => 0} cameras={demoCameras} />);
+      fireEvent.click(screen.getByRole('button', { name: /inject demo/i }));
+
+      const mapRegion = screen.getByLabelText('Map');
+      // Not labelled until the demo incident is selected/focused.
+      expect(within(mapRegion).queryByText(/demo/i)).toBeNull();
+
+      fireEvent.click(screen.getByRole('button', { name: /Line/ }));
+      expect(within(mapRegion).getByText(/demo/i)).toBeDefined();
+    });
+  });
+
   it('exposes recording export/import controls over the map', () => {
     const { FakeMap } = makeFakeMap();
     render(<CommandCenter vehicles={movingAt(18.0)} MapComponent={FakeMap} now={() => 0} />);

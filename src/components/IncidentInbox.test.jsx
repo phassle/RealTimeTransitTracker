@@ -82,6 +82,17 @@ describe('IncidentInbox', () => {
     expect(screen.queryByText(/Line/)).toBeNull();
   });
 
+  it('labels an injected (demo) incident as demo content in the inbox', () => {
+    const demo = incident({ id: 'demo:1', demo: true });
+    render(<IncidentInbox incidents={[demo]} />);
+    expect(screen.getByText('Demo')).toBeDefined();
+  });
+
+  it('does not label a real incident as demo', () => {
+    render(<IncidentInbox incidents={[incident()]} />);
+    expect(screen.queryByText('Demo')).toBeNull();
+  });
+
   it('marks resolved rows so they read as inactive', () => {
     const resolved = incident({ id: 'r', status: 'resolved' });
     render(<IncidentInbox incidents={[resolved]} />);
