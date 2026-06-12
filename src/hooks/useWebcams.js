@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { fetchCameras } from '../services/webcams';
+import { useFetchState } from './useFetchState';
 
 /**
  * Fetch-on-first-enable hook for Sweden's open webcams.
@@ -13,44 +14,21 @@ import { fetchCameras } from '../services/webcams';
  * @param {boolean} enabled
  */
 export function useWebcams(enabled) {
-  const [cameras, setCameras] = useState([]);
-  const [error, setError] = useState(null);
-  const [loading, setLoading] = useState(false);
+  const { data: cameras, error, loading, run } = useFetchState([]);
   const fetchedRef = useRef(false);
-  const aliveRef = useRef(true);
-
-  useEffect(() => {
-    aliveRef.current = true;
-    return () => {
-      aliveRef.current = false;
-    };
-  }, []);
 
   useEffect(() => {
     if (!enabled || fetchedRef.current) return;
     fetchedRef.current = true;
-    setLoading(true);
 
-    (async () => {
-      try {
-        const { cameras: cams, errors } = await fetchCameras();
-        if (!aliveRef.current) return;
-        setCameras(cams);
-        if (cams.length === 0 && errors.length > 0) {
-          const summary = errors.map(e => `${e.source}: ${e.message}`).join('; ');
-          setError(summary);
-        } else {
-          setError(null);
-        }
-      } catch (e) {
-        if (!aliveRef.current) return;
-        setCameras([]);
-        setError(e?.message || String(e));
-      } finally {
-        if (aliveRef.current) setLoading(false);
-      }
-    })();
-  }, [enabled]);
+    run(async () => {
+      const { cameras: cams, errors } = await fetchCameras();
+      const errorMsg = cams.length === 0 && errors.length > 0
+        ? errors.map(e => `${e.source}: ${e.message}`).join('; ')
+        : null;
+      return { data: cams, error: errorMsg };
+    });
+  }, [enabled, run]);
 
-  return { cameras, error, loading };
+  return { cameras: cameras ?? [], error, loading };
 }

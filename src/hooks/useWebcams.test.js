@@ -94,4 +94,17 @@ describe('useWebcams', () => {
     expect(result.current.cameras).toEqual([]);
     expect(result.current.error).toMatch(/boom/i);
   });
+
+  it('does not throw when the fetch resolves after unmount', async () => {
+    let resolvePending;
+    service.fetchCameras.mockImplementationOnce(
+      () => new Promise(r => { resolvePending = r; }),
+    );
+
+    const { unmount } = renderHook(() => useWebcams(true));
+    unmount();
+
+    resolvePending({ cameras: SAMPLE, errors: [] });
+    await new Promise(r => setTimeout(r, 10));
+  });
 });

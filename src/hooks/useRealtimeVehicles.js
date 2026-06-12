@@ -1,13 +1,11 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { fetchVehiclePositions } from '../services/trafiklab';
+import { useFetchState } from './useFetchState';
 
 export function useRealtimeVehicles(operatorSlugs = ['sl'], baseInterval = 2000, enabled = true) {
-  const [vehicles, setVehicles] = useState([]);
-  const [error, setError] = useState(null);
-  const [loading, setLoading] = useState(true);
   const [lastUpdate, setLastUpdate] = useState(null);
   const intervalRef = useRef(null);
-  const isActiveRef = useRef(true);
+  const { data: vehicles, error, loading, run } = useFetchState([], true);
 
   const operatorKey = useMemo(() => operatorSlugs.slice().sort().join(','), [operatorSlugs]);
 
@@ -17,24 +15,10 @@ export function useRealtimeVehicles(operatorSlugs = ['sl'], baseInterval = 2000,
   );
 
   useEffect(() => {
-    isActiveRef.current = true;
-
-    const fetchData = async () => {
-      try {
-        const data = await fetchVehiclePositions(operatorSlugs);
-        if (isActiveRef.current) {
-          setVehicles(data);
-          setError(null);
-          setLastUpdate(new Date());
-          setLoading(false);
-        }
-      } catch (err) {
-        if (isActiveRef.current) {
-          setError(err.message);
-          setLoading(false);
-        }
-      }
-    };
+    const fetchData = () => run(
+      async () => ({ data: await fetchVehiclePositions(operatorSlugs), error: null }),
+      () => setLastUpdate(new Date()),
+    );
 
     const startPolling = () => {
       if (!intervalRef.current) {
@@ -65,25 +49,15 @@ export function useRealtimeVehicles(operatorSlugs = ['sl'], baseInterval = 2000,
     }
 
     return () => {
-      isActiveRef.current = false;
       stopPolling();
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [effectiveInterval, enabled, operatorKey]);
+  }, [effectiveInterval, enabled, operatorKey, run]);
 
-  const refresh = async () => {
-    setLoading(true);
-    try {
-      const data = await fetchVehiclePositions(operatorSlugs);
-      setVehicles(data);
-      setError(null);
-      setLastUpdate(new Date());
-      setLoading(false);
-    } catch (err) {
-      setError(err.message);
-      setLoading(false);
-    }
-  };
+  const refresh = () => run(
+    async () => ({ data: await fetchVehiclePositions(operatorSlugs), error: null }),
+    () => setLastUpdate(new Date()),
+  );
 
-  return { vehicles, error, loading, lastUpdate, refresh, activeOperators: operatorSlugs, effectiveInterval };
+  return { vehicles: vehicles ?? [], error, loading, lastUpdate, refresh, activeOperators: operatorSlugs, effectiveInterval };
 }
