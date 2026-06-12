@@ -1,7 +1,18 @@
-export const TRAFIKLAB_HOST = 'opendata.samtrafiken.se';
-export const OSM_TILE_HOST = 'tile.openstreetmap.org';
-export const CARTO_TILE_HOST = 'basemaps.cartocdn.com';
-export const TRIP_MAPPING_PATH = '/data/trip-mapping.json';
+import { LIGHT_TILES, DARK_TILES, TRIP_MAPPING_URL } from './endpoints.js';
+
+function hostFromTileTemplate(urlTemplate) {
+  return urlTemplate
+    .replace(/^https?:\/\//, '')
+    .replace(/^\{[^}]+\}\./, '')
+    .split('/')[0];
+}
+
+function escapeHost(host) {
+  return host.replace(/\./g, '\\.');
+}
+
+const osmHost = hostFromTileTemplate(LIGHT_TILES.urlTemplate);
+const cartoHost = hostFromTileTemplate(DARK_TILES.urlTemplate);
 
 export const TILE_CACHE_NAME = 'map-tiles';
 export const TILE_CACHE_MAX_ENTRIES = 200;
@@ -12,26 +23,12 @@ export const TRIP_MAPPING_GLOB = '**/trip-mapping*.json';
 export const precacheGlobPatterns = ['**/*.{js,css,html,ico,png,svg,woff2}'];
 export const precacheGlobIgnores = [TRIP_MAPPING_GLOB];
 
-export function isLiveFeedUrl(url) {
-  return url.includes(TRAFIKLAB_HOST);
-}
-
 // RegExp patterns are used directly in runtimeCacheRoutes so Workbox can
 // serialise them cleanly into the generated sw.js without closure references.
-export const TILE_URL_PATTERN = new RegExp(
-  `${OSM_TILE_HOST.replace('.', '\\.')}|${CARTO_TILE_HOST.replace('.', '\\.')}`
-);
+export const TILE_URL_PATTERN = new RegExp(`${escapeHost(osmHost)}|${escapeHost(cartoHost)}`);
 export const TRIP_MAPPING_URL_PATTERN = new RegExp(
-  TRIP_MAPPING_PATH.replace(/\//g, '\\/').replace('.', '\\.')
+  TRIP_MAPPING_URL.replace(/\//g, '\\/').replace('.', '\\.')
 );
-
-export function isTileUrl(url) {
-  return TILE_URL_PATTERN.test(url);
-}
-
-export function isTripMappingUrl(url) {
-  return TRIP_MAPPING_URL_PATTERN.test(url);
-}
 
 export const runtimeCacheRoutes = [
   {

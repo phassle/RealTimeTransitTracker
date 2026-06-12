@@ -1,4 +1,5 @@
 import GtfsRealtimeBindings from 'gtfs-realtime-bindings';
+import { TRAFIKLAB_FEED_BASE, TRIP_MAPPING_URL } from '../config/endpoints.js';
 
 const API_KEY = import.meta.env.VITE_TRAFIKLAB_API_KEY;
 
@@ -39,7 +40,7 @@ async function loadTripMapping() {
   if (tripMappingCache !== undefined) return tripMappingCache;
 
   try {
-    const response = await fetch('/data/trip-mapping.json');
+    const response = await fetch(TRIP_MAPPING_URL);
     if (!response.ok) {
       tripMappingCache = null;
       return null;
@@ -54,7 +55,7 @@ async function loadTripMapping() {
 }
 
 function buildVehicleUrl(slug) {
-  return `https://opendata.samtrafiken.se/gtfs-rt-sweden/${encodeURIComponent(slug)}/VehiclePositionsSweden.pb?key=${API_KEY}`;
+  return `${TRAFIKLAB_FEED_BASE}/${encodeURIComponent(slug)}/VehiclePositionsSweden.pb?key=${API_KEY}`;
 }
 
 /**
