@@ -2,10 +2,12 @@ import GtfsRealtimeBindings from 'gtfs-realtime-bindings';
 import { routeTypeToMode } from './modes';
 import { TRAFIKLAB_FEED_BASE, TRIP_MAPPING_URL } from '../config/endpoints.js';
 
-const API_KEY = import.meta.env.VITE_TRAFIKLAB_API_KEY;
-
 // Cache for trip mapping (tripId → { line, routeType })
 let tripMappingCache = undefined; // undefined = not loaded, null = unavailable
+
+export function resetTripMappingCache() {
+  tripMappingCache = undefined;
+}
 
 /**
  * Load trip-mapping.json (built by scripts/build-trip-mapping.js).
@@ -29,15 +31,15 @@ async function loadTripMapping() {
   }
 }
 
-function buildVehicleUrl(slug) {
-  return `${TRAFIKLAB_FEED_BASE}/${encodeURIComponent(slug)}/VehiclePositionsSweden.pb?key=${API_KEY}`;
+function buildVehicleUrl(slug, apiKey) {
+  return `${TRAFIKLAB_FEED_BASE}/${encodeURIComponent(slug)}/VehiclePositionsSweden.pb?key=${apiKey}`;
 }
 
 /**
  * Fetch and parse GTFS-RT vehicle positions for a single operator.
  */
-async function fetchSingleOperator(slug, tripMapping) {
-  const response = await fetch(buildVehicleUrl(slug), {
+async function fetchSingleOperator(slug, tripMapping, apiKey) {
+  const response = await fetch(buildVehicleUrl(slug, apiKey), {
     headers: { 'Accept-Encoding': 'gzip' }
   });
 
@@ -90,12 +92,16 @@ async function fetchSingleOperator(slug, tripMapping) {
 /**
  * Fetch and parse GTFS-RT vehicle positions for one or more operators.
  * @param {string[]} operatorSlugs
+ * @param {{ apiKey?: string, getTripMapping?: () => Promise<object|null> }} [opts]
  */
-export async function fetchVehiclePositions(operatorSlugs = ['sl']) {
-  const tripMapping = await loadTripMapping();
+export async function fetchVehiclePositions(
+  operatorSlugs = ['sl'],
+  { apiKey = import.meta.env.VITE_TRAFIKLAB_API_KEY, getTripMapping = loadTripMapping } = {}
+) {
+  const tripMapping = await getTripMapping();
 
   const results = await Promise.allSettled(
-    operatorSlugs.map(slug => fetchSingleOperator(slug, tripMapping))
+    operatorSlugs.map(slug => fetchSingleOperator(slug, tripMapping, apiKey))
   );
 
   const vehicles = [];

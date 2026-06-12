@@ -34,6 +34,6 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     include: ['src/**/*.{test,spec}.{js,jsx,ts,tsx}'],
-    exclude: ['**/node_modules/**', 'src/App.test.jsx'],
+    exclude: ['**/node_modules/**'],
   },
 });
