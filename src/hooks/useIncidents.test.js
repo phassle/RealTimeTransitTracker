@@ -142,6 +142,64 @@ describe('useIncidents', () => {
     });
   });
 
+  describe('recording export/import', () => {
+    it('round-trips: exported window is replayable after import into a fresh session', () => {
+      // Capture a moving vehicle across two polls, then export.
+      let t = 0;
+      const now = () => t;
+      const source = renderHook(({ v }) => useIncidents(v, { now }), {
+        initialProps: { v: movingAt(18.0) },
+      });
+      act(() => { t = 1 * MIN; });
+      source.rerender({ v: movingAt(18.5) });
+
+      const file = JSON.stringify(source.result.current.recording.export());
+
+      // A brand-new session with unrelated live data imports the file.
+      let t2 = 10 * MIN;
+      const now2 = () => t2;
+      const fresh = renderHook(({ v }) => useIncidents(v, { now: now2 }), {
+        initialProps: { v: movingAt(99.0) },
+      });
+
+      act(() => { fresh.result.current.recording.import(file); });
+
+      // Replay can scrub the captured window and the positions match capture.
+      expect(fresh.result.current.replay.sessionStart).toBe(0);
+      expect(fresh.result.current.replay.sessionEnd).toBe(1 * MIN);
+
+      act(() => { fresh.result.current.replay.scrubTo(0); });
+      expect(fresh.result.current.displayedVehicles).toEqual(movingAt(18.0));
+      act(() => { fresh.result.current.replay.scrubTo(1 * MIN); });
+      expect(fresh.result.current.displayedVehicles).toEqual(movingAt(18.5));
+    });
+
+    it('a malformed import is refused and leaves the live buffer and incidents intact', () => {
+      let t = 0;
+      const now = () => t;
+      const { result, rerender } = renderHook(({ v }) => useIncidents(v, { now }), {
+        initialProps: { v: stuck() },
+      });
+      // Build up a live incident.
+      act(() => { t = 6 * MIN; });
+      rerender({ v: stuck() });
+      expect(result.current.incidents).toHaveLength(1);
+      const liveEnd = result.current.replay.sessionEnd;
+
+      let error = null;
+      act(() => {
+        try { result.current.recording.import('garbage not a recording'); }
+        catch (e) { error = e; }
+      });
+
+      expect(error).toBeTruthy();
+      expect(error.message).toMatch(/recording/i);
+      // Unaffected: incidents and session window stand.
+      expect(result.current.incidents).toHaveLength(1);
+      expect(result.current.replay.sessionEnd).toBe(liveEnd);
+    });
+  });
+
   it('selecting an incident exposes a focus on its subject and involved vehicles', () => {
     let t = 0;
     const now = () => t;

@@ -62,6 +62,28 @@ export function useIncidents(vehicles, { now = () => Date.now() } = {}) {
     returnToLive: () => setReplayTime(null),
   }), [isReplaying, replayTime, sessionRange]);
 
+  // Recording export/import (PRD #84 stories 25, 30). Export serializes the
+  // buffer to a versioned envelope for the operator to save to disk. Import
+  // loads such a file back so Replay can scrub the captured window; it
+  // validates before mutating, so a malformed/wrong-version file throws and
+  // leaves the live buffer and Incidents untouched.
+  const recording = useMemo(() => ({
+    export: () => bufferRef.current.exportRecording(),
+    import: (input) => {
+      bufferRef.current.importRecording(input); // throws on invalid; no mutation
+      const range = bufferRef.current.range();
+      const t = range ? range.end : now();
+      const anomalies = detectStationaryAnomalies(bufferRef.current.snapshots(), t);
+      const next = clusterIncidents([], anomalies, t);
+      incidentsRef.current = next;
+      setIncidents(next);
+      setSessionRange(range);
+      setReplayTime(null);
+      setSelectedIncidentId(null);
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }), []);
+
   const selectedIncident = useMemo(
     () => incidents.find((i) => i.id === selectedIncidentId) ?? null,
     [incidents, selectedIncidentId],
@@ -82,6 +104,7 @@ export function useIncidents(vehicles, { now = () => Date.now() } = {}) {
     selectedIncident,
     focus,
     replay,
+    recording,
     displayedVehicles,
   };
 }

@@ -2,6 +2,7 @@ import { Map } from './Map';
 import { IncidentInbox } from './IncidentInbox';
 import { IncidentDetail } from './IncidentDetail';
 import { ReplayControls } from './ReplayControls';
+import { RecordingControls } from './RecordingControls';
 import { useIncidents } from '../hooks/useIncidents';
 import { SWEDEN_CENTER } from '../config/operators';
 import './CommandCenter.css';
@@ -24,6 +25,7 @@ export function CommandCenter({ vehicles = [], theme = 'light', MapComponent = M
     selectedIncident,
     focus,
     replay,
+    recording,
     displayedVehicles,
   } = useIncidents(vehicles, now ? { now } : undefined);
 
@@ -50,6 +52,7 @@ export function CommandCenter({ vehicles = [], theme = 'light', MapComponent = M
           highlightedVehicleIds={highlightedVehicleIds}
         />
         <ReplayControls replay={replay} />
+        <RecordingControls recording={recording} />
       </main>
       <aside className="command-center__detail" aria-label="Incident detail">
         <IncidentDetail incident={selectedIncident} />

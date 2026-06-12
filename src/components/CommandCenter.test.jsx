@@ -80,6 +80,13 @@ describe('CommandCenter', () => {
     expect(screen.getAllByText('Stationary on active trip').length).toBeGreaterThan(0);
   });
 
+  it('exposes recording export/import controls over the map', () => {
+    const { FakeMap } = makeFakeMap();
+    render(<CommandCenter vehicles={movingAt(18.0)} MapComponent={FakeMap} now={() => 0} />);
+    expect(screen.getByRole('button', { name: /export recording/i })).toBeDefined();
+    expect(screen.getByLabelText(/import recording/i)).toBeDefined();
+  });
+
   it('scrubbing renders past positions and shows the past-mode indicator', () => {
     const { FakeMap, props } = makeFakeMap();
     let t = 0;
