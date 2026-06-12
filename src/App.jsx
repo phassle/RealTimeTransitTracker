@@ -14,15 +14,14 @@ import {
   cameraCountsByType,
   filterCamerasByType,
 } from './services/cameraTypeFilter';
+import { ALL_MODE_IDS } from './services/modes';
 import { OPERATORS, OPERATOR_MAP, SWEDEN_CENTER, SWEDEN_ZOOM, getVisibleOperators } from './config/operators';
 
 function App() {
   const { theme, toggleTheme } = useTheme();
   const { isOnline } = useConnectivity();
   const { needRefresh, updateServiceWorker, dismissUpdate } = useUpdatePrompt();
-  const [enabledModes, setEnabledModes] = useState([
-    'metro', 'bus', 'train', 'tram', 'ship', 'ferry', 'unknown'
-  ]);
+  const [enabledModes, setEnabledModes] = useState(ALL_MODE_IDS);
   const [selectedLines, setSelectedLines] = useState([]);
   const [mapCenter, setMapCenter] = useState([59.3293, 18.0686]);
   const [mapZoom, setMapZoom] = useState(11);

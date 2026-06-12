@@ -1,18 +1,8 @@
 import { useState, useMemo } from 'react';
 import './ControlPanel.css';
+import { MODES, MODE_COLORS as MODE_COLOR_MAP, MODE_LABELS as MODE_LABEL_MAP } from '../services/modes';
 
-const TRANSPORT_MODES = [
-  { id: 'metro', label: 'Metro', color: '#FF6B35' },
-  { id: 'bus', label: 'Bus', color: '#4ECDC4' },
-  { id: 'train', label: 'Train', color: '#95E1D3' },
-  { id: 'tram', label: 'Tram', color: '#F38181' },
-  { id: 'ship', label: 'Ship', color: '#AA96DA' },
-  { id: 'ferry', label: 'Ferry', color: '#FCBAD3' },
-  { id: 'unknown', label: 'Other', color: '#888888' },
-];
-
-const MODE_COLOR_MAP = Object.fromEntries(TRANSPORT_MODES.map(m => [m.id, m.color]));
-const MODE_LABEL_MAP = Object.fromEntries(TRANSPORT_MODES.map(m => [m.id, m.label]));
+const TRANSPORT_MODES = MODES;
 
 export function ControlPanel({
   vehicles = [],

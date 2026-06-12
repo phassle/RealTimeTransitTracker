@@ -12,31 +12,12 @@ import {
   cacheBustImageUrl,
 } from '../services/webcamPopup';
 import { CAMERA_TYPE_DEFINITIONS } from '../services/cameraTypeFilter';
+import { MODE_COLORS, MODE_ICONS } from '../services/modes';
 
 const CAMERA_TYPE_COLOR = Object.fromEntries(
   CAMERA_TYPE_DEFINITIONS.map(t => [t.id, t.color])
 );
 const CAMERA_DEFAULT_COLOR = '#2c3e50';
-
-const MODE_COLORS = {
-  metro: '#FF6B35',
-  bus: '#4ECDC4',
-  train: '#95E1D3',
-  tram: '#F38181',
-  ship: '#AA96DA',
-  ferry: '#FCBAD3',
-  unknown: '#888888'
-};
-
-const MODE_ICONS = {
-  metro: 'M',
-  bus: 'B',
-  train: 'T',
-  tram: 'S',
-  ship: '⛴',
-  ferry: '⛴',
-  unknown: '?'
-};
 
 function escapeHtml(str) {
   return String(str)

@@ -2,6 +2,14 @@
 
 Shared vocabulary for the RealTimeTransitTracker app. Use these terms in issues, PR descriptions, ADRs, code comments, and test names. When a term appears here, prefer it over synonyms.
 
+## Transport modes
+
+The canonical set of vehicle transport modes, owned entirely by **`src/services/modes.js`**. That module is the single source of truth for the mode list, display label, marker/swatch color, marker icon, and the GTFS `route_type` → mode mapping. All consumers (map renderer, control panel, app state) import from it; none declare their own mode list or color table.
+
+The current canonical modes are: `metro | bus | train | tram | ferry | unknown`.
+
+`ship` is not a mode: no GTFS `route_type` in the Swedish feeds maps to it. Route type 1000 (Water Transport) maps to `ferry`.
+
 ## Webcam layer
 
 Terms for the webcam feature (issue #65). A **Webcam** is a camera whose owner has deliberately published its imagery openly; unsecured private surveillance cameras are never Webcams in this domain, regardless of technical reachability.

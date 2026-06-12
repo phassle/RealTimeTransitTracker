@@ -1,35 +1,10 @@
 import GtfsRealtimeBindings from 'gtfs-realtime-bindings';
+import { routeTypeToMode } from './modes';
 
 const API_KEY = import.meta.env.VITE_TRAFIKLAB_API_KEY;
 
 // Cache for trip mapping (tripId → { line, routeType })
 let tripMappingCache = undefined; // undefined = not loaded, null = unavailable
-
-const GTFS_ROUTE_TYPE_TO_MODE = {
-  '0': 'tram',      // Tram, Streetcar, Light rail
-  '1': 'metro',     // Subway, Metro
-  '2': 'train',     // Rail
-  '3': 'bus',       // Bus
-  '4': 'ferry',     // Ferry
-  '5': 'tram',      // Cable tram
-  '6': 'tram',      // Aerial lift
-  '7': 'tram',      // Funicular
-  '100': 'train',   // Railway Service
-  '101': 'train',   // High Speed Rail
-  '102': 'train',   // Long Distance Trains
-  '109': 'train',   // Suburban Railway
-  '400': 'metro',   // Urban Railway
-  '401': 'metro',   // Metro Service
-  '700': 'bus',     // Bus Service
-  '714': 'bus',     // Rail Replacement Bus
-  '900': 'tram',    // Tram Service
-  '1000': 'ferry',  // Water Transport
-  '1501': 'bus',    // Communal taxi
-};
-
-function routeTypeToMode(routeType) {
-  return GTFS_ROUTE_TYPE_TO_MODE[String(routeType)] || 'unknown';
-}
 
 /**
  * Load trip-mapping.json (built by scripts/build-trip-mapping.js).
