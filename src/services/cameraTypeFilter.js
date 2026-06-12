@@ -16,9 +16,19 @@ const LABELS = {
   wildlife: 'Wildlife',
 };
 
+// Colors used on marker badges (Map.jsx) and type-filter chips (ControlPanel.jsx).
+const COLORS = {
+  traffic: '#e74c3c',
+  weather: '#3498db',
+  ski: '#9b59b6',
+  construction: '#f39c12',
+  wildlife: '#27ae60',
+};
+
 export const CAMERA_TYPE_DEFINITIONS = CAMERA_TYPES.map(id => ({
   id,
   label: LABELS[id],
+  color: COLORS[id],
 }));
 
 /**

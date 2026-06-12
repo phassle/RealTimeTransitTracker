@@ -45,6 +45,18 @@ describe('CAMERA_TYPE_DEFINITIONS', () => {
       expect(t.label.length).toBeGreaterThan(0);
     }
   });
+
+  it('every type has a non-empty color string (for marker badges and type filter chips)', () => {
+    for (const t of CAMERA_TYPE_DEFINITIONS) {
+      expect(typeof t.color).toBe('string');
+      expect(t.color.length).toBeGreaterThan(0);
+    }
+  });
+
+  it('all five types have distinct colors (so they are visually differentiable)', () => {
+    const colors = CAMERA_TYPE_DEFINITIONS.map(t => t.color);
+    expect(new Set(colors).size).toBe(CAMERA_TYPE_DEFINITIONS.length);
+  });
 });
 
 describe('cameraCountsByType', () => {

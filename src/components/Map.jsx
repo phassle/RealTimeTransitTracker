@@ -11,6 +11,12 @@ import {
   cameraPopupLinkoutContent,
   cacheBustImageUrl,
 } from '../services/webcamPopup';
+import { CAMERA_TYPE_DEFINITIONS } from '../services/cameraTypeFilter';
+
+const CAMERA_TYPE_COLOR = Object.fromEntries(
+  CAMERA_TYPE_DEFINITIONS.map(t => [t.id, t.color])
+);
+const CAMERA_DEFAULT_COLOR = '#2c3e50';
 
 const MODE_COLORS = {
   metro: '#FF6B35',
@@ -215,11 +221,12 @@ export function Map({ vehicles = [], cameras = [], center = [59.3293, 18.0686], 
     const toAdd = [];
     cameras.forEach(cam => {
       if (existing.has(cam.id)) return;
+      const markerColor = CAMERA_TYPE_COLOR[cam.type] || CAMERA_DEFAULT_COLOR;
       const icon = L.divIcon({
         className: 'camera-marker',
         html: `
           <div style="
-            background: #2c3e50;
+            background: ${markerColor};
             border: 2px solid white;
             border-radius: 4px;
             width: 24px;

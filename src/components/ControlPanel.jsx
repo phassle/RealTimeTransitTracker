@@ -163,6 +163,9 @@ export function ControlPanel({
                       onChange={() => onCameraTypeToggle(t.id)}
                       aria-label={`Toggle ${t.label} cameras`}
                     />
+                    {t.color && (
+                      <span className="mode-color" style={{ backgroundColor: t.color }} />
+                    )}
                     <span className="mode-label">{t.label}</span>
                     <span className="mode-count">({cameraCounts[t.id] || 0})</span>
                   </label>
