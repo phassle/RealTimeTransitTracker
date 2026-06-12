@@ -6,10 +6,12 @@ import * as service from '../services/trafiklab';
 const SAMPLE = [
   { id: 'sl:bus-1', operator: 'sl', line: '1', mode: 'bus', latitude: 59.3, longitude: 18.0 },
 ];
+const SAMPLE_OUTCOMES = [{ operator: 'sl', ok: true, vehicleCount: 1, dataTimestamp: 1000 }];
+const feedResult = () => ({ vehicles: SAMPLE, outcomes: SAMPLE_OUTCOMES });
 
 describe('useRealtimeVehicles', () => {
   beforeEach(() => {
-    vi.spyOn(service, 'fetchVehiclePositions').mockResolvedValue(SAMPLE);
+    vi.spyOn(service, 'fetchOperatorFeeds').mockResolvedValue(feedResult());
   });
 
   afterEach(() => {
@@ -36,7 +38,7 @@ describe('useRealtimeVehicles', () => {
     });
 
     it('poll error: sets error and clears loading', async () => {
-      service.fetchVehiclePositions.mockRejectedValueOnce(new Error('feed down'));
+      service.fetchOperatorFeeds.mockRejectedValueOnce(new Error('feed down'));
       const { result } = renderHook(() => useRealtimeVehicles(['sl'], 5000, true));
       await waitFor(() => expect(result.current.loading).toBe(false));
       expect(result.current.error).toBe('feed down');
@@ -47,7 +49,7 @@ describe('useRealtimeVehicles', () => {
       const { result } = renderHook(() => useRealtimeVehicles(['sl'], 5000, true));
       await waitFor(() => expect(result.current.loading).toBe(false));
 
-      service.fetchVehiclePositions.mockRejectedValueOnce(new Error('refresh boom'));
+      service.fetchOperatorFeeds.mockRejectedValueOnce(new Error('refresh boom'));
       act(() => { result.current.refresh(); });
       await waitFor(() => expect(result.current.error).toBe('refresh boom'));
       expect(result.current.loading).toBe(false);
@@ -56,10 +58,10 @@ describe('useRealtimeVehicles', () => {
     it('refresh calls the same service as the poll loop', async () => {
       const { result } = renderHook(() => useRealtimeVehicles(['sl'], 5000, true));
       await waitFor(() => expect(result.current.loading).toBe(false));
-      const before = service.fetchVehiclePositions.mock.calls.length;
+      const before = service.fetchOperatorFeeds.mock.calls.length;
 
       await act(async () => { await result.current.refresh(); });
-      expect(service.fetchVehiclePositions.mock.calls.length).toBe(before + 1);
+      expect(service.fetchOperatorFeeds.mock.calls.length).toBe(before + 1);
     });
   });
 
@@ -71,7 +73,7 @@ describe('useRealtimeVehicles', () => {
       await waitFor(() => expect(result.current.loading).toBe(false));
 
       let resolvePending;
-      service.fetchVehiclePositions.mockImplementationOnce(
+      service.fetchOperatorFeeds.mockImplementationOnce(
         () => new Promise(r => { resolvePending = r; }),
       );
 
@@ -84,7 +86,7 @@ describe('useRealtimeVehicles', () => {
 
     it('does not throw when the initial poll resolves after unmount', async () => {
       let resolvePending;
-      service.fetchVehiclePositions.mockImplementationOnce(
+      service.fetchOperatorFeeds.mockImplementationOnce(
         () => new Promise(r => { resolvePending = r; }),
       );
 

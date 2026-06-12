@@ -28,7 +28,48 @@ function stationaryAnomaly(overrides = {}) {
   };
 }
 
+function outageAnomaly(overrides = {}) {
+  return {
+    ruleId: 'feed-fetch-failure',
+    subjectKind: 'operator',
+    operator: 'sl',
+    measuredFailures: 3,
+    thresholdFailures: 3,
+    startedAt: T0,
+    detectedAt: T0 + 6 * MIN,
+    ...overrides,
+  };
+}
+
 describe('incidentEvidence', () => {
+  describe('feed-outage rule descriptors', () => {
+    it('labels each feed-outage rule and extracts its threshold and measured value', () => {
+      const fetchFail = aggregateEvidence({ anomalies: [outageAnomaly()] })[0];
+      expect(fetchFail.ruleLabel).toBe(ruleLabel('feed-fetch-failure'));
+      expect(fetchFail.ruleLabel).not.toBe('feed-fetch-failure'); // a human label, not the id
+      expect(fetchFail.measured).toMatch(/3/);
+      expect(fetchFail.threshold).toMatch(/3/);
+
+      const frozen = aggregateEvidence({
+        anomalies: [outageAnomaly({ ruleId: 'feed-frozen-timestamps', measuredFrozenMs: 4 * MIN, thresholdMs: 3 * MIN })],
+      })[0];
+      expect(frozen.measured).toMatch(/min/);
+      expect(frozen.threshold).toMatch(/min/);
+
+      const collapse = aggregateEvidence({
+        anomalies: [outageAnomaly({ ruleId: 'feed-vehicle-collapse', measuredCount: 3, baselineCount: 100, collapseRatio: 0.2 })],
+      })[0];
+      expect(collapse.measured).toMatch(/3/);
+      expect(collapse.threshold).toMatch(/100/);
+    });
+
+    it('gives operator-subject anomalies a stable key that does not collide across rules', () => {
+      const a = outageAnomaly({ ruleId: 'feed-fetch-failure' });
+      const b = outageAnomaly({ ruleId: 'feed-vehicle-collapse' });
+      expect(anomalyKey(a)).not.toBe(anomalyKey(b));
+    });
+  });
+
   describe('timelineAnomalies', () => {
     it('orders anomalies chronologically by detectedAt', () => {
       const later = stationaryAnomaly({ detectedAt: T0 + 8 * MIN });

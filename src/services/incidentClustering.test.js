@@ -100,6 +100,71 @@ describe('clusterIncidents', () => {
     });
   });
 
+  describe('operator-subject (feed outage) incidents', () => {
+    function outage(overrides = {}) {
+      return {
+        ruleId: 'feed-fetch-failure',
+        subjectKind: 'operator',
+        operator: 'sl',
+        startedAt: 0,
+        detectedAt: 6 * 60 * 1000,
+        ...overrides,
+      };
+    }
+
+    it('creates one open Incident with an operator subject and no ground geometry', () => {
+      const incidents = clusterIncidents([], [outage()], 6 * 60 * 1000);
+      expect(incidents).toHaveLength(1);
+      const inc = incidents[0];
+      expect(inc.status).toBe('open');
+      expect(inc.subject.kind).toBe('operator');
+      expect(inc.subject.operator).toBe('sl');
+      expect(inc.subject.latitude).toBeUndefined();
+      expect(inc.vehicleIds).toEqual([]);
+      expect(inc.id).toBe('feed-outage:sl:0');
+      expect(inc.anomalies).toHaveLength(1);
+    });
+
+    it('folds repeated and cross-signal anomalies for the same operator into one Incident', () => {
+      const first = clusterIncidents([], [outage({ detectedAt: 6 * 60 * 1000 })], 6 * 60 * 1000);
+      const second = clusterIncidents(
+        first,
+        [
+          outage({ ruleId: 'feed-fetch-failure', detectedAt: 8 * 60 * 1000 }),
+          outage({ ruleId: 'feed-vehicle-collapse', detectedAt: 8 * 60 * 1000 }),
+        ],
+        8 * 60 * 1000,
+      );
+      expect(second).toHaveLength(1);
+      expect(second[0].anomalies).toHaveLength(3);
+      expect(second[0].lastUpdate).toBe(8 * 60 * 1000);
+    });
+
+    it('keeps different operators as separate Incidents', () => {
+      const incidents = clusterIncidents(
+        [],
+        [outage({ operator: 'sl' }), outage({ operator: 'ul' })],
+        6 * 60 * 1000,
+      );
+      expect(incidents).toHaveLength(2);
+    });
+
+    it('never merges an operator-subject Incident with a nearby geographic anomaly', () => {
+      const op = clusterIncidents([], [outage()], 6 * 60 * 1000);
+      const mixed = clusterIncidents(op, [anomaly()], 6 * 60 * 1000);
+      // the geographic stationary anomaly forms its own Incident
+      expect(mixed).toHaveLength(2);
+      const kinds = mixed.map((i) => i.subject.kind).sort();
+      expect(kinds).toEqual(['geographic', 'operator']);
+    });
+
+    it('resolves a quiet operator Incident after the quiet period', () => {
+      const open = clusterIncidents([], [outage({ detectedAt: 6 * 60 * 1000 })], 6 * 60 * 1000);
+      const later = clusterIncidents(open, [], 6 * 60 * 1000 + QUIET_PERIOD_MS);
+      expect(later[0].status).toBe('resolved');
+    });
+  });
+
   describe('recurrence after resolution', () => {
     it('surfaces a new open Incident when a matching anomaly recurs, keeping the resolved one', () => {
       const open = clusterIncidents([], [anomaly({ startedAt: 0, detectedAt: 6 * 60 * 1000 })], 6 * 60 * 1000);

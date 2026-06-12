@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { render, screen, fireEvent, act } from '@testing-library/react';
+import { render, screen, fireEvent, act, within } from '@testing-library/react';
 import { CommandCenter } from './CommandCenter';
 
 const MIN = 60 * 1000;
@@ -78,6 +78,30 @@ describe('CommandCenter', () => {
     expect(screen.getByLabelText('Why flagged?')).toBeDefined();
     expect(screen.getByLabelText('Incident timeline')).toBeDefined();
     expect(screen.getAllByText('Stationary on active trip').length).toBeGreaterThan(0);
+  });
+
+  it('raises a Feed outage Incident from repeated fetch failures and shows feed status', () => {
+    const { FakeMap } = makeFakeMap();
+    let t = 0;
+    const now = () => t;
+    const okFeeds = () => [{ operator: 'sl', ok: true, vehicleCount: 50, dataTimestamp: 1000 }];
+    const failFeeds = () => [{ operator: 'sl', ok: false, vehicleCount: 0, dataTimestamp: null }];
+
+    const { rerender } = render(
+      <CommandCenter vehicles={[]} feeds={okFeeds()} MapComponent={FakeMap} now={now} />,
+    );
+    for (let i = 1; i <= 3; i++) {
+      act(() => { t = i * MIN; });
+      rerender(<CommandCenter vehicles={[]} feeds={failFeeds()} MapComponent={FakeMap} now={now} />);
+    }
+
+    // A Feed outage Incident appears in the inbox as a data problem.
+    expect(screen.getByText(/Feed outage · SL/)).toBeDefined();
+
+    // Feed status panel reads SL as a watched feed and an unwatched region as "not watched".
+    const statusPanel = screen.getByLabelText('Feed status');
+    expect(within(statusPanel).getByText('SL')).toBeDefined();
+    expect(within(statusPanel).getAllByText(/not watched/i).length).toBeGreaterThan(0);
   });
 
   it('scrubbing renders past positions and shows the past-mode indicator', () => {

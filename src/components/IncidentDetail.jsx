@@ -4,6 +4,7 @@ import {
   timelineAnomalies,
   anomalyEvidence,
 } from '../services/incidentEvidence';
+import { OPERATOR_MAP } from '../config/operators';
 import './IncidentDetail.css';
 
 // Incident detail — the right-hand panel of the Command Center. Two parts, both
@@ -40,9 +41,20 @@ export function IncidentDetail({ incident = null }) {
 
   const claims = aggregateEvidence(incident);
   const timeline = timelineAnomalies(incident);
+  const isOutage = incident.subject.kind === 'operator';
 
   return (
     <div className="incident-detail">
+      {isOutage && (
+        <header className="incident-detail__subject incident-detail__subject--operator">
+          <span className="incident-detail__subject-title">
+            Feed outage · {OPERATOR_MAP.get(incident.subject.operator)?.name ?? incident.subject.operator}
+          </span>
+          <span className="incident-detail__subject-note">
+            Data problem — the operator feed, not on-the-ground traffic
+          </span>
+        </header>
+      )}
       <section className="incident-detail__why" aria-label="Why flagged?">
         <h3 className="incident-detail__heading">Why flagged?</h3>
         <ul className="why-flagged" role="list">

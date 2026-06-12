@@ -142,6 +142,64 @@ describe('useIncidents', () => {
     });
   });
 
+  describe('feed outage + watched status', () => {
+    const okFeeds = () => [{ operator: 'sl', ok: true, vehicleCount: 50, dataTimestamp: 1000 }];
+    const failFeeds = () => [{ operator: 'sl', ok: false, vehicleCount: 0, dataTimestamp: null }];
+
+    it('raises an operator-subject Feed outage Incident from repeated fetch failures', () => {
+      let t = 0;
+      const now = () => t;
+      const { result, rerender } = renderHook(
+        ({ v, feeds }) => useIncidents(v, { now, feeds }),
+        { initialProps: { v: [], feeds: okFeeds() } },
+      );
+      for (let i = 1; i <= 3; i++) {
+        act(() => { t = i * MIN; });
+        rerender({ v: [], feeds: failFeeds() });
+      }
+
+      const inc = result.current.incidents.find((i) => i.subject.kind === 'operator');
+      expect(inc).toBeDefined();
+      expect(inc.subject.operator).toBe('sl');
+      expect(inc.vehicleIds).toEqual([]); // a data problem, no ground geometry
+    });
+
+    it('exposes watched/not-watched status; unwatched operators are never down', () => {
+      let t = 0;
+      const now = () => t;
+      const { result, rerender } = renderHook(
+        ({ v, feeds }) => useIncidents(v, { now, feeds }),
+        { initialProps: { v: [], feeds: okFeeds() } },
+      );
+      act(() => { t = 1 * MIN; });
+      rerender({ v: [], feeds: okFeeds() });
+
+      const by = Object.fromEntries(result.current.feedStatuses.map((s) => [s.operator, s]));
+      expect(by.sl.watched).toBe(true);
+      expect(by.skane.watched).toBe(false);
+      expect(by.skane.healthy).toBeNull();
+    });
+
+    it('focuses an operator-subject Incident on the operator region, not a traffic point', () => {
+      let t = 0;
+      const now = () => t;
+      const { result, rerender } = renderHook(
+        ({ v, feeds }) => useIncidents(v, { now, feeds }),
+        { initialProps: { v: [], feeds: okFeeds() } },
+      );
+      for (let i = 1; i <= 3; i++) {
+        act(() => { t = i * MIN; });
+        rerender({ v: [], feeds: failFeeds() });
+      }
+      const inc = result.current.incidents.find((i) => i.subject.kind === 'operator');
+      act(() => { result.current.selectIncident(inc.id); });
+
+      expect(result.current.focus.isDataProblem).toBe(true);
+      expect(result.current.focus.vehicleIds).toEqual([]);
+      expect(result.current.focus.center).toEqual([59.33, 18.07]); // SL region centre
+    });
+  });
+
   it('selecting an incident exposes a focus on its subject and involved vehicles', () => {
     let t = 0;
     const now = () => t;
@@ -159,6 +217,7 @@ describe('useIncidents', () => {
     expect(result.current.focus).toEqual({
       center: [59.3293, 18.0686],
       vehicleIds: ['sl:bus-1'],
+      isDataProblem: false,
     });
   });
 });

@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import GtfsRealtimeBindings from 'gtfs-realtime-bindings';
-import { fetchVehiclePositions, resetTripMappingCache } from './trafiklab';
+import { fetchVehiclePositions, fetchOperatorFeeds, resetTripMappingCache } from './trafiklab';
 
 vi.mock('gtfs-realtime-bindings', () => ({
   default: {
@@ -172,6 +172,43 @@ describe('trafiklab — vehicle-feed module', () => {
       });
 
       expect(vehicles).toEqual([]);
+    });
+  });
+
+  describe('fetchOperatorFeeds — per-operator fetch outcomes', () => {
+    it('reports a healthy fetch outcome with vehicle count and data timestamp', async () => {
+      fetch.mockResolvedValueOnce(makeOkFeedResponse());
+      const getTripMapping = vi.fn().mockResolvedValue(TRIP_MAPPING);
+
+      const { vehicles, outcomes } = await fetchOperatorFeeds(['sl'], {
+        apiKey: 'test-key',
+        getTripMapping,
+      });
+
+      expect(vehicles).toHaveLength(1);
+      expect(outcomes).toHaveLength(1);
+      expect(outcomes[0]).toEqual({
+        operator: 'sl',
+        ok: true,
+        vehicleCount: 1,
+        dataTimestamp: 1686000000,
+      });
+    });
+
+    it('reports a failed outcome (ok:false) for an operator whose feed is down', async () => {
+      fetch
+        .mockResolvedValueOnce(makeOkFeedResponse())
+        .mockRejectedValueOnce(new Error('feed down'));
+      const getTripMapping = vi.fn().mockResolvedValue(TRIP_MAPPING);
+
+      const { outcomes } = await fetchOperatorFeeds(['sl', 'ul'], {
+        apiKey: 'test-key',
+        getTripMapping,
+      });
+
+      const by = Object.fromEntries(outcomes.map((o) => [o.operator, o]));
+      expect(by.sl.ok).toBe(true);
+      expect(by.ul).toEqual({ operator: 'ul', ok: false, vehicleCount: 0, dataTimestamp: null });
     });
   });
 });
