@@ -14,6 +14,13 @@ const TRANSPORT_MODES = [
 const MODE_COLOR_MAP = Object.fromEntries(TRANSPORT_MODES.map(m => [m.id, m.color]));
 const MODE_LABEL_MAP = Object.fromEntries(TRANSPORT_MODES.map(m => [m.id, m.label]));
 
+// Display names for webcam source slugs in partial-failure warnings.
+const SOURCE_LABELS = {
+  trafikverket: 'Trafikverket',
+  windy: 'Windy',
+  webcamcollections: 'Curated catalogue',
+};
+
 export function ControlPanel({
   vehicles = [],
   loading = false,
@@ -36,6 +43,7 @@ export function ControlPanel({
   onWebcamsToggle = () => {},
   webcamsLoading = false,
   webcamsError = null,
+  webcamsErrors = [],
   webcamCount = 0,
   cameraTypeDefinitions = [],
   enabledCameraTypes = [],
@@ -151,6 +159,12 @@ export function ControlPanel({
             {webcamsEnabled && webcamsError && (
               <div className="error-message" role="alert">
                 ⚠️ Webcams unavailable
+              </div>
+            )}
+            {webcamsEnabled && !webcamsError && webcamsErrors.length > 0 && (
+              <div className="webcam-source-warning" role="status">
+                ⚠️ {webcamsErrors.map(e => SOURCE_LABELS[e.source] || e.source).join(', ')}{' '}
+                unavailable — other sources shown
               </div>
             )}
             {webcamsEnabled && cameraTypeDefinitions.length > 0 && (

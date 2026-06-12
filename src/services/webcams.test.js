@@ -209,6 +209,19 @@ describe('webcams service — fetchCameras', () => {
     // Trafikverket failure surfaces; the curated source still rendered.
     expect(errors.some(e => e.source === 'trafikverket')).toBe(true);
   });
+
+  it('missing VITE_TRAFIKVERKET_API_KEY → absent source: zero cameras, no error, no fetch', async () => {
+    vi.unstubAllEnvs();
+    // Trafikverket key intentionally absent — keyless is configuration, not failure.
+
+    const { cameras, errors } = await fetchCameras();
+
+    expect(cameras.filter(c => c.source === 'trafikverket')).toEqual([]);
+    expect(errors.some(e => e.source === 'trafikverket')).toBe(false);
+    expect(fetch).not.toHaveBeenCalled();
+    // The curated source still ships.
+    expect(cameras.filter(c => c.source === 'webcamcollections').length).toBeGreaterThan(0);
+  });
 });
 
 describe('webcams service — Windy adapter', () => {
