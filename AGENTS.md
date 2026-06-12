@@ -68,6 +68,8 @@ Keys from https://developer.trafiklab.se/. Rate limit: Bronze, 50 calls/min — 
 
 ## Critical Workflows
 
+**Never push directly to `main` or `develop` — always open a PR first, even for one-line fixes.** Branch protection requires changes via PR; do not bypass it. Commit to a feature/fix branch, run the pre-PR gates, open a PR.
+
 ### Feature work
 1. Branch off `main` (always; git flow).
 2. Read `CONTEXT.md` (domain glossary — use its terms) and relevant `docs/adr/`.
