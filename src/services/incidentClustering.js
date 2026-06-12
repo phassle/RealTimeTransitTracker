@@ -6,13 +6,19 @@
 // timeline — not a new inbox row per detection. See CONTEXT.md § Operational
 // picture and ADR 0003.
 //
-// Slice 1 scope: geographic subjects from the stationary rule, folded by vehicle
-// identity (and nearby proximity). Cross-rule spatial merge, operator subjects,
-// quiet-period resolution and the stale flag are later slices.
+// Lifecycle (Slice 3): an open Incident whose Anomalies stop recurring resolves
+// automatically once a quiet period elapses (no new anomaly within
+// QUIET_PERIOD_MS of its lastUpdate). Resolved Incidents are frozen — they no
+// longer absorb anomalies — so a recurrence of the same situation surfaces as a
+// fresh open Incident (with a distinct id) rather than reopening the old row.
+// Geographic subjects merge by vehicle identity OR spatial proximity, so nearby
+// anomalies from different vehicles fold into one Incident covering both. The
+// stale flag (frozen on a blind feed) is a later slice.
 
 import { distanceMeters } from './anomalyRules';
 
 export const PROXIMITY_THRESHOLD_M = 250;
+export const QUIET_PERIOD_MS = 5 * 60 * 1000; // no anomaly for this long ⇒ resolved
 
 function cloneIncident(i) {
   return {
@@ -54,7 +60,9 @@ export function clusterIncidents(existingIncidents, newAnomalies, now) {
 
     if (!incident) {
       incident = {
-        id: `stationary:${a.vehicleId}`,
+        // startedAt keeps the id unique across recurrences: a resolved Incident
+        // and a fresh one for the same vehicle can coexist in the inbox.
+        id: `stationary:${a.vehicleId}:${a.startedAt}`,
         status: 'open',
         subject: { kind: 'geographic', latitude: a.latitude, longitude: a.longitude },
         lines: [],
@@ -72,6 +80,16 @@ export function clusterIncidents(existingIncidents, newAnomalies, now) {
     incident.subject.longitude = a.longitude;
     if (!incident.vehicleIds.includes(a.vehicleId)) incident.vehicleIds.push(a.vehicleId);
     if (a.line && !incident.lines.includes(a.line)) incident.lines.push(a.line);
+  }
+
+  // Resolution pass: an open Incident that has gone quiet — no anomaly within
+  // QUIET_PERIOD_MS of its lastUpdate — resolves. Incidents that absorbed a
+  // fresh anomaly above kept their lastUpdate current and so stay open.
+  for (const incident of incidents) {
+    if (incident.status === 'open' && now - incident.lastUpdate >= QUIET_PERIOD_MS) {
+      incident.status = 'resolved';
+      incident.resolvedAt = now;
+    }
   }
 
   return incidents;

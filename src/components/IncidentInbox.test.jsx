@@ -53,4 +53,24 @@ describe('IncidentInbox', () => {
     render(<IncidentInbox incidents={[incident()]} selectedIncidentId="stationary:sl:bus-1" />);
     expect(screen.getByRole('button').getAttribute('aria-pressed')).toBe('true');
   });
+
+  it('orders open incidents above resolved ones regardless of input order', () => {
+    const resolved = incident({ id: 'r', status: 'resolved', lines: ['9'], vehicleIds: ['r1'] });
+    const open = incident({ id: 'o', status: 'open', lines: ['4'], vehicleIds: ['o1'] });
+    render(<IncidentInbox incidents={[resolved, open]} />);
+
+    const rows = screen.getAllByRole('button');
+    expect(rows).toHaveLength(2);
+    // open ('Line 4') first, resolved ('Line 9') second
+    expect(rows[0].textContent).toContain('Line 4');
+    expect(rows[1].textContent).toContain('Line 9');
+  });
+
+  it('marks resolved rows so they read as inactive', () => {
+    const resolved = incident({ id: 'r', status: 'resolved' });
+    render(<IncidentInbox incidents={[resolved]} />);
+    const row = screen.getByRole('button');
+    expect(row.className).toContain('incident-row--resolved');
+    expect(screen.getByText('Resolved')).toBeDefined();
+  });
 });
