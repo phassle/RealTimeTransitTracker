@@ -1,6 +1,7 @@
 import { Map } from './Map';
 import { IncidentInbox } from './IncidentInbox';
 import { IncidentDetail } from './IncidentDetail';
+import { ReplayControls } from './ReplayControls';
 import { useIncidents } from '../hooks/useIncidents';
 import { SWEDEN_CENTER } from '../config/operators';
 import './CommandCenter.css';
@@ -16,10 +17,15 @@ const INCIDENT_FOCUS_ZOOM = 14;
 // real Leaflet instance. `now` is forwarded to useIncidents for deterministic
 // tests.
 export function CommandCenter({ vehicles = [], theme = 'light', MapComponent = Map, now }) {
-  const { incidents, selectedIncidentId, selectIncident, selectedIncident, focus } = useIncidents(
-    vehicles,
-    now ? { now } : undefined,
-  );
+  const {
+    incidents,
+    selectedIncidentId,
+    selectIncident,
+    selectedIncident,
+    focus,
+    replay,
+    displayedVehicles,
+  } = useIncidents(vehicles, now ? { now } : undefined);
 
   const center = focus ? focus.center : SWEDEN_CENTER;
   const zoom = focus ? INCIDENT_FOCUS_ZOOM : 6;
@@ -37,12 +43,13 @@ export function CommandCenter({ vehicles = [], theme = 'light', MapComponent = M
       </aside>
       <main className="command-center__map">
         <MapComponent
-          vehicles={vehicles}
+          vehicles={displayedVehicles}
           center={center}
           zoom={zoom}
           theme={theme}
           highlightedVehicleIds={highlightedVehicleIds}
         />
+        <ReplayControls replay={replay} />
       </main>
       <aside className="command-center__detail" aria-label="Incident detail">
         <IncidentDetail incident={selectedIncident} />
