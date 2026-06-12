@@ -139,7 +139,7 @@ describe('cameraPopupLinkoutContent', () => {
     expect(html).toMatch(/<a[^>]*rel="noopener noreferrer"[^>]*>/);
   });
 
-  it('renders NO inline image and NO iframe / embed (ADR 0002)', () => {
+  it('renders NO inline image and NO iframe / embed (ADR 0004)', () => {
     const html = cameraPopupLinkoutContent(LINKOUT_CAMERA);
     expect(html).not.toContain('<img');
     expect(html).not.toContain('<iframe');

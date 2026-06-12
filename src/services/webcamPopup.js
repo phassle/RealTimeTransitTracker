@@ -3,7 +3,7 @@
 // `bindPopup`. All externally-sourced strings are HTML-escaped, consistent
 // with the vehicle popup escaping.
 //
-// Per ADR 0002: image media renders exclusively as a hotlinked static
+// Per ADR 0004: image media renders exclusively as a hotlinked static
 // <img>. No iframes, players, or source-controlled script.
 
 import { escapeHtml } from './markerCollection';
@@ -79,7 +79,7 @@ export function cameraPopupImageContent(camera, options = {}) {
  * Linkout-variant popup: metadata + a "view at source" link, NO inline media.
  *
  * Curated webcamcollections cameras fetch nothing from third parties — per
- * ADR 0002 the app only links. Renders the camera name, attribution, and a
+ * ADR 0004 the app only links. Renders the camera name, attribution, and a
  * link to the source page; no <img>, no <iframe>, no embed.
  */
 export function cameraPopupLinkoutContent(camera) {

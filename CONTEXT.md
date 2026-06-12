@@ -45,6 +45,52 @@ What the app can show for a Webcam, an explicit field: `image | linkout`.
 
 The webcam layer never embeds third-party players or iframes (Windy player, live streams). Doing so would set third-party cookies/storage and trip the reversal trigger in [ADR 0001](docs/adr/0001-cookieless-no-consent-popup.md), forcing a full Consent surface. Hotlinked static `<img>` is treated like OSM tile loading: the network request inherently exposes the IP, nothing more.
 
+## Operational picture (command center)
+
+Terms for the command-center demo. These three are deliberately distinct; "case" is **not** part of this vocabulary — say Incident.
+
+### Anomaly
+
+A single rule hit at a point in time: one detection rule matching one observation (e.g. "vehicle stationary > threshold" firing for one vehicle at 08:42). Anomalies are raw, high-volume signals. They are never shown directly in the Incident Inbox; they exist to feed Incidents and appear only on an Incident's timeline.
+
+Every Anomaly carries **evidence**: the rule that fired, its threshold, the measured value, the affected vehicles/lines, and when it started. "Why flagged?" explanations are rendered from evidence, never free-written — every claim shown to the analyst traces back to an Anomaly on the timeline.
+
+### Incident
+
+An ongoing situation with a lifecycle (open → resolved) that clusters related Anomalies in time and space — possibly from different rules. One stationary bus re-detected every poll, plus a bus bunching detection nearby moments later, is **one** Incident with several Anomalies on its timeline, not several inbox rows. The Incident Inbox lists Incidents only.
+
+Every Incident has a **subject**: either a geographic area or an operator. A feed outage is an Incident whose subject is the operator — it has no geometry and is never drawn as if it were traffic on the ground.
+
+An Incident whose data source has gone blind (its operator's feed is out) becomes **stale**: it is frozen and flagged, not auto-resolved. Absence of data is never evidence that a situation resolved.
+
+### Feed outage
+
+An Incident whose subject is an operator, fed by any of three Anomaly signals: repeated fetch failures, a feed that responds but whose data timestamps have stopped advancing, or a sudden collapse in vehicle count. A technically "up" feed with dead or decimated data is still an outage.
+
+### Watched operator
+
+An operator currently being polled (its region intersects the viewport). Only watched operators can have a known feed status; an unwatched operator is **not watched** — never "down". Absence of polling is not evidence of absence of service.
+
+### Dwell spot
+
+A location where vehicles standing still is normal — terminals, depots, layover points. Learned during the session from observation history (many distinct vehicles stationary at the same spot over time), not from a static dataset. Detections at a Dwell spot are suppressed, not surfaced as Anomalies.
+
+### Replay
+
+Playing back the session's own observation history — from tab open, capped at a rolling window — to show how a situation developed. Replay never claims history from before the session started.
+
+### Recording
+
+A Replay buffer exported to a file, loadable back into the app later. The mechanism for rehearsable demos and post-hoc analysis; lives on the user's disk, not in client storage.
+
+### Verification
+
+An analyst action linking a Webcam to an Incident as visual confirmation ("this camera shows the queue"). Recorded on the Incident's timeline alongside Anomalies. Verification is human judgement; the system never marks a camera as verifying anything on its own.
+
+### Injected Incident
+
+A synthetic Incident inserted on demand to make a demo reproducible. Always explicitly labelled as demo content in the UI; never mixed silently with real detections. All live, non-injected data is real.
+
 ## Privacy & disclosure
 
 These three terms are deliberately kept distinct. They are commonly conflated in web product language; this project does not conflate them.
