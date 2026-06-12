@@ -79,16 +79,23 @@
   font-weight: 600;
 }
 
-.mode-filters {
+.mode-filters,
+.webcam-layer {
   padding: 15px 20px;
   border-bottom: 1px solid var(--chrome-border);
 }
 
-.mode-filters h3 {
+.mode-filters h3,
+.webcam-layer h3 {
   margin: 0 0 12px 0;
   font-size: 14px;
   font-weight: 600;
   color: var(--chrome-text-strong);
+}
+
+.camera-type-filters {
+  margin-top: 10px;
+  padding-left: 24px;
 }
 
 .mode-filter {
