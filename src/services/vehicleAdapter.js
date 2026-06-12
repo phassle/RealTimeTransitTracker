@@ -18,22 +18,26 @@ export function vehiclePopupContent(vehicle) {
   `;
 }
 
-export function createVehicleAdapter() {
-  return {
-    toLatLng(vehicle) {
-      if (!vehicle.latitude || !vehicle.longitude) return null;
-      return [vehicle.latitude, vehicle.longitude];
-    },
-
-    toIcon(vehicle) {
-      const color = MODE_COLORS[vehicle.mode] || MODE_COLORS.unknown;
-      const icon = MODE_ICONS[vehicle.mode] || MODE_ICONS.unknown;
-      return L.divIcon({
-        className: 'vehicle-marker',
-        html: `
+/**
+ * @param {{ isHighlighted?: (vehicleId: string) => boolean }} [opts]
+ *   isHighlighted lets the command-center view highlight vehicles involved in a
+ *   selected Incident. Default: nothing highlighted (existing map view behaviour).
+ */
+export function createVehicleAdapter({ isHighlighted = () => false } = {}) {
+  function buildIcon(vehicle) {
+    const color = MODE_COLORS[vehicle.mode] || MODE_COLORS.unknown;
+    const icon = MODE_ICONS[vehicle.mode] || MODE_ICONS.unknown;
+    const highlighted = isHighlighted(vehicle.id);
+    const border = highlighted ? '3px solid #ffd400' : '2px solid white';
+    const shadow = highlighted
+      ? '0 0 0 3px rgba(255,212,0,0.5), 0 2px 4px rgba(0,0,0,0.3)'
+      : '0 2px 4px rgba(0,0,0,0.3)';
+    return L.divIcon({
+      className: highlighted ? 'vehicle-marker vehicle-marker--highlighted' : 'vehicle-marker',
+      html: `
           <div style="
             background: ${color};
-            border: 2px solid white;
+            border: ${border};
             border-radius: 50%;
             width: 20px;
             height: 20px;
@@ -43,15 +47,25 @@ export function createVehicleAdapter() {
             font-size: 10px;
             font-weight: bold;
             color: white;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+            box-shadow: ${shadow};
             cursor: pointer;
           ">
             ${vehicle.line?.length <= 3 ? escapeHtml(vehicle.line) : icon}
           </div>
         `,
-        iconSize: [24, 24],
-        iconAnchor: [12, 12],
-      });
+      iconSize: [24, 24],
+      iconAnchor: [12, 12],
+    });
+  }
+
+  return {
+    toLatLng(vehicle) {
+      if (!vehicle.latitude || !vehicle.longitude) return null;
+      return [vehicle.latitude, vehicle.longitude];
+    },
+
+    toIcon(vehicle) {
+      return buildIcon(vehicle);
     },
 
     toPopup(vehicle) {
@@ -61,6 +75,9 @@ export function createVehicleAdapter() {
     onUpdate(marker, vehicle) {
       marker.setLatLng([vehicle.latitude, vehicle.longitude]);
       marker.setPopupContent(vehiclePopupContent(vehicle));
+      // Refresh the icon so highlight state tracks the selected Incident.
+      // Guarded: test fakes may not implement setIcon.
+      if (typeof marker.setIcon === 'function') marker.setIcon(buildIcon(vehicle));
     },
   };
 }

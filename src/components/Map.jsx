@@ -9,11 +9,16 @@ import { createMarkerCollection } from '../services/markerCollection';
 import { createVehicleAdapter } from '../services/vehicleAdapter';
 import { createWebcamAdapter } from '../services/webcamAdapter';
 
-export function Map({ vehicles = [], cameras = [], center = [59.3293, 18.0686], zoom = 11, onBoundsChange = null, theme = 'light' }) {
+export function Map({ vehicles = [], cameras = [], center = [59.3293, 18.0686], zoom = 11, onBoundsChange = null, theme = 'light', highlightedVehicleIds = [] }) {
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const vehicleCollectionRef = useRef(null);
-  const vehicleAdapterRef = useRef(createVehicleAdapter());
+  // Highlight set is read live by the adapter so selection changes are reflected.
+  const highlightRef = useRef(new Set());
+  highlightRef.current = new Set(highlightedVehicleIds);
+  const vehicleAdapterRef = useRef(
+    createVehicleAdapter({ isHighlighted: (id) => highlightRef.current.has(id) }),
+  );
   const webcamCollectionRef = useRef(null);
   const webcamAdapterRef = useRef(createWebcamAdapter());
   const markerLayerRef = useRef(null);
@@ -99,10 +104,12 @@ export function Map({ vehicles = [], cameras = [], center = [59.3293, 18.0686], 
     }
   }, [center, zoom]);
 
-  // Update vehicle markers via the marker-collection module
+  // Update vehicle markers via the marker-collection module. Re-runs when the
+  // highlight set changes too, so existing markers refresh their highlight icon.
+  const highlightKey = highlightedVehicleIds.join(',');
   useEffect(() => {
     vehicleCollectionRef.current?.update(vehicles, vehicleAdapterRef.current);
-  }, [vehicles]);
+  }, [vehicles, highlightKey]);
 
   // Update webcam markers via the marker-collection module (webcam adapter).
   useEffect(() => {

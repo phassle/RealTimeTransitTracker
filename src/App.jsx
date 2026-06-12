@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { Map } from './components/Map';
+import { CommandCenter } from './components/CommandCenter';
 import { ControlPanel } from './components/ControlPanel';
 import { OfflineBanner } from './components/OfflineBanner';
 import { UpdateToast } from './components/UpdateToast';
@@ -24,6 +25,7 @@ function App() {
   const [mapCenter, setMapCenter] = useState([59.3293, 18.0686]);
   const [mapZoom, setMapZoom] = useState(11);
   const [viewportBounds, setViewportBounds] = useState(null);
+  const [view, setView] = useState('map'); // 'map' | 'command' — Command Center is additive (PRD #84)
   const [webcamsEnabled, setWebcamsEnabled] = useState(false);
   const [enabledCameraTypes, setEnabledCameraTypes] = useState(
     CAMERA_TYPE_DEFINITIONS.map(t => t.id),
@@ -81,8 +83,34 @@ function App() {
     }
   };
 
+  const viewToggle = (
+    <button
+      type="button"
+      className="view-toggle"
+      onClick={() => setView(v => (v === 'map' ? 'command' : 'map'))}
+      style={{
+        position: 'absolute', top: 10, left: 10, zIndex: 1000,
+        padding: '6px 12px', cursor: 'pointer',
+      }}
+    >
+      {view === 'map' ? 'Open Command Center' : 'Back to map'}
+    </button>
+  );
+
+  if (view === 'command') {
+    return (
+      <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+        <CommandCenter vehicles={allVehicles} theme={theme} />
+        {viewToggle}
+        <OfflineBanner isOnline={isOnline} />
+        <PrivacyNotice />
+      </div>
+    );
+  }
+
   return (
     <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+      {viewToggle}
       <Map
         vehicles={filteredVehicles}
         cameras={webcamsEnabled ? filteredCameras : []}
