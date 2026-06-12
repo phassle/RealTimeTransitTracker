@@ -58,6 +58,7 @@ export function IncidentInbox({ incidents = [], selectedIncidentId = null, onSel
               onClick={() => onSelect(inc.id)}
             >
               <span className="incident-row__line">
+                {inc.demo && <span className="incident-row__demo">Demo</span>}
                 {isOutage
                   ? `Feed outage · ${operatorName(inc.subject.operator)}`
                   : inc.lines.length > 0

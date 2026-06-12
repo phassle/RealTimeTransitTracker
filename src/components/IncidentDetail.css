@@ -222,3 +222,23 @@
 .incident-webcams__verify:focus-visible {
   border-color: var(--success, #16a34a);
 }
+
+/* Injected (demo) incident labelling — a banner on the panel and a tag on the
+   timeline so demo content is unmistakable everywhere (PRD #84 stories 26–28). */
+.incident-detail__demo {
+  padding: 8px 14px;
+  background: #ffd60a;
+  color: #1b1f24;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.incident-detail__demo-tag {
+  color: #b58900;
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: 11px;
+  letter-spacing: 0.05em;
+}

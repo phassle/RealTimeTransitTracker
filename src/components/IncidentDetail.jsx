@@ -94,6 +94,8 @@ export function IncidentDetail({ incident = null, webcams = [], onVerify = null 
     ...verifications.map((v) => ({ kind: 'verification', time: v.verifiedAt, verification: v })),
   ].sort((a, b) => (a.time ?? 0) - (b.time ?? 0));
 
+  const isDemo = incident.demo === true;
+
   return (
     <div className="incident-detail">
       {incident.stale && (
@@ -103,6 +105,11 @@ export function IncidentDetail({ incident = null, webcams = [], onVerify = null 
             Frozen as of the last observation. Absence of data is not evidence it resolved.
           </span>
         </div>
+      )}
+      {isDemo && (
+        <header className="incident-detail__demo" role="note">
+          Injected demo incident — synthetic content, not a real detection
+        </header>
       )}
       {isOutage && (
         <header className="incident-detail__subject incident-detail__subject--operator">
@@ -154,7 +161,10 @@ export function IncidentDetail({ incident = null, webcams = [], onVerify = null 
       </section>
 
       <section className="incident-detail__timeline" aria-label="Incident timeline">
-        <h3 className="incident-detail__heading">Timeline</h3>
+        <h3 className="incident-detail__heading">
+          Timeline
+          {isDemo && <span className="incident-detail__demo-tag"> · Demo</span>}
+        </h3>
         <ol className="incident-timeline" role="list">
           {timelineEntries.map((entry) => {
             if (entry.kind === 'verification') {

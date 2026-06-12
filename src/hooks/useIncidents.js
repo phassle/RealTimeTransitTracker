@@ -3,6 +3,7 @@ import { createObservationBuffer } from '../services/observationBuffer';
 import { detectStationaryAnomalies, learnDwellSpots } from '../services/anomalyRules';
 import { detectFeedOutageAnomalies } from '../services/feedOutageRules';
 import { clusterIncidents } from '../services/incidentClustering';
+import { buildInjectedAnomalies } from '../services/injectedIncident';
 import { operatorFeedStatuses } from '../services/feedStatus';
 import { OPERATORS, OPERATOR_MAP, SWEDEN_CENTER } from '../config/operators';
 
@@ -103,6 +104,18 @@ export function useIncidents(vehicles, { now = () => Date.now(), feeds = [] } = 
     }));
   };
 
+  // Inject a demo Incident (PRD #84 stories 26–28). Synthetic anomalies enter
+  // through the SAME clustering seam as real detections, carrying a `demo`
+  // marker that survives into every presenter, so the audience sees the real
+  // pipeline (inbox → map → panel → timeline → webcams) — just with seeded
+  // input. Live, non-injected incidents are untouched.
+  const injectIncident = () => {
+    const t = now();
+    const next = clusterIncidents(incidentsRef.current, buildInjectedAnomalies(t), t);
+    incidentsRef.current = next;
+    setIncidents(next);
+  };
+
   // Recording export/import (PRD #84 stories 25, 30). Export serializes the
   // buffer to a versioned envelope for the operator to save to disk. Import
   // loads such a file back so Replay can scrub the captured window; it
@@ -159,5 +172,6 @@ export function useIncidents(vehicles, { now = () => Date.now(), feeds = [] } = 
     recording,
     displayedVehicles,
     verifyWebcam,
+    injectIncident,
   };
 }

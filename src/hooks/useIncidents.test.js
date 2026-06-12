@@ -258,6 +258,42 @@ describe('useIncidents', () => {
     });
   });
 
+  describe('injected (demo) incidents', () => {
+    it('injectIncident adds a demo-marked Incident through the real clustering seam', () => {
+      let t = 10 * MIN;
+      const now = () => t;
+      const { result } = renderHook(({ v }) => useIncidents(v, { now }), {
+        initialProps: { v: [] },
+      });
+      expect(result.current.incidents).toHaveLength(0);
+
+      act(() => { result.current.injectIncident(); });
+
+      const injected = result.current.incidents.filter((i) => i.demo);
+      expect(injected).toHaveLength(1);
+      expect(injected[0].subject.kind).toBe('geographic');
+      // Real evidence flows through: vehicles, lines, anomalies all present.
+      expect(injected[0].vehicleIds.length).toBeGreaterThan(0);
+      expect(injected[0].anomalies.length).toBeGreaterThan(0);
+    });
+
+    it('keeps live, non-injected incidents real alongside an injected one', () => {
+      let t = 0;
+      const now = () => t;
+      const { result, rerender } = renderHook(({ v }) => useIncidents(v, { now }), {
+        initialProps: { v: stuck() },
+      });
+      act(() => { t = 6 * MIN; });
+      rerender({ v: stuck() });
+      act(() => { result.current.injectIncident(); });
+
+      const real = result.current.incidents.filter((i) => !i.demo);
+      const demo = result.current.incidents.filter((i) => i.demo);
+      expect(real).toHaveLength(1);
+      expect(demo).toHaveLength(1);
+    });
+  });
+
   it('selecting an incident exposes a focus on its subject and involved vehicles', () => {
     let t = 0;
     const now = () => t;

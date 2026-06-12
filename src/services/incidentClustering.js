@@ -110,6 +110,11 @@ export function clusterIncidents(existingIncidents, newAnomalies, now) {
 
     incident.anomalies.push(a);
     incident.lastUpdate = a.detectedAt ?? now;
+    // Injected (demo) anomalies carry a demo marker that must survive into every
+    // presenter, so an Incident built from them is itself marked demo. Synthetic
+    // content is never mixed silently with real detections (CONTEXT.md § Injected
+    // Incident, PRD #84 stories 26–28).
+    if (a.demo) incident.demo = true;
     // Operator-subject Incidents carry no ground geometry, lines, or vehicles —
     // they are presented as data problems, not traffic on the ground.
     if (incident.subject.kind === 'geographic') {

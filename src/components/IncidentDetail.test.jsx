@@ -80,6 +80,26 @@ describe('IncidentDetail', () => {
     expect(screen.getAllByText('Feed fetch failures').length).toBeGreaterThan(0);
   });
 
+  describe('injected (demo) incident labelling', () => {
+    it('shows a demo banner on the detail panel', () => {
+      render(<IncidentDetail incident={{ ...incident([anomaly()]), demo: true }} />);
+      expect(screen.getByText(/injected demo/i)).toBeDefined();
+    });
+
+    it('labels the timeline as demo content', () => {
+      render(<IncidentDetail incident={{ ...incident([anomaly()]), demo: true }} />);
+      const timeline = screen.getByLabelText('Incident timeline');
+      expect(within(timeline).getByText(/demo/i)).toBeDefined();
+    });
+
+    it('does not label a real incident as demo', () => {
+      render(<IncidentDetail incident={incident([anomaly()])} />);
+      expect(screen.queryByText(/injected demo/i)).toBeNull();
+      const timeline = screen.getByLabelText('Incident timeline');
+      expect(within(timeline).queryByText(/demo/i)).toBeNull();
+    });
+  });
+
   // Scenario: Evidence renders structured
   it('renders, for each contributing rule, the rule, threshold, measured value, affected vehicles/lines and start time', () => {
     render(<IncidentDetail incident={incident([anomaly()])} />);

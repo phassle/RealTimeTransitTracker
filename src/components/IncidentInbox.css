@@ -101,3 +101,19 @@
   text-transform: uppercase;
   letter-spacing: 0.03em;
 }
+
+/* Injected (demo) incidents are explicitly labelled so synthetic content is
+   never mistaken for a real detection (PRD #84 stories 26–28). */
+.incident-row__demo {
+  display: inline-block;
+  margin-right: 6px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: #ffd60a;
+  color: #1b1f24;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  vertical-align: middle;
+}
