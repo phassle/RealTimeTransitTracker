@@ -11,6 +11,10 @@ function stuck() {
   ];
 }
 
+function movingAt(lng) {
+  return [{ id: 'sl:bus-1', operator: 'sl', line: '4', tripId: 'trip-abc', latitude: 59.3, longitude: lng }];
+}
+
 // Records the props it last received so the test can assert the focus wiring
 // without a real Leaflet map.
 function makeFakeMap() {
@@ -51,5 +55,33 @@ describe('CommandCenter', () => {
 
     expect(props.last.center).toEqual([59.3293, 18.0686]);
     expect(props.last.highlightedVehicleIds).toEqual(['sl:bus-1']);
+  });
+
+  it('scrubbing renders past positions and shows the past-mode indicator', () => {
+    const { FakeMap, props } = makeFakeMap();
+    let t = 0;
+    const now = () => t;
+
+    const { rerender } = render(
+      <CommandCenter vehicles={movingAt(18.0)} MapComponent={FakeMap} now={now} />,
+    );
+    act(() => { t = 2 * 60 * 1000; });
+    rerender(<CommandCenter vehicles={movingAt(19.0)} MapComponent={FakeMap} now={now} />);
+
+    // Live: map renders current positions, no past indicator.
+    expect(props.last.vehicles).toEqual(movingAt(19.0));
+    expect(screen.queryByText(/viewing the past/i)).toBeNull();
+
+    // Scrub to the start of the session.
+    fireEvent.change(screen.getByRole('slider'), { target: { value: '0' } });
+
+    // Map now renders the past snapshot; an unmistakable past indicator shows.
+    expect(props.last.vehicles).toEqual(movingAt(18.0));
+    expect(screen.getByText(/viewing the past/i)).toBeDefined();
+
+    // One click returns to live.
+    fireEvent.click(screen.getByRole('button', { name: /return to live/i }));
+    expect(props.last.vehicles).toEqual(movingAt(19.0));
+    expect(screen.queryByText(/viewing the past/i)).toBeNull();
   });
 });

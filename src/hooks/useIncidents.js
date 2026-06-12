@@ -18,8 +18,15 @@ export function useIncidents(vehicles, { now = () => Date.now() } = {}) {
   const [incidents, setIncidents] = useState([]);
   const [selectedIncidentId, setSelectedIncidentId] = useState(null);
 
+  // Replay state. `replayTime` is the scrubbed past moment, or null when live.
+  // Session bounds mirror the buffer's rolling window so the scrub control can
+  // never imply history outside "since tab open, capped at the window".
+  const [replayTime, setReplayTime] = useState(null);
+  const [sessionRange, setSessionRange] = useState(null);
+
   // Each new poll (new vehicles reference) appends a snapshot and re-derives
-  // incidents. `now` is read inside the effect; it is intentionally not a dep.
+  // incidents. Live polling keeps filling the buffer even while replaying.
+  // `now` is read inside the effect; it is intentionally not a dep.
   useEffect(() => {
     const t = now();
     bufferRef.current.append({ time: t, vehicles });
@@ -27,8 +34,33 @@ export function useIncidents(vehicles, { now = () => Date.now() } = {}) {
     const next = clusterIncidents(incidentsRef.current, anomalies, t);
     incidentsRef.current = next;
     setIncidents(next);
+    setSessionRange(bufferRef.current.range());
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [vehicles]);
+
+  const isReplaying = replayTime !== null;
+
+  // While replaying, render the buffer's snapshot at the scrubbed moment;
+  // otherwise the live vehicles. The marker lifecycle re-renders unchanged.
+  const displayedVehicles = isReplaying
+    ? bufferRef.current.at(replayTime)
+    : vehicles;
+
+  const replay = useMemo(() => ({
+    isReplaying,
+    viewedTime: replayTime,
+    sessionStart: sessionRange?.start ?? null,
+    sessionEnd: sessionRange?.end ?? null,
+    // Scrub to a past moment, bounded to the session window so the view never
+    // claims data from before the session started.
+    scrubTo: (time) => {
+      const range = bufferRef.current.range();
+      if (!range) return;
+      const clamped = Math.min(Math.max(time, range.start), range.end);
+      setReplayTime(clamped);
+    },
+    returnToLive: () => setReplayTime(null),
+  }), [isReplaying, replayTime, sessionRange]);
 
   const selectedIncident = useMemo(
     () => incidents.find((i) => i.id === selectedIncidentId) ?? null,
@@ -49,5 +81,7 @@ export function useIncidents(vehicles, { now = () => Date.now() } = {}) {
     selectIncident: setSelectedIncidentId,
     selectedIncident,
     focus,
+    replay,
+    displayedVehicles,
   };
 }

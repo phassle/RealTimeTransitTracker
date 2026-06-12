@@ -28,6 +28,33 @@ export function createObservationBuffer({ windowMs = DEFAULT_WINDOW_MS } = {}) {
       return snapshots;
     },
 
+    /**
+     * Read-at-time for Replay: the vehicles of the snapshot at or before
+     * `time`. Reads before the earliest retained snapshot clamp to it, so the
+     * view never claims data from before the session window. Empty buffer → [].
+     * @param {number} time
+     * @returns {object[]}
+     */
+    at(time) {
+      if (snapshots.length === 0) return [];
+      let chosen = snapshots[0];
+      for (const s of snapshots) {
+        if (s.time <= time) chosen = s;
+        else break;
+      }
+      return chosen.vehicles;
+    },
+
+    /**
+     * The session window bounds spanned by retained snapshots, or null when
+     * empty. `start` is "since tab open, capped at the rolling window".
+     * @returns {{ start: number, end: number } | null}
+     */
+    range() {
+      if (snapshots.length === 0) return null;
+      return { start: snapshots[0].time, end: snapshots[snapshots.length - 1].time };
+    },
+
     size() {
       return snapshots.length;
     },
