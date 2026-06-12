@@ -1,0 +1,107 @@
+.incident-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  padding: 0.75rem 1rem;
+  overflow-y: auto;
+}
+
+.incident-detail--empty {
+  padding: 1.5rem 1rem;
+  color: var(--text-muted, #888);
+  font-style: italic;
+}
+
+.incident-detail__heading {
+  margin: 0 0 0.5rem;
+  font-size: 0.95rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.why-flagged,
+.incident-timeline {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.why-flagged__claim {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: var(--surface, #f4f4f5);
+  border: 1px solid var(--border, #d4d4d8);
+  border-radius: 6px;
+  padding: 0.6rem 0.75rem;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+
+.why-flagged__claim:hover,
+.why-flagged__claim:focus-visible {
+  border-color: var(--accent, #2563eb);
+}
+
+.why-flagged__rule {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 0.4rem;
+}
+
+.why-flagged__evidence {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.15rem 0.75rem;
+  margin: 0;
+}
+
+.why-flagged__evidence > div {
+  display: contents;
+}
+
+.why-flagged__evidence dt {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-muted, #888);
+}
+
+.why-flagged__evidence dd {
+  margin: 0;
+}
+
+.incident-timeline__item {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.1rem 0.6rem;
+  padding: 0.5rem 0.6rem;
+  border-left: 3px solid var(--border, #d4d4d8);
+  border-radius: 0 4px 4px 0;
+  background: var(--surface, #f4f4f5);
+}
+
+.incident-timeline__item--highlighted {
+  border-left-color: var(--accent, #2563eb);
+  background: var(--accent-soft, #dbeafe);
+}
+
+.incident-timeline__time {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.incident-timeline__rule {
+  font-weight: 600;
+}
+
+.incident-timeline__measured,
+.incident-timeline__vehicle {
+  grid-column: 2;
+  font-size: 0.85rem;
+  color: var(--text-muted, #888);
+}

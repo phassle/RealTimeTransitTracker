@@ -52,4 +52,27 @@ describe('CommandCenter', () => {
     expect(props.last.center).toEqual([59.3293, 18.0686]);
     expect(props.last.highlightedVehicleIds).toEqual(['sl:bus-1']);
   });
+
+  it('shows the selected Incident\'s why-flagged panel and timeline', () => {
+    const { FakeMap } = makeFakeMap();
+    let t = 0;
+    const now = () => t;
+
+    const { rerender } = render(
+      <CommandCenter vehicles={stuck()} MapComponent={FakeMap} now={now} />,
+    );
+    act(() => { t = 6 * MIN; });
+    rerender(<CommandCenter vehicles={stuck()} MapComponent={FakeMap} now={now} />);
+
+    // Before selection: no detail rendered, just the placeholder.
+    expect(screen.getByText(/Select an incident/)).toBeDefined();
+
+    fireEvent.click(screen.getByRole('button', { name: /Line 4/ }));
+
+    const detail = screen.getByLabelText('Incident detail');
+    expect(detail).toBeDefined();
+    expect(screen.getByLabelText('Why flagged?')).toBeDefined();
+    expect(screen.getByLabelText('Incident timeline')).toBeDefined();
+    expect(screen.getAllByText('Stationary on active trip').length).toBeGreaterThan(0);
+  });
 });

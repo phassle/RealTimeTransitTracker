@@ -1,6 +1,6 @@
 .command-center {
   display: grid;
-  grid-template-columns: 340px 1fr;
+  grid-template-columns: 340px 1fr 360px;
   width: 100%;
   height: 100%;
 }
@@ -26,4 +26,13 @@
 .command-center__map {
   position: relative;
   height: 100%;
+}
+
+.command-center__detail {
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid rgba(0, 0, 0, 0.15);
+  background: #1b1f24;
+  color: #e8e8e8;
+  overflow: hidden;
 }
