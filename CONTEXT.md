@@ -18,6 +18,14 @@ The current canonical modes are: `metro | bus | train | tram | ferry | unknown`.
 
 `ship` is not a mode: no GTFS `route_type` in the Swedish feeds maps to it. Route type 1000 (Water Transport) maps to `ferry`.
 
+## Filter-selection module
+
+Filter state — enabled modes, selected lines, and the mode/line invariant — is owned entirely by **`src/hooks/useFilterSelection.js`**. No consumer builds or parses selection keys; the hook exposes `{mode, line}` objects and an `isLineSelected(mode, line)` predicate.
+
+**Mode/line invariant:** disabling a mode immediately clears every line selection for that mode. The invariant is enforced inside the hook on every `toggleMode` call; no caller needs to handle it.
+
+**Available lines:** derived from the live vehicle set, grouped per mode, numerically sorted. Lines for a disabled mode are excluded. `filteredVehicles` is the hook's primary output: the vehicle list after both mode and line filters are applied.
+
 ## Webcam layer
 
 Terms for the webcam feature (issue #65). A **Webcam** is a camera whose owner has deliberately published its imagery openly; unsecured private surveillance cameras are never Webcams in this domain, regardless of technical reachability.
