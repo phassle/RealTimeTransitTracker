@@ -54,10 +54,15 @@ export function createMarkerCollection(layer, { createMarker = defaultCreateMark
         }
       } else {
         const icon = adapter.toIcon(item);
-        const marker = createMarker(latLng, { icon });
-        marker.bindPopup(adapter.toPopup(item), { closeButton: true });
+        const extraOpts = adapter.toMarkerOptions ? adapter.toMarkerOptions(item) : {};
+        const marker = createMarker(latLng, { icon, ...extraOpts });
+        const popupOpts = adapter.toPopupOptions ? adapter.toPopupOptions(item) : { closeButton: true };
+        marker.bindPopup(adapter.toPopup(item), popupOpts);
         layer.addLayer(marker);
         markers.set(item.id, marker);
+        if (adapter.onMarkerCreated) {
+          adapter.onMarkerCreated(marker, item);
+        }
       }
     }
   }

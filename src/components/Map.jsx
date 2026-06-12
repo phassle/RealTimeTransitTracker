@@ -5,32 +5,19 @@ import { tileLayerConfig } from './tileLayerConfig';
 import 'leaflet.markercluster';
 import 'leaflet.markercluster/dist/MarkerCluster.css';
 import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
-import {
-  cameraPopupImageContent,
-  cameraPopupErrorContent,
-  cameraPopupLinkoutContent,
-  cacheBustImageUrl,
-} from '../services/webcamPopup';
-import { CAMERA_TYPE_DEFINITIONS } from '../services/cameraTypeFilter';
-import { escapeHtml, createMarkerCollection } from '../services/markerCollection';
+import { createMarkerCollection } from '../services/markerCollection';
 import { createVehicleAdapter } from '../services/vehicleAdapter';
-
-const CAMERA_TYPE_COLOR = Object.fromEntries(
-  CAMERA_TYPE_DEFINITIONS.map(t => [t.id, t.color])
-);
-const CAMERA_DEFAULT_COLOR = '#2c3e50';
-
-// Use globalThis.Map to avoid collision with React component name
-const JSMap = globalThis.Map;
+import { createWebcamAdapter } from '../services/webcamAdapter';
 
 export function Map({ vehicles = [], cameras = [], center = [59.3293, 18.0686], zoom = 11, onBoundsChange = null, theme = 'light' }) {
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const vehicleCollectionRef = useRef(null);
   const vehicleAdapterRef = useRef(createVehicleAdapter());
+  const webcamCollectionRef = useRef(null);
+  const webcamAdapterRef = useRef(createWebcamAdapter());
   const markerLayerRef = useRef(null);
   const tileLayerRef = useRef(null);
-  const cameraMarkersRef = useRef(new JSMap());
   const cameraClusterRef = useRef(null);
   const boundsTimerRef = useRef(null);
   const onBoundsChangeRef = useRef(onBoundsChange);
@@ -57,13 +44,13 @@ export function Map({ vehicles = [], cameras = [], center = [59.3293, 18.0686], 
       markerLayerRef.current = L.layerGroup().addTo(map);
       vehicleCollectionRef.current = createMarkerCollection(markerLayerRef.current);
 
-      // Clustered layer dedicated to webcams — leaves the vehicle marker
-      // lifecycle above completely untouched.
+      // Clustered layer for webcam markers — second adapter on the marker-collection module.
       cameraClusterRef.current = L.markerClusterGroup({
         showCoverageOnHover: false,
         spiderfyOnMaxZoom: true,
         chunkedLoading: true,
       }).addTo(map);
+      webcamCollectionRef.current = createMarkerCollection(cameraClusterRef.current);
 
       // Viewport bounds reporting (debounced 300ms)
       const reportBounds = () => {
@@ -117,65 +104,9 @@ export function Map({ vehicles = [], cameras = [], center = [59.3293, 18.0686], 
     vehicleCollectionRef.current?.update(vehicles, vehicleAdapterRef.current);
   }, [vehicles]);
 
-  // Update camera markers (webcam layer — clustered, no popup in this slice).
+  // Update webcam markers via the marker-collection module (webcam adapter).
   useEffect(() => {
-    const cluster = cameraClusterRef.current;
-    if (!cluster) return;
-
-    const existing = cameraMarkersRef.current;
-    const currentIds = new Set(cameras.map(c => c.id));
-
-    for (const [id, marker] of existing.entries()) {
-      if (!currentIds.has(id)) {
-        cluster.removeLayer(marker);
-        existing.delete(id);
-      }
-    }
-
-    const toAdd = [];
-    cameras.forEach(cam => {
-      if (existing.has(cam.id)) return;
-      const markerColor = CAMERA_TYPE_COLOR[cam.type] || CAMERA_DEFAULT_COLOR;
-      const icon = L.divIcon({
-        className: 'camera-marker',
-        html: `
-          <div style="
-            background: ${markerColor};
-            border: 2px solid white;
-            border-radius: 4px;
-            width: 24px;
-            height: 24px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 14px;
-            color: white;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
-            cursor: pointer;
-          ">📷</div>
-        `,
-        iconSize: [28, 28],
-        iconAnchor: [14, 14],
-      });
-      const marker = L.marker([cam.lat, cam.lon], {
-        icon,
-        title: `${escapeHtml(cam.name)} (${escapeHtml(cam.attribution)})`,
-      });
-      const isLinkout = cam.media === 'linkout';
-      marker.bindPopup(
-        () => (isLinkout ? cameraPopupLinkoutContent(cam) : cameraPopupImageContent(cam)),
-        { closeButton: true, minWidth: 240, maxWidth: 320 },
-      );
-      // Linkout cameras have nothing to wire — no img, no refresh button.
-      if (!isLinkout) {
-        marker.on('popupopen', (event) => wireCameraPopup(event.popup, cam));
-      }
-      existing.set(cam.id, marker);
-      toAdd.push(marker);
-    });
-    if (toAdd.length > 0) {
-      cluster.addLayers(toAdd);
-    }
+    webcamCollectionRef.current?.update(cameras, webcamAdapterRef.current);
   }, [cameras]);
 
   return (
@@ -190,31 +121,5 @@ export function Map({ vehicles = [], cameras = [], center = [59.3293, 18.0686], 
   );
 }
 
-// Wire interactive bits of the camera popup after Leaflet has inserted it
-// into the DOM:
-//   * <img onerror>  → swap to error placeholder (image source down)
-//   * refresh button → re-render popup with a cache-busted image URL so the
-//                      browser doesn't serve the same cached still
-function wireCameraPopup(popup, camera) {
-  const root = popup.getElement();
-  if (!root) return;
-  const img = root.querySelector('[data-webcam-image]');
-  const btn = root.querySelector('[data-webcam-refresh]');
 
-  if (img) {
-    img.addEventListener('error', () => {
-      popup.setContent(cameraPopupErrorContent(camera));
-    }, { once: true });
-  }
-
-  if (btn) {
-    btn.addEventListener('click', (e) => {
-      e.preventDefault();
-      const fresh = cacheBustImageUrl(camera.imageUrl, Date.now());
-      popup.setContent(cameraPopupImageContent(camera, { imageUrl: fresh }));
-      // setContent replaces DOM nodes — re-bind listeners on the new ones.
-      wireCameraPopup(popup, camera);
-    });
-  }
-}
 
