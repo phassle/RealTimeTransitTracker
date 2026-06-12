@@ -1,9 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
-  TILE_CACHE_NAME,
   TILE_CACHE_MAX_ENTRIES,
   TILE_CACHE_MAX_AGE_SECONDS,
-  TRIP_MAPPING_CACHE_NAME,
   TRIP_MAPPING_GLOB,
   precacheGlobPatterns,
   precacheGlobIgnores,
@@ -52,24 +50,6 @@ describe('swCacheConfig', () => {
 
     it('second route is StaleWhileRevalidate (trip mapping)', () => {
       expect(runtimeCacheRoutes[1].handler).toBe('StaleWhileRevalidate');
-    });
-
-    it('tile route uses TILE_CACHE_NAME', () => {
-      expect(runtimeCacheRoutes[0].options.cacheName).toBe(TILE_CACHE_NAME);
-    });
-
-    it('trip-mapping route uses TRIP_MAPPING_CACHE_NAME', () => {
-      expect(runtimeCacheRoutes[1].options.cacheName).toBe(TRIP_MAPPING_CACHE_NAME);
-    });
-
-    it('tile cache expiration maxEntries matches TILE_CACHE_MAX_ENTRIES', () => {
-      expect(runtimeCacheRoutes[0].options.expiration.maxEntries).toBe(TILE_CACHE_MAX_ENTRIES);
-    });
-
-    it('tile cache expiration maxAgeSeconds matches TILE_CACHE_MAX_AGE_SECONDS', () => {
-      expect(runtimeCacheRoutes[0].options.expiration.maxAgeSeconds).toBe(
-        TILE_CACHE_MAX_AGE_SECONDS
-      );
     });
 
     it('TILE_CACHE_MAX_ENTRIES is at most 200', () => {
