@@ -44,8 +44,10 @@ export function Map({ vehicles = [], cameras = [], center = [59.3293, 18.0686], 
   useEffect(() => {
     if (!mapInstanceRef.current && mapRef.current) {
       const map = L.map(mapRef.current, {
-        preferCanvas: true // Better performance for many markers
+        preferCanvas: true, // Better performance for many markers
+        zoomControl: false, // Default top-left sits under the control panel
       }).setView(center, zoom);
+      L.control.zoom({ position: 'topright' }).addTo(map);
 
       mapInstanceRef.current = map;
 
