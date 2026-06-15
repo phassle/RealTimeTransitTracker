@@ -199,3 +199,69 @@ describe('useFilterSelection — clearLines', () => {
     expect(result.current.filteredVehicles).toHaveLength(3);
   });
 });
+
+describe('useFilterSelection — Favourites', () => {
+  it('exposes isLineFavourite and toggleFavourite', () => {
+    const { result } = renderHook(() => useFilterSelection([]));
+    expect(typeof result.current.isLineFavourite).toBe('function');
+    expect(typeof result.current.toggleFavourite).toBe('function');
+  });
+
+  it('no line is favourited initially', () => {
+    const { result } = renderHook(() => useFilterSelection([v('v1', 'bus', '55')]));
+    expect(result.current.isLineFavourite('bus', '55')).toBe(false);
+  });
+
+  it('toggleFavourite marks a line as a Favourite', () => {
+    const { result } = renderHook(() => useFilterSelection([v('v1', 'bus', '55')]));
+
+    act(() => result.current.toggleFavourite('bus', '55'));
+
+    expect(result.current.isLineFavourite('bus', '55')).toBe(true);
+  });
+
+  it('toggling a favourited line again clears the Favourite', () => {
+    const { result } = renderHook(() => useFilterSelection([v('v1', 'bus', '55')]));
+
+    act(() => result.current.toggleFavourite('bus', '55'));
+    act(() => result.current.toggleFavourite('bus', '55'));
+
+    expect(result.current.isLineFavourite('bus', '55')).toBe(false);
+  });
+
+  it('favouriting a line does not select it (orthogonal axes)', () => {
+    const { result } = renderHook(() => useFilterSelection([v('v1', 'bus', '55')]));
+
+    act(() => result.current.toggleFavourite('bus', '55'));
+
+    expect(result.current.isLineFavourite('bus', '55')).toBe(true);
+    expect(result.current.isLineSelected('bus', '55')).toBe(false);
+  });
+
+  it('selecting a line does not favourite it (orthogonal axes)', () => {
+    const { result } = renderHook(() => useFilterSelection([v('v1', 'bus', '55')]));
+
+    act(() => result.current.toggleLine('bus', '55'));
+
+    expect(result.current.isLineSelected('bus', '55')).toBe(true);
+    expect(result.current.isLineFavourite('bus', '55')).toBe(false);
+  });
+
+  it('disabling a mode keeps its Favourites', () => {
+    const { result } = renderHook(() => useFilterSelection([v('v1', 'bus', '55')]));
+
+    act(() => result.current.toggleFavourite('bus', '55'));
+    act(() => result.current.toggleMode('bus'));
+
+    expect(result.current.isLineFavourite('bus', '55')).toBe(true);
+  });
+
+  it('favourites are scoped per mode and line', () => {
+    const { result } = renderHook(() => useFilterSelection([]));
+
+    act(() => result.current.toggleFavourite('bus', '55'));
+
+    expect(result.current.isLineFavourite('tram', '55')).toBe(false);
+    expect(result.current.isLineFavourite('bus', '5')).toBe(false);
+  });
+});

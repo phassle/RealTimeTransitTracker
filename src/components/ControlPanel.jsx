@@ -17,6 +17,8 @@ export function ControlPanel({
   isLineSelected = () => false,
   onLineToggle = () => {},
   onClearLines = () => {},
+  isLineFavourite = () => false,
+  onFavouriteToggle = () => {},
   operators = [],
   activeOperators = [],
   onRegionSelect = () => {},
@@ -240,15 +242,30 @@ export function ControlPanel({
                       <div className="line-group-chips">
                         {lines.map(({ line, count }) => {
                           const selected = isLineSelected(mode, line);
+                          const favourite = isLineFavourite(mode, line);
                           return (
                             <span
                               key={`${mode}:${line}`}
-                              className={`line-chip ${selected ? 'selected' : ''}`}
+                              className={`line-chip ${selected ? 'selected' : ''} ${favourite ? 'favourite' : ''}`}
                               style={selected ? { borderColor: MODE_COLOR_MAP[mode] || '#888' } : {}}
                               onClick={() => onLineToggle(mode, line)}
                               title={`${count} vehicle${count !== 1 ? 's' : ''}`}
                             >
                               {line}
+                              <button
+                                type="button"
+                                className={`line-chip-star ${favourite ? 'favourite' : ''}`}
+                                style={{ color: MODE_COLOR_MAP[mode] || '#888' }}
+                                aria-pressed={favourite}
+                                aria-label={`${favourite ? 'Unfavourite' : 'Favourite'} line ${line}`}
+                                title={favourite ? 'Unfavourite line' : 'Favourite line'}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onFavouriteToggle(mode, line);
+                                }}
+                              >
+                                {favourite ? '★' : '☆'}
+                              </button>
                             </span>
                           );
                         })}

@@ -5,6 +5,10 @@ export function useFilterSelection(allVehicles) {
   const [enabledModes, setEnabledModes] = useState(ALL_MODE_IDS);
   // Private: Set of "mode:line" keys — never exposed as strings
   const [selectedKeys, setSelectedKeys] = useState(() => new Set());
+  // Private: Set of "mode:line" keys for Favourites — orthogonal to Selection,
+  // in-memory only this slice (persistence arrives in a later slice). Favourites
+  // survive a mode being disabled, so toggleMode never touches this set.
+  const [favouriteKeys, setFavouriteKeys] = useState(() => new Set());
 
   const toggleMode = (mode) => {
     setEnabledModes(prev => {
@@ -38,6 +42,17 @@ export function useFilterSelection(allVehicles) {
   };
 
   const isLineSelected = (mode, line) => selectedKeys.has(`${mode}:${line}`);
+
+  const toggleFavourite = (mode, line) => {
+    const key = `${mode}:${line}`;
+    setFavouriteKeys(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  };
+
+  const isLineFavourite = (mode, line) => favouriteKeys.has(`${mode}:${line}`);
 
   const vehicles = Array.isArray(allVehicles) ? allVehicles : [];
 
@@ -85,6 +100,8 @@ export function useFilterSelection(allVehicles) {
     isLineSelected,
     toggleLine,
     clearLines,
+    isLineFavourite,
+    toggleFavourite,
     availableLines,
     filteredVehicles,
   };

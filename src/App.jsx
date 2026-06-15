@@ -54,6 +54,8 @@ function App() {
     isLineSelected,
     toggleLine,
     clearLines,
+    isLineFavourite,
+    toggleFavourite,
     availableLines,
     filteredVehicles,
   } = useFilterSelection(allVehicles);
@@ -132,6 +134,8 @@ function App() {
         isLineSelected={isLineSelected}
         onLineToggle={toggleLine}
         onClearLines={clearLines}
+        isLineFavourite={isLineFavourite}
+        onFavouriteToggle={toggleFavourite}
         operators={OPERATORS}
         activeOperators={activeOperators}
         onRegionSelect={handleRegionSelect}
