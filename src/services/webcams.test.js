@@ -185,7 +185,7 @@ describe('webcams service — fetchCameras', () => {
     expect(sources.has('webcamcollections')).toBe(true);
   });
 
-  it('curated cameras are media:linkout (no image fetch) per ADR 0002', async () => {
+  it('curated cameras are media:linkout (no image fetch) per ADR 0004', async () => {
     fetch.mockResolvedValueOnce({
       ok: true,
       json: async () => trafikverketPayload([]),

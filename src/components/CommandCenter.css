@@ -1,0 +1,76 @@
+.command-center {
+  display: grid;
+  grid-template-columns: 340px 1fr 360px;
+  width: 100%;
+  height: 100%;
+}
+
+.command-center__inbox {
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid rgba(0, 0, 0, 0.15);
+  background: #1b1f24;
+  color: #e8e8e8;
+  overflow: hidden;
+}
+
+.command-center__title {
+  margin: 0;
+  padding: 12px 14px;
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.command-center__map {
+  position: relative;
+  height: 100%;
+}
+
+.command-center__detail {
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid rgba(0, 0, 0, 0.15);
+  background: #1b1f24;
+  color: #e8e8e8;
+  overflow: hidden;
+}
+
+/* Demo control — clearly marked, creates Injected Incidents (PRD #84 story 26). */
+.command-center__inject {
+  margin: 10px 12px;
+  padding: 8px 12px;
+  border: 1px solid #ffd60a;
+  border-radius: 4px;
+  background: transparent;
+  color: #ffd60a;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+}
+
+.command-center__inject:hover {
+  background: rgba(255, 214, 10, 0.12);
+}
+
+/* Demo label over the map — the injected incident is labelled demo on every
+   surface, the map included. */
+.command-center__demo-overlay {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 500;
+  padding: 4px 12px;
+  border-radius: 4px;
+  background: #ffd60a;
+  color: #1b1f24;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  pointer-events: none;
+}

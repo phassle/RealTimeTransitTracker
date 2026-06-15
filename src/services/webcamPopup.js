@@ -1,20 +1,12 @@
 // Webcam popup presentation module — pure functions mapping a Camera to
 // popup markup. Testable without Leaflet; rendered by Map.jsx via Leaflet
 // `bindPopup`. All externally-sourced strings are HTML-escaped, consistent
-// with the existing vehicle popup escaping.
+// with the vehicle popup escaping.
 //
-// Per ADR 0002: image media renders exclusively as a hotlinked static
+// Per ADR 0004: image media renders exclusively as a hotlinked static
 // <img>. No iframes, players, or source-controlled script.
 
-function escapeHtml(str) {
-  if (str === null || str === undefined) return '';
-  return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
+import { escapeHtml } from './markerCollection';
 
 // URL allowlist: only absolute http(s) URLs may reach href/src attributes.
 // HTML-escaping alone leaves javascript:/data: schemes intact, so external
@@ -105,7 +97,7 @@ export function cameraPopupImageContent(camera, options = {}) {
  * Linkout-variant popup: metadata + a "view at source" link, NO inline media.
  *
  * Curated webcamcollections cameras fetch nothing from third parties — per
- * ADR 0002 the app only links. Renders the camera name, attribution, and a
+ * ADR 0004 the app only links. Renders the camera name, attribution, and a
  * link to the source page; no <img>, no <iframe>, no embed.
  */
 export function cameraPopupLinkoutContent(camera) {

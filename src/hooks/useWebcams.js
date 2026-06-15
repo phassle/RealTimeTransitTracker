@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { fetchCameras } from '../services/webcams';
+import { useFetchState } from './useFetchState';
 
 /**
  * Fetch-on-first-enable hook for Sweden's open webcams.
@@ -21,10 +22,8 @@ import { fetchCameras } from '../services/webcams';
  * @param {boolean} enabled
  */
 export function useWebcams(enabled) {
-  const [cameras, setCameras] = useState([]);
-  const [error, setError] = useState(null);
+  const { data: cameras, error, loading, run } = useFetchState([]);
   const [errors, setErrors] = useState([]);
-  const [loading, setLoading] = useState(false);
   const fetchedRef = useRef(false);
   const inFlightRef = useRef(false);
   const aliveRef = useRef(true);
@@ -39,33 +38,25 @@ export function useWebcams(enabled) {
   useEffect(() => {
     if (!enabled || fetchedRef.current || inFlightRef.current) return;
     inFlightRef.current = true;
-    setLoading(true);
 
-    (async () => {
-      try {
+    run(
+      async () => {
         const { cameras: cams, errors: errs } = await fetchCameras();
-        if (!aliveRef.current) return;
-        setCameras(cams);
-        setErrors(errs);
-        if (cams.length === 0 && errs.length > 0) {
-          const summary = errs.map(e => `${e.source}: ${e.message}`).join('; ');
-          setError(summary);
-          // Total failure — leave fetchedRef false so the next enable retries.
-        } else {
-          setError(null);
-          fetchedRef.current = true;
-        }
-      } catch (e) {
-        if (!aliveRef.current) return;
-        setCameras([]);
-        setErrors([]);
-        setError(e?.message || String(e));
-      } finally {
-        inFlightRef.current = false;
-        if (aliveRef.current) setLoading(false);
-      }
-    })();
-  }, [enabled]);
+        if (aliveRef.current) setErrors(errs);
+        // Total failure (no cameras, only errors) → surface a summary string;
+        // partial/clean success → no summary so onSuccess caches the result.
+        const errorMsg = cams.length === 0 && errs.length > 0
+          ? errs.map(e => `${e.source}: ${e.message}`).join('; ')
+          : null;
+        return { data: cams, error: errorMsg };
+      },
+      // onSuccess fires only on clean success (errorMsg === null), so a total
+      // failure leaves fetchedRef false and the next off→on toggle retries.
+      () => { fetchedRef.current = true; },
+    ).finally(() => {
+      inFlightRef.current = false;
+    });
+  }, [enabled, run]);
 
-  return { cameras, error, errors, loading };
+  return { cameras: cameras ?? [], error, errors, loading };
 }

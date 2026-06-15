@@ -1,61 +1,35 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { tileLayerConfig } from './tileLayerConfig';
 import 'leaflet.markercluster';
 import 'leaflet.markercluster/dist/MarkerCluster.css';
 import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
-import {
-  cameraPopupImageContent,
-  cameraPopupErrorContent,
-  cameraPopupLinkoutContent,
-  cacheBustImageUrl,
-} from '../services/webcamPopup';
-import { CAMERA_TYPE_DEFINITIONS } from '../services/cameraTypeFilter';
+import { createMarkerCollection } from '../services/markerCollection';
+import { createVehicleAdapter, FULL_MARKER_MIN_ZOOM } from '../services/vehicleAdapter';
+import { createWebcamAdapter } from '../services/webcamAdapter';
 
-const CAMERA_TYPE_COLOR = Object.fromEntries(
-  CAMERA_TYPE_DEFINITIONS.map(t => [t.id, t.color])
-);
-const CAMERA_DEFAULT_COLOR = '#2c3e50';
-
-const MODE_COLORS = {
-  metro: '#FF6B35',
-  bus: '#4ECDC4',
-  train: '#95E1D3',
-  tram: '#F38181',
-  ship: '#AA96DA',
-  ferry: '#FCBAD3',
-  unknown: '#888888'
-};
-
-const MODE_ICONS = {
-  metro: 'M',
-  bus: 'B',
-  train: 'T',
-  tram: 'S',
-  ship: '⛴',
-  ferry: '⛴',
-  unknown: '?'
-};
-
-function escapeHtml(str) {
-  return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
-
-// Use globalThis.Map to avoid collision with React component name
-const JSMap = globalThis.Map;
-
-export function Map({ vehicles = [], cameras = [], center = [59.3293, 18.0686], zoom = 11, onBoundsChange = null, theme = 'light' }) {
+export function Map({ vehicles = [], cameras = [], center = [59.3293, 18.0686], zoom = 11, onBoundsChange = null, theme = 'light', highlightedVehicleIds = [] }) {
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
-  const markersRef = useRef(new JSMap());
+  const vehicleCollectionRef = useRef(null);
+  // Highlight set is read live by the adapter so selection changes are reflected.
+  const highlightRef = useRef(new Set());
+  highlightRef.current = new Set(highlightedVehicleIds);
+  // Current zoom, read live by the adapter; mapZoom state re-triggers the
+  // marker-update effect so existing markers swap compact/full icons on zoom.
+  const zoomRef = useRef(zoom);
+  const [mapZoom, setMapZoom] = useState(zoom);
+  const vehicleAdapterRef = useRef(
+    createVehicleAdapter({
+      isHighlighted: (id) => highlightRef.current.has(id),
+      getZoom: () => zoomRef.current,
+    }),
+  );
+  const webcamCollectionRef = useRef(null);
+  const webcamAdapterRef = useRef(createWebcamAdapter());
   const markerLayerRef = useRef(null);
   const tileLayerRef = useRef(null);
-  const cameraMarkersRef = useRef(new JSMap());
   const cameraClusterRef = useRef(null);
   const boundsTimerRef = useRef(null);
   const onBoundsChangeRef = useRef(onBoundsChange);
@@ -70,24 +44,37 @@ export function Map({ vehicles = [], cameras = [], center = [59.3293, 18.0686], 
   useEffect(() => {
     if (!mapInstanceRef.current && mapRef.current) {
       const map = L.map(mapRef.current, {
-        preferCanvas: true // Better performance for many markers
+        preferCanvas: true, // Better performance for many markers
+        zoomControl: false, // Default top-left sits under the control panel
       }).setView(center, zoom);
+      L.control.zoom({ position: 'topright' }).addTo(map);
 
       mapInstanceRef.current = map;
 
       const { url, attribution } = tileLayerConfig(theme);
       tileLayerRef.current = L.tileLayer(url, { attribution, maxZoom: 19 }).addTo(map);
 
-      // Create layer for markers
-      markerLayerRef.current = L.layerGroup().addTo(map);
+      // Clustered layer for vehicle markers: count bubbles when zoomed out,
+      // individual markers from FULL_MARKER_MIN_ZOOM and in. Animations off —
+      // 2000+ markers are re-fed every poll.
+      markerLayerRef.current = L.markerClusterGroup({
+        disableClusteringAtZoom: FULL_MARKER_MIN_ZOOM,
+        maxClusterRadius: 50,
+        showCoverageOnHover: false,
+        spiderfyOnMaxZoom: false,
+        chunkedLoading: true,
+        animate: false,
+        animateAddingMarkers: false,
+      }).addTo(map);
+      vehicleCollectionRef.current = createMarkerCollection(markerLayerRef.current);
 
-      // Clustered layer dedicated to webcams — leaves the vehicle marker
-      // lifecycle above completely untouched.
+      // Clustered layer for webcam markers — second adapter on the marker-collection module.
       cameraClusterRef.current = L.markerClusterGroup({
         showCoverageOnHover: false,
         spiderfyOnMaxZoom: true,
         chunkedLoading: true,
       }).addTo(map);
+      webcamCollectionRef.current = createMarkerCollection(cameraClusterRef.current);
 
       // Viewport bounds reporting (debounced 300ms)
       const reportBounds = () => {
@@ -105,6 +92,10 @@ export function Map({ vehicles = [], cameras = [], center = [59.3293, 18.0686], 
 
       map.on('moveend', reportBounds);
       map.on('zoomend', reportBounds);
+      map.on('zoomend', () => {
+        zoomRef.current = map.getZoom();
+        setMapZoom(map.getZoom());
+      });
       reportBounds(); // initial bounds
     }
 
@@ -136,132 +127,16 @@ export function Map({ vehicles = [], cameras = [], center = [59.3293, 18.0686], 
     }
   }, [center, zoom]);
 
-  // Update vehicle markers
+  // Update vehicle markers via the marker-collection module. Re-runs when the
+  // highlight set or zoom changes too, so existing markers refresh their icon.
+  const highlightKey = highlightedVehicleIds.join(',');
   useEffect(() => {
-    if (!markerLayerRef.current) return;
+    vehicleCollectionRef.current?.update(vehicles, vehicleAdapterRef.current);
+  }, [vehicles, highlightKey, mapZoom]);
 
-    const layer = markerLayerRef.current;
-    const currentVehicleIds = new Set(vehicles.map(v => v.id));
-    const existingMarkers = markersRef.current;
-
-    // Remove markers for vehicles that no longer exist
-    for (const [vehicleId, marker] of existingMarkers.entries()) {
-      if (!currentVehicleIds.has(vehicleId)) {
-        layer.removeLayer(marker);
-        existingMarkers.delete(vehicleId);
-      }
-    }
-
-    // Update or create markers
-    vehicles.forEach(vehicle => {
-      const existingMarker = existingMarkers.get(vehicle.id);
-      const color = MODE_COLORS[vehicle.mode] || MODE_COLORS.unknown;
-      const icon = MODE_ICONS[vehicle.mode] || MODE_ICONS.unknown;
-
-      if (existingMarker) {
-        // Update existing marker
-        existingMarker.setLatLng([vehicle.latitude, vehicle.longitude]);
-        existingMarker.setPopupContent(createPopupContent(vehicle));
-      } else {
-        // Create new marker
-        const markerIcon = L.divIcon({
-          className: 'vehicle-marker',
-          html: `
-            <div style="
-              background: ${color};
-              border: 2px solid white;
-              border-radius: 50%;
-              width: 20px;
-              height: 20px;
-              display: flex;
-              align-items: center;
-              justify-content: center;
-              font-size: 10px;
-              font-weight: bold;
-              color: white;
-              box-shadow: 0 2px 4px rgba(0,0,0,0.3);
-              cursor: pointer;
-            ">
-              ${vehicle.line?.length <= 3 ? escapeHtml(vehicle.line) : icon}
-            </div>
-          `,
-          iconSize: [24, 24],
-          iconAnchor: [12, 12],
-        });
-
-        const marker = L.marker([vehicle.latitude, vehicle.longitude], {
-          icon: markerIcon,
-          title: `${escapeHtml(vehicle.mode)} ${escapeHtml(vehicle.line)}`
-        })
-          .bindPopup(createPopupContent(vehicle), { closeButton: true })
-          .addTo(layer);
-
-        existingMarkers.set(vehicle.id, marker);
-      }
-    });
-
-    markersRef.current = existingMarkers;
-  }, [vehicles]);
-
-  // Update camera markers (webcam layer — clustered, no popup in this slice).
+  // Update webcam markers via the marker-collection module (webcam adapter).
   useEffect(() => {
-    const cluster = cameraClusterRef.current;
-    if (!cluster) return;
-
-    const existing = cameraMarkersRef.current;
-    const currentIds = new Set(cameras.map(c => c.id));
-
-    for (const [id, marker] of existing.entries()) {
-      if (!currentIds.has(id)) {
-        cluster.removeLayer(marker);
-        existing.delete(id);
-      }
-    }
-
-    const toAdd = [];
-    cameras.forEach(cam => {
-      if (existing.has(cam.id)) return;
-      const markerColor = CAMERA_TYPE_COLOR[cam.type] || CAMERA_DEFAULT_COLOR;
-      const icon = L.divIcon({
-        className: 'camera-marker',
-        html: `
-          <div style="
-            background: ${markerColor};
-            border: 2px solid white;
-            border-radius: 4px;
-            width: 24px;
-            height: 24px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 14px;
-            color: white;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
-            cursor: pointer;
-          ">📷</div>
-        `,
-        iconSize: [28, 28],
-        iconAnchor: [14, 14],
-      });
-      const marker = L.marker([cam.lat, cam.lon], {
-        icon,
-        title: `${escapeHtml(cam.name)} (${escapeHtml(cam.attribution)})`,
-      });
-      const isLinkout = cam.media === 'linkout';
-      marker.bindPopup(
-        () => (isLinkout ? cameraPopupLinkoutContent(cam) : cameraPopupImageContent(cam)),
-        { closeButton: true, minWidth: 240, maxWidth: 320 },
-      );
-      // Linkout cameras have nothing to wire — no img, no refresh button.
-      if (!isLinkout) {
-        marker.on('popupopen', (event) => wireCameraPopup(event.popup, cam));
-      }
-      existing.set(cam.id, marker);
-      toAdd.push(marker);
-    });
-    if (toAdd.length > 0) {
-      cluster.addLayers(toAdd);
-    }
+    webcamCollectionRef.current?.update(cameras, webcamAdapterRef.current);
   }, [cameras]);
 
   return (
@@ -276,46 +151,5 @@ export function Map({ vehicles = [], cameras = [], center = [59.3293, 18.0686], 
   );
 }
 
-// Wire interactive bits of the camera popup after Leaflet has inserted it
-// into the DOM:
-//   * <img onerror>  → swap to error placeholder (image source down)
-//   * refresh button → re-render popup with a cache-busted image URL so the
-//                      browser doesn't serve the same cached still
-function wireCameraPopup(popup, camera) {
-  const root = popup.getElement();
-  if (!root) return;
-  const img = root.querySelector('[data-webcam-image]');
-  const btn = root.querySelector('[data-webcam-refresh]');
 
-  if (img) {
-    img.addEventListener('error', () => {
-      popup.setContent(cameraPopupErrorContent(camera));
-    }, { once: true });
-  }
 
-  if (btn) {
-    btn.addEventListener('click', (e) => {
-      e.preventDefault();
-      const fresh = cacheBustImageUrl(camera.imageUrl, Date.now());
-      popup.setContent(cameraPopupImageContent(camera, { imageUrl: fresh }));
-      // setContent replaces DOM nodes — re-bind listeners on the new ones.
-      wireCameraPopup(popup, camera);
-    });
-  }
-}
-
-function createPopupContent(vehicle) {
-  const time = new Date(vehicle.timestamp * 1000).toLocaleTimeString('sv-SE');
-  const speedKmh = (vehicle.speed * 3.6).toFixed(1);
-
-  return `
-    <div style="font-family: sans-serif; min-width: 150px;">
-      <strong style="font-size: 14px; text-transform: capitalize;">${escapeHtml(vehicle.mode)} ${escapeHtml(vehicle.line)}</strong><br/>
-      ${vehicle.operator ? `<em style="color: #666; font-size: 12px;">${escapeHtml(vehicle.operator.toUpperCase())}</em><br/>` : ''}
-      <hr style="margin: 5px 0; border: none; border-top: 1px solid #eee;"/>
-      Speed: ${speedKmh} km/h<br/>
-      Bearing: ${vehicle.bearing}°<br/>
-      Updated: ${time}
-    </div>
-  `;
-}

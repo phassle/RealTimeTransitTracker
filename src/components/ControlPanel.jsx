@@ -1,18 +1,8 @@
 import { useState, useMemo } from 'react';
 import './ControlPanel.css';
+import { MODES, MODE_COLORS as MODE_COLOR_MAP, MODE_LABELS as MODE_LABEL_MAP } from '../services/modes';
 
-const TRANSPORT_MODES = [
-  { id: 'metro', label: 'Metro', color: '#FF6B35' },
-  { id: 'bus', label: 'Bus', color: '#4ECDC4' },
-  { id: 'train', label: 'Train', color: '#95E1D3' },
-  { id: 'tram', label: 'Tram', color: '#F38181' },
-  { id: 'ship', label: 'Ship', color: '#AA96DA' },
-  { id: 'ferry', label: 'Ferry', color: '#FCBAD3' },
-  { id: 'unknown', label: 'Other', color: '#888888' },
-];
-
-const MODE_COLOR_MAP = Object.fromEntries(TRANSPORT_MODES.map(m => [m.id, m.color]));
-const MODE_LABEL_MAP = Object.fromEntries(TRANSPORT_MODES.map(m => [m.id, m.label]));
+const TRANSPORT_MODES = MODES;
 
 // Display names for webcam source slugs in partial-failure warnings.
 const SOURCE_LABELS = {
@@ -31,8 +21,12 @@ export function ControlPanel({
   onModeToggle = () => {},
   availableLines = {},
   selectedLines = [],
+  isLineSelected = () => false,
   onLineToggle = () => {},
   onClearLines = () => {},
+  isLineFavourite = () => false,
+  onFavouriteToggle = () => {},
+  onClearFavourites = () => {},
   operators = [],
   activeOperators = [],
   onRegionSelect = () => {},
@@ -74,8 +68,6 @@ export function ControlPanel({
     }
     return filtered;
   }, [availableLines, lineSearch]);
-
-  const selectedLineSet = useMemo(() => new Set(selectedLines), [selectedLines]);
 
   return (
     <div className={`control-panel ${collapsed ? 'collapsed' : ''}`}>
@@ -235,24 +227,45 @@ export function ControlPanel({
 
                 {selectedLines.length > 0 && (
                   <div className="selected-lines">
-                    {selectedLines.map(key => {
-                      const sepIdx = key.indexOf(':');
-                      const mode = key.slice(0, sepIdx);
-                      const line = key.slice(sepIdx + 1);
+                    {selectedLines.map(({ mode, line }) => {
+                      const favourite = isLineFavourite(mode, line);
                       return (
                         <span
-                          key={key}
-                          className="line-chip selected"
+                          key={`${mode}:${line}`}
+                          className={`line-chip selected ${favourite ? 'favourite' : ''}`}
                           style={{ borderColor: MODE_COLOR_MAP[mode] || '#888' }}
                           onClick={() => onLineToggle(mode, line)}
                         >
                           {line}
+                          {/* Summary-chip star: lets a seeded Favourite whose
+                              line has no live vehicle (so no available-line
+                              chip) still be unfavourited (PRD #105 story 8). */}
+                          <button
+                            type="button"
+                            className={`line-chip-star ${favourite ? 'favourite' : ''}`}
+                            style={{ color: MODE_COLOR_MAP[mode] || '#888' }}
+                            aria-pressed={favourite}
+                            aria-label={`${favourite ? 'Unfavourite' : 'Favourite'} line ${line}`}
+                            title={favourite ? 'Unfavourite line' : 'Favourite line'}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onFavouriteToggle(mode, line);
+                            }}
+                          >
+                            {favourite ? '★' : '☆'}
+                          </button>
                           <span className="line-chip-remove">&times;</span>
                         </span>
                       );
                     })}
                     <button className="clear-lines-btn" onClick={onClearLines}>
                       Clear all
+                    </button>
+                    {/* Distinct from "Clear all" (session Selection): wipes
+                        persistent pins so the user never erases Favourites
+                        when they only meant to clear the filter (story 10). */}
+                    <button className="clear-favourites-btn" onClick={onClearFavourites}>
+                      ★ Clear favourites
                     </button>
                   </div>
                 )}
@@ -269,17 +282,31 @@ export function ControlPanel({
                       </div>
                       <div className="line-group-chips">
                         {lines.map(({ line, count }) => {
-                          const key = `${mode}:${line}`;
-                          const isSelected = selectedLineSet.has(key);
+                          const selected = isLineSelected(mode, line);
+                          const favourite = isLineFavourite(mode, line);
                           return (
                             <span
-                              key={key}
-                              className={`line-chip ${isSelected ? 'selected' : ''}`}
-                              style={isSelected ? { borderColor: MODE_COLOR_MAP[mode] || '#888' } : {}}
+                              key={`${mode}:${line}`}
+                              className={`line-chip ${selected ? 'selected' : ''} ${favourite ? 'favourite' : ''}`}
+                              style={selected ? { borderColor: MODE_COLOR_MAP[mode] || '#888' } : {}}
                               onClick={() => onLineToggle(mode, line)}
                               title={`${count} vehicle${count !== 1 ? 's' : ''}`}
                             >
                               {line}
+                              <button
+                                type="button"
+                                className={`line-chip-star ${favourite ? 'favourite' : ''}`}
+                                style={{ color: MODE_COLOR_MAP[mode] || '#888' }}
+                                aria-pressed={favourite}
+                                aria-label={`${favourite ? 'Unfavourite' : 'Favourite'} line ${line}`}
+                                title={favourite ? 'Unfavourite line' : 'Favourite line'}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onFavouriteToggle(mode, line);
+                                }}
+                              >
+                                {favourite ? '★' : '☆'}
+                              </button>
                             </span>
                           );
                         })}

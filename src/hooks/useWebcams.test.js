@@ -95,6 +95,21 @@ describe('useWebcams', () => {
     expect(result.current.error).toMatch(/boom/i);
   });
 
+  it('does not throw when the fetch resolves after unmount', async () => {
+    let resolvePending;
+    service.fetchCameras.mockImplementationOnce(
+      () => new Promise(r => { resolvePending = r; }),
+    );
+
+    const { unmount } = renderHook(() => useWebcams(true));
+    unmount();
+
+    resolvePending({ cameras: SAMPLE, errors: [] });
+    await new Promise(r => setTimeout(r, 10));
+    // No assertion needed — the test fails if the post-unmount resolve throws
+    // or triggers a React state-update-after-unmount warning.
+  });
+
   it('exposes per-source errors even when other sources delivered cameras (partial failure)', async () => {
     service.fetchCameras.mockResolvedValueOnce({
       cameras: SAMPLE,

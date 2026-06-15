@@ -1,0 +1,51 @@
+.recording-controls {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-end;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(27, 31, 36, 0.92);
+  color: #e8e8e8;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.35);
+  font-size: 12px;
+}
+
+.recording-controls__export {
+  border: 1px solid #4a90d9;
+  background: #4a90d9;
+  color: #0b0e11;
+  font-weight: 700;
+  border-radius: 6px;
+  padding: 4px 12px;
+  cursor: pointer;
+}
+
+.recording-controls__export:hover {
+  background: #3f7fc0;
+}
+
+.recording-controls__import {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.recording-controls__import input {
+  font-weight: 400;
+  font-size: 11px;
+}
+
+.recording-controls__error {
+  margin: 0;
+  max-width: 220px;
+  color: #ff8f8f;
+  font-weight: 700;
+  text-align: right;
+}

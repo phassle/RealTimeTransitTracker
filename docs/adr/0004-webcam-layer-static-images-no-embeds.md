@@ -1,4 +1,4 @@
-# ADR 0002 — Webcam layer hotlinks static images; never embeds third-party players
+# ADR 0004 — Webcam layer hotlinks static images; never embeds third-party players
 
 - **Status:** Accepted
 - **Date:** 2026-06-11

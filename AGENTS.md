@@ -31,6 +31,20 @@ Trafiklab GTFS-RT per-operator feeds (protobuf) + /data/trip-mapping.json (stati
 
 State lives only in `App.jsx`; components are presenters; all I/O is behind the hook + service. See [docs/architectural_patterns.md](docs/architectural_patterns.md) before deviating.
 
+**Command Center** (additive second view, toggled in `App.jsx:86-104`; the map view is untouched — PRD #84, ADR 0003). Derives an operational picture from the polling the app already does — zero new feed calls, all in-memory (ADR 0001):
+
+```
+vehicles + per-operator fetch outcomes (each poll)
+  → services/observationBuffer.js   rolling ~30 min window; Recording export/import (versioned envelope)
+    → services/anomalyRules.js       stationary-on-active-trip + learnDwellSpots (suppress habitual stops)
+    → services/feedOutageRules.js    fetch-fail / frozen-timestamps / vehicle-count-collapse → operator-subject Anomalies
+      → services/incidentClustering.js  Anomalies → Incidents (time+space / operator); lifecycle, stale-freeze, cross-rule merge, demo marker
+        → hooks/useIncidents.js      owns the pipeline + replay/inject/recording/verify; injectedIncident.js seeds demo via same seam
+          → components/CommandCenter.jsx  inbox + map + detail (Why-flagged evidence, timeline, nearby webcams), Replay, FeedStatus
+```
+
+Anomaly carries structured **evidence** only (rule, threshold, measured value, refs, timestamps) — presenters render text, rules never do. **Injected Incidents** enter through the same `clusterIncidents` seam, demo-labelled on every surface. **nearbyWebcams.js** ranks the curated webcam list by distance (traffic cameras first); webcam embed boundary is ADR 0004. Glossary: CONTEXT.md § Operational picture.
+
 ## Commands (HOW)
 
 ```bash
@@ -65,6 +79,7 @@ Keys from https://developer.trafiklab.se/. Rate limit: Bronze, 50 calls/min — 
 - **Theme**: OS preference + localStorage override (`src/hooks/useTheme.js`), tile provider swap (`src/components/tileLayerConfig.js`, ADR 0002)
 - **Performance**: `preferCanvas` (`Map.jsx:55-57`), marker reuse (`Map.jsx:115-179`), memoized filtering (`App.jsx:28-61`)
 - **Security**: external feed data is HTML-escaped before popup injection (`Map.jsx:26-32`) — keep it that way
+- **Command Center pipeline**: pure services (`observationBuffer`, `anomalyRules`, `feedOutageRules`, `incidentClustering`, `injectedIncident`, `nearbyWebcams`) behind `hooks/useIncidents.js`; the highest-value test seam is `incidentClustering.test.js`. Incident **subject** is discriminated: geographic area vs operator (feed outage = operator, no ground geometry). All command-center state is in-memory; Recordings are files on disk, never client storage (ADR 0001/0003).
 
 ## Critical Workflows
 
@@ -92,6 +107,8 @@ Keys from https://developer.trafiklab.se/. Rate limit: Bronze, 50 calls/min — 
 - [docs/architectural_patterns.md](docs/architectural_patterns.md) — 15 recurring patterns with file:line anchors
 - [docs/adr/0001-cookieless-no-consent-popup.md](docs/adr/0001-cookieless-no-consent-popup.md) — why Privacy Notice, no cookie banner
 - [docs/adr/0002-dark-mode-tile-provider.md](docs/adr/0002-dark-mode-tile-provider.md) — why CartoDB Dark Matter for dark tiles
+- [docs/adr/0003-client-side-incident-derivation.md](docs/adr/0003-client-side-incident-derivation.md) — why the Command Center derives everything client-side, no backend
+- [docs/adr/0004-webcam-layer-static-images-no-embeds.md](docs/adr/0004-webcam-layer-static-images-no-embeds.md) — webcam embed boundary (hotlinked stills, no third-party embeds)
 - [docs/agents/domain.md](docs/agents/domain.md) — how agents consume CONTEXT.md + ADRs
 - [docs/agents/issue-tracker.md](docs/agents/issue-tracker.md) — GitHub issue conventions via `gh`
 - [docs/agents/triage-labels.md](docs/agents/triage-labels.md) — triage label vocabulary

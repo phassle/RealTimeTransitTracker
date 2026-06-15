@@ -250,6 +250,30 @@
   color: #c33;
 }
 
+.line-chip-star {
+  background: none;
+  border: none;
+  padding: 0;
+  margin-left: 2px;
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0.5;
+  transition: opacity 0.15s;
+}
+
+.line-chip-star:hover {
+  opacity: 1;
+}
+
+.line-chip-star.favourite {
+  opacity: 1;
+}
+
+.line-chip.favourite {
+  font-weight: 600;
+}
+
 .clear-lines-btn {
   background: none;
   border: none;
@@ -261,6 +285,23 @@
 }
 
 .clear-lines-btn:hover {
+  color: #c33;
+}
+
+/* Visually distinct from "Clear all": a bordered, star-prefixed action so the
+   user never confuses wiping persistent pins with clearing the session filter. */
+.clear-favourites-btn {
+  background: none;
+  border: 1px solid var(--chrome-text-muted);
+  border-radius: 10px;
+  color: var(--chrome-text-muted);
+  font-size: 12px;
+  cursor: pointer;
+  padding: 3px 8px;
+}
+
+.clear-favourites-btn:hover {
+  border-color: #c33;
   color: #c33;
 }
 
