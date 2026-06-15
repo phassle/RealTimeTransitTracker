@@ -76,6 +76,27 @@ describe('cameraPopupImageContent', () => {
     expect(html).not.toMatch(/<img\s+src=x\s+onerror=/);
     expect(html).toContain('&lt;script&gt;');
   });
+
+  it('drops javascript: pageUrl — attribution renders as text, not a link', () => {
+    const hostile = { ...SAMPLE_CAMERA, pageUrl: 'javascript:alert(1)' };
+    const html = cameraPopupImageContent(hostile);
+    expect(html).not.toContain('javascript:');
+    expect(html).not.toMatch(/<a[^>]*href/);
+    expect(html).toContain('Trafikverket');
+  });
+
+  it('drops data: imageUrl — img src is emptied', () => {
+    const hostile = { ...SAMPLE_CAMERA, imageUrl: 'data:text/html,<script>alert(1)</script>', pageUrl: 'https://example.test/cam/001.html' };
+    const html = cameraPopupImageContent(hostile);
+    expect(html).not.toContain('data:text/html');
+    expect(html).toMatch(/src=""/);
+  });
+
+  it('keeps https URLs intact through the allowlist', () => {
+    const html = cameraPopupImageContent(SAMPLE_CAMERA);
+    expect(html).toMatch(/src="https:\/\/example\.test\/cam\/001\.jpg"/);
+    expect(html).toMatch(/<a[^>]*href="https:\/\/example\.test\/cam\/001\.html"[^>]*>/);
+  });
 });
 
 describe('cameraPopupErrorContent', () => {
@@ -157,6 +178,13 @@ describe('cameraPopupLinkoutContent', () => {
     expect(html).not.toContain('<script>alert(1)</script>');
     expect(html).not.toMatch(/<img\s+src=x\s+onerror=/);
     expect(html).toContain('&lt;script&gt;');
+  });
+
+  it('drops javascript: pageUrl — no anchor is rendered', () => {
+    const hostile = { ...LINKOUT_CAMERA, pageUrl: 'javascript:alert(1)' };
+    const html = cameraPopupLinkoutContent(hostile);
+    expect(html).not.toContain('javascript:');
+    expect(html).not.toMatch(/<a[^>]*href/);
   });
 });
 

@@ -8,6 +8,29 @@
 
 import { escapeHtml } from './markerCollection';
 
+// URL allowlist: only absolute http(s) URLs may reach href/src attributes.
+// HTML-escaping alone leaves javascript:/data: schemes intact, so external
+// feed data could otherwise smuggle a script URL into a link.
+function safeUrl(url) {
+  if (!url) return '';
+  const s = String(url).trim();
+  return /^https?:\/\//i.test(s) ? s : '';
+}
+
+// Source link: an <a> when a safe page URL exists, otherwise the label as
+// plain text — never an anchor with an empty or unsafe href.
+function sourceLink(pageUrl, label, style) {
+  const href = safeUrl(pageUrl);
+  const text = escapeHtml(label);
+  if (!href) return `<span style="${style}">${text}</span>`;
+  return `<a
+            href="${escapeHtml(href)}"
+            target="_blank"
+            rel="noopener noreferrer"
+            style="${style}"
+          >${text}</a>`;
+}
+
 function formatCaptureTime(iso) {
   if (!iso) return '';
   try {
@@ -41,7 +64,7 @@ export function cacheBustImageUrl(url, token) {
  *   a cache-busted URL on refresh without mutating the Camera).
  */
 export function cameraPopupImageContent(camera, options = {}) {
-  const src = options.imageUrl ?? camera.imageUrl ?? '';
+  const src = safeUrl(options.imageUrl ?? camera.imageUrl ?? '');
   const altText = camera.name ? `Webcam: ${camera.name}` : 'Webcam';
   const time = formatCaptureTime(camera.lastUpdated);
   const pageUrl = camera.pageUrl || camera.imageUrl || '';
@@ -63,12 +86,7 @@ export function cameraPopupImageContent(camera, options = {}) {
             data-webcam-refresh
             style="font-size: 12px; padding: 4px 8px; cursor: pointer;"
           >Refresh</button>
-          <a
-            href="${escapeHtml(pageUrl)}"
-            target="_blank"
-            rel="noopener noreferrer"
-            style="font-size: 12px; color: #2c3e50;"
-          >${escapeHtml(camera.attribution || 'Source')}</a>
+          ${sourceLink(pageUrl, camera.attribution || 'Source', 'font-size: 12px; color: #2c3e50;')}
         </div>
       </div>
     </div>
@@ -93,12 +111,7 @@ export function cameraPopupLinkoutContent(camera) {
           ${escapeHtml(attribution)}
         </div>
         <div style="margin-top: 8px;">
-          <a
-            href="${escapeHtml(pageUrl)}"
-            target="_blank"
-            rel="noopener noreferrer"
-            style="font-size: 13px; color: #2c3e50; font-weight: 600;"
-          >View at source ↗</a>
+          ${sourceLink(pageUrl, 'View at source ↗', 'font-size: 13px; color: #2c3e50; font-weight: 600;')}
         </div>
       </div>
     </div>
@@ -120,12 +133,7 @@ export function cameraPopupErrorContent(camera) {
       <div style="padding: 6px 2px 0;">
         <strong style="font-size: 14px;">${escapeHtml(camera.name || '')}</strong>
         <div style="margin-top: 6px;">
-          <a
-            href="${escapeHtml(pageUrl)}"
-            target="_blank"
-            rel="noopener noreferrer"
-            style="font-size: 12px; color: #2c3e50;"
-          >View at ${escapeHtml(camera.attribution || 'source')}</a>
+          ${sourceLink(pageUrl, `View at ${camera.attribution || 'source'}`, 'font-size: 12px; color: #2c3e50;')}
         </div>
       </div>
     </div>

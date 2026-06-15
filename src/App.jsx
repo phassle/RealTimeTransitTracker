@@ -31,7 +31,7 @@ function App() {
     CAMERA_TYPE_DEFINITIONS.map(t => t.id),
   );
 
-  const { cameras, error: webcamsError, loading: webcamsLoading } = useWebcams(webcamsEnabled);
+  const { cameras, error: webcamsError, errors: webcamsErrors, loading: webcamsLoading } = useWebcams(webcamsEnabled);
 
   const cameraCounts = useMemo(() => cameraCountsByType(cameras), [cameras]);
   const filteredCameras = useMemo(
@@ -148,6 +148,7 @@ function App() {
         onWebcamsToggle={() => setWebcamsEnabled(v => !v)}
         webcamsLoading={webcamsLoading}
         webcamsError={webcamsError}
+        webcamsErrors={webcamsErrors}
         webcamCount={filteredCameras.length}
         cameraTypeDefinitions={CAMERA_TYPE_DEFINITIONS}
         enabledCameraTypes={enabledCameraTypes}

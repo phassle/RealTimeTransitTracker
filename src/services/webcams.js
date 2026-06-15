@@ -69,7 +69,10 @@ export function normalizeTrafikverketCamera(raw) {
 async function fetchTrafikverketCameras() {
   const apiKey = import.meta.env?.VITE_TRAFIKVERKET_API_KEY;
   if (!apiKey) {
-    return { cameras: [], error: 'missing VITE_TRAFIKVERKET_API_KEY' };
+    // Absent source, not a failure: keyless is a legitimate configuration,
+    // mirroring the Windy adapter. Only configured-but-unreachable sources
+    // surface errors.
+    return { cameras: [], error: null };
   }
   try {
     const response = await fetch(TRAFIKVERKET_ENDPOINT, {

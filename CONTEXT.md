@@ -47,6 +47,14 @@ What the app can show for a Webcam, an explicit field: `image | linkout`.
 - **`image`** — the app hotlinks a static still (`<img>` fetched directly from the source, cache-busted on refresh). The only inline media this app ever renders; see the embed boundary below.
 - **`linkout`** — the app shows metadata and a link to the source page; no inline media. Stream-only cameras and catalogue-sourced cameras (webcamcollections) are `linkout`.
 
+### Source absence vs source failure
+
+A webcam **source** (Trafikverket, Windy, the curated catalogue) is **absent** when it is not configured — e.g. its API key is omitted. Absence is a legitimate configuration: the source yields zero cameras silently, with no error surfaced.
+
+A source **fails** when it is configured but unreachable, rejects the request, or returns a malformed response. Failure is always recorded and surfaced to the user — partially (other sources still render, with a warning naming the failed source) or fully (the layer shows an error and the next enable retries).
+
+Absence is a configuration; failure is an error. The two must never be conflated in UI or logs.
+
 ### Embed boundary
 
 The webcam layer never embeds third-party players or iframes (Windy player, live streams). Doing so would set third-party cookies/storage and trip the reversal trigger in [ADR 0001](docs/adr/0001-cookieless-no-consent-popup.md), forcing a full Consent surface. Hotlinked static `<img>` is treated like OSM tile loading: the network request inherently exposes the IP, nothing more.
