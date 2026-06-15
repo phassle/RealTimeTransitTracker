@@ -71,11 +71,25 @@
   color: #888;
 }
 
-.incident-row__started {
+.incident-row__times {
   grid-area: started;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 1px;
+}
+
+.incident-row__started {
   font-size: 12px;
   color: #888;
-  align-self: center;
+}
+
+/* Last-update time: dimmer than started-at so the start anchors the row and
+   recency reads as a secondary fact (PRD #84 story 2). */
+.incident-row__updated {
+  font-size: 11px;
+  color: #6b6b6b;
 }
 
 /* Feed outage rows read as data problems, not on-the-ground traffic. */
