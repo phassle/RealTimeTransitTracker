@@ -1,6 +1,8 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useFilterSelection } from './useFilterSelection';
+
+const FAVOURITES_STORAGE_KEY = 'rtt-favourite-lines-v1';
 
 const v = (id, mode, line) => ({ id, mode, line });
 
@@ -201,6 +203,10 @@ describe('useFilterSelection — clearLines', () => {
 });
 
 describe('useFilterSelection — Favourites', () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+  });
+
   it('exposes isLineFavourite and toggleFavourite', () => {
     const { result } = renderHook(() => useFilterSelection([]));
     expect(typeof result.current.isLineFavourite).toBe('function');
@@ -263,5 +269,90 @@ describe('useFilterSelection — Favourites', () => {
 
     expect(result.current.isLineFavourite('tram', '55')).toBe(false);
     expect(result.current.isLineFavourite('bus', '5')).toBe(false);
+  });
+});
+
+describe('useFilterSelection — Favourites persist across reloads', () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    window.localStorage.clear();
+  });
+
+  it('a favourite survives unmount and remount', () => {
+    const vehicles = [v('v1', 'bus', '55')];
+    const first = renderHook(() => useFilterSelection(vehicles));
+    act(() => first.result.current.toggleFavourite('bus', '55'));
+    first.unmount();
+
+    const second = renderHook(() => useFilterSelection(vehicles));
+    expect(second.result.current.isLineFavourite('bus', '55')).toBe(true);
+  });
+
+  it('un-favouriting persists too (does not survive remount)', () => {
+    const first = renderHook(() => useFilterSelection([]));
+    act(() => first.result.current.toggleFavourite('bus', '55'));
+    act(() => first.result.current.toggleFavourite('bus', '55'));
+    first.unmount();
+
+    const second = renderHook(() => useFilterSelection([]));
+    expect(second.result.current.isLineFavourite('bus', '55')).toBe(false);
+  });
+
+  it('a single toggle is persisted immediately (write-through)', () => {
+    const { result } = renderHook(() => useFilterSelection([]));
+
+    act(() => result.current.toggleFavourite('bus', '55'));
+
+    const stored = JSON.parse(window.localStorage.getItem(FAVOURITES_STORAGE_KEY));
+    expect(stored).toContainEqual({ mode: 'bus', line: '55' });
+  });
+
+  it('stores favourites as {mode, line} records, not colon-key strings', () => {
+    const { result } = renderHook(() => useFilterSelection([]));
+
+    act(() => result.current.toggleFavourite('bus', '55'));
+
+    const stored = JSON.parse(window.localStorage.getItem(FAVOURITES_STORAGE_KEY));
+    expect(Array.isArray(stored)).toBe(true);
+    expect(stored.every(e => typeof e === 'object' && 'mode' in e && 'line' in e)).toBe(true);
+  });
+
+  it('throwing localStorage degrades silently without crashing', () => {
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => { throw new Error('blocked'); });
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('blocked'); });
+
+    const { result } = renderHook(() => useFilterSelection([v('v1', 'bus', '55')]));
+    expect(() => act(() => result.current.toggleFavourite('bus', '55'))).not.toThrow();
+    // in-session toggle still works; map keeps rendering vehicles
+    expect(result.current.isLineFavourite('bus', '55')).toBe(true);
+    expect(result.current.filteredVehicles).toHaveLength(1);
+  });
+
+  it('favourite is not remembered when storage write is blocked', () => {
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('blocked'); });
+    const first = renderHook(() => useFilterSelection([]));
+    act(() => first.result.current.toggleFavourite('bus', '55'));
+    first.unmount();
+
+    vi.restoreAllMocks();
+    const second = renderHook(() => useFilterSelection([]));
+    expect(second.result.current.isLineFavourite('bus', '55')).toBe(false);
+  });
+
+  it.each([
+    ['not-json',                                                  []],
+    ['{"mode":"bus","line":"55"}',                                []],
+    ['[{"mode":"bus","line":"55"},{"line":"3"}]',                 [{ mode: 'bus', line: '55' }]],
+    ['[{"mode":"bus","line":"55"},{"mode":"bus","line":"55"}]',   [{ mode: 'bus', line: '55' }]],
+  ])('malformed stored value %j restores %j', (stored, restored) => {
+    window.localStorage.setItem(FAVOURITES_STORAGE_KEY, stored);
+    const { result } = renderHook(() => useFilterSelection([]));
+
+    expect(result.current.isLineFavourite('bus', '55')).toBe(restored.some(r => r.mode === 'bus' && r.line === '55'));
+    expect(result.current.isLineFavourite('bus', '3')).toBe(false);
   });
 });

@@ -1,14 +1,55 @@
 import { useState, useMemo } from 'react';
 import { ALL_MODE_IDS } from '../services/modes';
 
+// Favourites are Essential storage (ADR 0001) — a record of the user's own UI
+// choice, like theme. Versioned key lets a future shape change re-initialise
+// cleanly. Value is a JSON array of {mode, line} records; internally we hold a
+// Set of "mode:line" keys, so read/write convert between the two shapes.
+const FAVOURITES_STORAGE_KEY = 'rtt-favourite-lines-v1';
+
+// Read defensively: a non-array or unparseable value yields an empty set;
+// entries are filtered to a valid {mode, line} shape and de-duplicated (the Set
+// dedupes), so one corrupt record neither wipes everything nor crashes.
+function readFavouriteKeys() {
+  try {
+    const raw = window.localStorage.getItem(FAVOURITES_STORAGE_KEY);
+    if (raw == null) return new Set();
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return new Set();
+    const keys = new Set();
+    for (const entry of parsed) {
+      if (entry && typeof entry.mode === 'string' && entry.mode
+          && typeof entry.line === 'string' && entry.line) {
+        keys.add(`${entry.mode}:${entry.line}`);
+      }
+    }
+    return keys;
+  } catch {
+    // unparseable / private mode — degrade silently to no favourites
+    return new Set();
+  }
+}
+
+function writeFavouriteKeys(keys) {
+  try {
+    const records = Array.from(keys).map(key => {
+      const idx = key.indexOf(':');
+      return { mode: key.slice(0, idx), line: key.slice(idx + 1) };
+    });
+    window.localStorage.setItem(FAVOURITES_STORAGE_KEY, JSON.stringify(records));
+  } catch {
+    // private mode / quota — degrade silently; favourites won't persist
+  }
+}
+
 export function useFilterSelection(allVehicles) {
   const [enabledModes, setEnabledModes] = useState(ALL_MODE_IDS);
   // Private: Set of "mode:line" keys — never exposed as strings
   const [selectedKeys, setSelectedKeys] = useState(() => new Set());
-  // Private: Set of "mode:line" keys for Favourites — orthogonal to Selection,
-  // in-memory only this slice (persistence arrives in a later slice). Favourites
-  // survive a mode being disabled, so toggleMode never touches this set.
-  const [favouriteKeys, setFavouriteKeys] = useState(() => new Set());
+  // Private: Set of "mode:line" keys for Favourites — orthogonal to Selection.
+  // Restored from versioned localStorage on mount and write-through on toggle.
+  // Favourites survive a mode being disabled, so toggleMode never touches this.
+  const [favouriteKeys, setFavouriteKeys] = useState(readFavouriteKeys);
 
   const toggleMode = (mode) => {
     setEnabledModes(prev => {
@@ -45,11 +86,10 @@ export function useFilterSelection(allVehicles) {
 
   const toggleFavourite = (mode, line) => {
     const key = `${mode}:${line}`;
-    setFavouriteKeys(prev => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key); else next.add(key);
-      return next;
-    });
+    const next = new Set(favouriteKeys);
+    if (next.has(key)) next.delete(key); else next.add(key);
+    writeFavouriteKeys(next); // write-through: persist before any further action
+    setFavouriteKeys(next);
   };
 
   const isLineFavourite = (mode, line) => favouriteKeys.has(`${mode}:${line}`);
