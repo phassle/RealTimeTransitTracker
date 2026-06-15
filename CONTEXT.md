@@ -26,13 +26,11 @@ Filter state — enabled modes, selected lines, and the mode/line invariant — 
 
 **Available lines:** derived from the live vehicle set, grouped per mode, numerically sorted. Lines for a disabled mode are excluded. `filteredVehicles` is the hook's primary output: the vehicle list after both mode and line filters are applied.
 
-### Favourite line
-
-A line the user has explicitly pinned so it is pre-selected on every visit (issue #34). A Favourite is **persistent**; a Selection is **ephemeral session state**. They are orthogonal axes: a line can be favourited but not currently selected, or selected this session without being favourited. On load, favourites seed the initial Selection, but the user can then deselect a line for the session without unfavouriting it.
+**Favourite line:** a persisted line the user has pinned via its star control, so that it is **pre-selected automatically on the next visit**. A Favourite is distinct from a Selection: a **Selection** is ephemeral session state (it evaporates on reload); a **Favourite** is persistent. They are orthogonal axes — a line can be favourited without being selected this session, and selected without being favourited. On a fresh load, Favourites *seed* the Selection (a one-time initialisation, not a continuous binding); deselecting a seeded line during the session does not unfavourite it and is not re-seeded, so the next fresh load re-selects it. Disabling a mode clears that mode's *selections* but leaves its Favourites intact.
 
 _Avoid_: pinned line, starred line, saved line (the UI control is a star; the concept is a **Favourite**).
 
-Favourites are owned by `useFilterSelection.js` alongside Selection, so `{mode, line}` keys never leak across the interface. They are **Essential storage** (a record of the user's own UI choice, like theme — see [ADR 0001](docs/adr/0001-cookieless-no-consent-popup.md)): persisted under a versioned localStorage key, no Consent required. Favourites must never drift into passively-collected behavioural state, which would trip the ADR 0001 reversal trigger.
+Favourites are owned by the same hook, alongside Selection, and exposed only as `{mode, line}` objects via `isLineFavourite(mode, line)` / `toggleFavourite(mode, line)` / `clearFavourites()` — no consumer builds or parses keys. They persist write-through under a versioned localStorage key (`rtt-favourite-lines-v1`), reading defensively so a malformed or partial value degrades to the valid entries (or none) rather than crashing. Favourites are **Essential storage** under [ADR 0001](docs/adr/0001-cookieless-no-consent-popup.md): a record of the user's own UI choice, exactly like theme — no Consent surface, and they must never drift into passively-collected behavioural state.
 
 ## Webcam layer
 
