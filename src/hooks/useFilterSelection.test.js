@@ -272,6 +272,79 @@ describe('useFilterSelection — Favourites', () => {
   });
 });
 
+describe('useFilterSelection — Favourites seed Selection on load', () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+  });
+
+  afterEach(() => {
+    window.localStorage.clear();
+  });
+
+  // Seed the persisted Favourites as if pinned on a previous visit.
+  const favourite = (mode, line) =>
+    window.localStorage.setItem(FAVOURITES_STORAGE_KEY, JSON.stringify([{ mode, line }]));
+
+  it('Favourites are pre-selected on a fresh load', () => {
+    favourite('bus', '55');
+    const { result } = renderHook(() => useFilterSelection([v('v1', 'bus', '55'), v('v2', 'bus', '4')]));
+
+    expect(result.current.isLineSelected('bus', '55')).toBe(true);
+    expect(result.current.filteredVehicles).toHaveLength(1);
+    expect(result.current.filteredVehicles[0].id).toBe('v1');
+  });
+
+  it('deselecting a seeded line this session keeps it favourited', () => {
+    favourite('bus', '55');
+    const { result } = renderHook(() => useFilterSelection([v('v1', 'bus', '55')]));
+
+    act(() => result.current.toggleLine('bus', '55'));
+
+    expect(result.current.isLineSelected('bus', '55')).toBe(false);
+    expect(result.current.isLineFavourite('bus', '55')).toBe(true);
+  });
+
+  it('a deselected favourite is re-selected on the next fresh load', () => {
+    favourite('bus', '55');
+    const first = renderHook(() => useFilterSelection([v('v1', 'bus', '55')]));
+    act(() => first.result.current.toggleLine('bus', '55'));
+    expect(first.result.current.isLineSelected('bus', '55')).toBe(false);
+    first.unmount();
+
+    const second = renderHook(() => useFilterSelection([v('v1', 'bus', '55')]));
+    expect(second.result.current.isLineSelected('bus', '55')).toBe(true);
+  });
+
+  it('deselecting a seeded line does not re-seed it later in the same session', () => {
+    favourite('bus', '55');
+    const { result, rerender } = renderHook(() => useFilterSelection([v('v1', 'bus', '55')]));
+
+    act(() => result.current.toggleLine('bus', '55'));
+    rerender();
+
+    expect(result.current.isLineSelected('bus', '55')).toBe(false);
+  });
+
+  it('disabling a mode clears its selections but keeps its favourites', () => {
+    favourite('bus', '55');
+    const { result } = renderHook(() => useFilterSelection([v('v1', 'bus', '55')]));
+    expect(result.current.isLineSelected('bus', '55')).toBe(true);
+
+    act(() => result.current.toggleMode('bus'));
+
+    expect(result.current.isLineSelected('bus', '55')).toBe(false);
+    expect(result.current.isLineFavourite('bus', '55')).toBe(true);
+  });
+
+  it('a favourite with no live vehicles still shows as a selected chip', () => {
+    favourite('bus', '55');
+    const { result } = renderHook(() => useFilterSelection([v('v1', 'bus', '4')]));
+
+    expect(result.current.isLineSelected('bus', '55')).toBe(true);
+    expect(result.current.selectedLines).toContainEqual({ mode: 'bus', line: '55' });
+  });
+});
+
 describe('useFilterSelection — Favourites persist across reloads', () => {
   beforeEach(() => {
     window.localStorage.clear();

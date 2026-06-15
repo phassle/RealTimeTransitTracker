@@ -44,12 +44,18 @@ function writeFavouriteKeys(keys) {
 
 export function useFilterSelection(allVehicles) {
   const [enabledModes, setEnabledModes] = useState(ALL_MODE_IDS);
-  // Private: Set of "mode:line" keys — never exposed as strings
-  const [selectedKeys, setSelectedKeys] = useState(() => new Set());
   // Private: Set of "mode:line" keys for Favourites — orthogonal to Selection.
   // Restored from versioned localStorage on mount and write-through on toggle.
   // Favourites survive a mode being disabled, so toggleMode never touches this.
   const [favouriteKeys, setFavouriteKeys] = useState(readFavouriteKeys);
+  // Private: Set of "mode:line" keys — never exposed as strings. Seeded from the
+  // persisted Favourites once on mount (the lazy init runs only on first render),
+  // so a returning user's pins are pre-selected. Seeding is a one-time
+  // initialisation, not a continuous binding: deselecting a seeded line this
+  // session does not unfavourite it and does not re-seed; the next fresh mount
+  // reads the Favourites again and re-seeds. Seeding does not depend on a live
+  // vehicle, so a Favourite with no vehicles still shows as a selected chip.
+  const [selectedKeys, setSelectedKeys] = useState(() => new Set(favouriteKeys));
 
   const toggleMode = (mode) => {
     setEnabledModes(prev => {
