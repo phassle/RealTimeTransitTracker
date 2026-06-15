@@ -5,8 +5,8 @@ function operatorName(slug) {
   return OPERATOR_MAP.get(slug)?.name ?? slug;
 }
 
-function formatStarted(startedAt) {
-  return new Date(startedAt).toLocaleTimeString('sv-SE', {
+function formatTime(ts) {
+  return new Date(ts).toLocaleTimeString('sv-SE', {
     hour: '2-digit',
     minute: '2-digit',
   });
@@ -24,7 +24,8 @@ function openFirst(incidents) {
 
 // Incident Inbox — lists Incidents only (never raw Anomalies). Each row shows
 // the severity-relevant facts an operator prioritizes by: affected line(s),
-// vehicle count and started-at time. Selecting a row focuses the map.
+// vehicle count, started-at and last-update times (PRD #84 story 2).
+// Selecting a row focuses the map.
 export function IncidentInbox({ incidents = [], selectedIncidentId = null, onSelect = () => {} }) {
   if (incidents.length === 0) {
     return (
@@ -86,9 +87,20 @@ export function IncidentInbox({ incidents = [], selectedIncidentId = null, onSel
                   {count} {count === 1 ? 'vehicle' : 'vehicles'}
                 </span>
               )}
-              <time className="incident-row__started" dateTime={new Date(inc.startedAt).toISOString()}>
-                {formatStarted(inc.startedAt)}
-              </time>
+              <span className="incident-row__times">
+                <time className="incident-row__started" dateTime={new Date(inc.startedAt).toISOString()}>
+                  {formatTime(inc.startedAt)}
+                </time>
+                {inc.lastUpdate != null && (
+                  <time
+                    className="incident-row__updated"
+                    dateTime={new Date(inc.lastUpdate).toISOString()}
+                    title="Last update"
+                  >
+                    upd. {formatTime(inc.lastUpdate)}
+                  </time>
+                )}
+              </span>
             </button>
           </li>
         );

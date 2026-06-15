@@ -46,6 +46,17 @@ describe('IncidentInbox', () => {
     expect(time.getAttribute('dateTime')).toBe('2026-06-12T08:42:00.000Z');
   });
 
+  it('shows the last-update time so rows can be prioritized by recency', () => {
+    render(<IncidentInbox incidents={[incident()]} />);
+
+    // last-update rendered as a <time> with a machine-readable timestamp,
+    // distinct from started-at (PRD #84 story 2).
+    const updated = document.querySelector('time.incident-row__updated');
+    expect(updated).toBeTruthy();
+    expect(updated.getAttribute('dateTime')).toBe('2026-06-12T08:48:00.000Z');
+    expect(updated.textContent).toContain('08:48');
+  });
+
   it('pluralizes the vehicle count', () => {
     render(<IncidentInbox incidents={[incident({ vehicleIds: ['a', 'b'] })]} />);
     expect(screen.getByText('2 vehicles')).toBeDefined();
