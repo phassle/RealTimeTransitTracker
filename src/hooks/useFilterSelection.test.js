@@ -345,6 +345,67 @@ describe('useFilterSelection — Favourites seed Selection on load', () => {
   });
 });
 
+describe('useFilterSelection — clearFavourites', () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+  });
+
+  afterEach(() => {
+    window.localStorage.clear();
+  });
+
+  it('exposes clearFavourites', () => {
+    const { result } = renderHook(() => useFilterSelection([]));
+    expect(typeof result.current.clearFavourites).toBe('function');
+  });
+
+  // Scenario: Clear favourites wipes all pins
+  it('wipes all pins across modes', () => {
+    const { result } = renderHook(() => useFilterSelection([]));
+    act(() => result.current.toggleFavourite('bus', '55'));
+    act(() => result.current.toggleFavourite('train', '41'));
+    expect(result.current.isLineFavourite('bus', '55')).toBe(true);
+    expect(result.current.isLineFavourite('train', '41')).toBe(true);
+
+    act(() => result.current.clearFavourites());
+
+    expect(result.current.isLineFavourite('bus', '55')).toBe(false);
+    expect(result.current.isLineFavourite('train', '41')).toBe(false);
+  });
+
+  // ...And on the next fresh load no line is pre-selected from favourites
+  it('write-through: cleared pins do not pre-select on a fresh load', () => {
+    const first = renderHook(() => useFilterSelection([]));
+    act(() => first.result.current.toggleFavourite('bus', '55'));
+    act(() => first.result.current.toggleFavourite('train', '41'));
+    act(() => first.result.current.clearFavourites());
+    first.unmount();
+
+    const second = renderHook(() => useFilterSelection([]));
+    expect(second.result.current.isLineFavourite('bus', '55')).toBe(false);
+    expect(second.result.current.selectedLines).toHaveLength(0);
+  });
+
+  // Scenario: Clear favourites leaves the session Selection intact
+  it('leaves the session Selection untouched', () => {
+    const vehicles = [v('v1', 'bus', '55'), v('v2', 'bus', '7')];
+    const { result } = renderHook(() => useFilterSelection(vehicles));
+    act(() => {
+      result.current.toggleFavourite('bus', '55');
+      result.current.toggleLine('bus', '55');
+      result.current.toggleLine('bus', '7');
+    });
+    expect(result.current.isLineSelected('bus', '55')).toBe(true);
+    expect(result.current.isLineSelected('bus', '7')).toBe(true);
+
+    act(() => result.current.clearFavourites());
+
+    expect(result.current.isLineFavourite('bus', '55')).toBe(false);
+    expect(result.current.isLineSelected('bus', '55')).toBe(true);
+    expect(result.current.isLineSelected('bus', '7')).toBe(true);
+  });
+});
+
 describe('useFilterSelection — Favourites persist across reloads', () => {
   beforeEach(() => {
     window.localStorage.clear();

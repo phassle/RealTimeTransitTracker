@@ -56,6 +56,7 @@ function App() {
     clearLines,
     isLineFavourite,
     toggleFavourite,
+    clearFavourites,
     availableLines,
     filteredVehicles,
   } = useFilterSelection(allVehicles);
@@ -136,6 +137,7 @@ function App() {
         onClearLines={clearLines}
         isLineFavourite={isLineFavourite}
         onFavouriteToggle={toggleFavourite}
+        onClearFavourites={clearFavourites}
         operators={OPERATORS}
         activeOperators={activeOperators}
         onRegionSelect={handleRegionSelect}

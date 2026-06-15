@@ -100,6 +100,16 @@ export function useFilterSelection(allVehicles) {
 
   const isLineFavourite = (mode, line) => favouriteKeys.has(`${mode}:${line}`);
 
+  // Wipe all pins at once (PRD #105 "Clear favourites"). Write-through so the
+  // next fresh load pre-selects nothing. Orthogonal to Selection: clearing
+  // Favourites never touches selectedKeys, so the session filter is unchanged
+  // — distinct from clearLines, which clears only the ephemeral Selection.
+  const clearFavourites = () => {
+    const next = new Set();
+    writeFavouriteKeys(next);
+    setFavouriteKeys(next);
+  };
+
   const vehicles = Array.isArray(allVehicles) ? allVehicles : [];
 
   // {mode, line}[] — no key strings cross the interface
@@ -148,6 +158,7 @@ export function useFilterSelection(allVehicles) {
     clearLines,
     isLineFavourite,
     toggleFavourite,
+    clearFavourites,
     availableLines,
     filteredVehicles,
   };

@@ -281,6 +281,23 @@
   color: #c33;
 }
 
+/* Visually distinct from "Clear all": a bordered, star-prefixed action so the
+   user never confuses wiping persistent pins with clearing the session filter. */
+.clear-favourites-btn {
+  background: none;
+  border: 1px solid var(--chrome-text-muted);
+  border-radius: 10px;
+  color: var(--chrome-text-muted);
+  font-size: 12px;
+  cursor: pointer;
+  padding: 3px 8px;
+}
+
+.clear-favourites-btn:hover {
+  border-color: #c33;
+  color: #c33;
+}
+
 .available-lines {
   margin-top: 10px;
   max-height: 250px;

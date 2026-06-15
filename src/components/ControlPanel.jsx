@@ -19,6 +19,7 @@ export function ControlPanel({
   onClearLines = () => {},
   isLineFavourite = () => false,
   onFavouriteToggle = () => {},
+  onClearFavourites = () => {},
   operators = [],
   activeOperators = [],
   onRegionSelect = () => {},
@@ -212,19 +213,45 @@ export function ControlPanel({
 
                 {selectedLines.length > 0 && (
                   <div className="selected-lines">
-                    {selectedLines.map(({ mode, line }) => (
-                      <span
-                        key={`${mode}:${line}`}
-                        className="line-chip selected"
-                        style={{ borderColor: MODE_COLOR_MAP[mode] || '#888' }}
-                        onClick={() => onLineToggle(mode, line)}
-                      >
-                        {line}
-                        <span className="line-chip-remove">&times;</span>
-                      </span>
-                    ))}
+                    {selectedLines.map(({ mode, line }) => {
+                      const favourite = isLineFavourite(mode, line);
+                      return (
+                        <span
+                          key={`${mode}:${line}`}
+                          className={`line-chip selected ${favourite ? 'favourite' : ''}`}
+                          style={{ borderColor: MODE_COLOR_MAP[mode] || '#888' }}
+                          onClick={() => onLineToggle(mode, line)}
+                        >
+                          {line}
+                          {/* Summary-chip star: lets a seeded Favourite whose
+                              line has no live vehicle (so no available-line
+                              chip) still be unfavourited (PRD #105 story 8). */}
+                          <button
+                            type="button"
+                            className={`line-chip-star ${favourite ? 'favourite' : ''}`}
+                            style={{ color: MODE_COLOR_MAP[mode] || '#888' }}
+                            aria-pressed={favourite}
+                            aria-label={`${favourite ? 'Unfavourite' : 'Favourite'} line ${line}`}
+                            title={favourite ? 'Unfavourite line' : 'Favourite line'}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onFavouriteToggle(mode, line);
+                            }}
+                          >
+                            {favourite ? '★' : '☆'}
+                          </button>
+                          <span className="line-chip-remove">&times;</span>
+                        </span>
+                      );
+                    })}
                     <button className="clear-lines-btn" onClick={onClearLines}>
                       Clear all
+                    </button>
+                    {/* Distinct from "Clear all" (session Selection): wipes
+                        persistent pins so the user never erases Favourites
+                        when they only meant to clear the filter (story 10). */}
+                    <button className="clear-favourites-btn" onClick={onClearFavourites}>
+                      ★ Clear favourites
                     </button>
                   </div>
                 )}

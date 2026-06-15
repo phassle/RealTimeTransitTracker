@@ -56,3 +56,71 @@ describe('ControlPanel — Favourite star control', () => {
     expect(star.closest('.line-chip').className).toMatch(/favourite/);
   });
 });
+
+describe('ControlPanel — Manage Favourites (summary-chip star, Clear favourites)', () => {
+  // A seeded Favourite whose line has no live vehicle still appears as a
+  // selected-summary chip but has no available-line chip. The summary chip
+  // must carry its own star so it can be unfavourited.
+  const summaryProps = {
+    availableLines: {},
+    enabledModes: ['bus'],
+    selectedLines: [{ mode: 'bus', line: '55' }],
+    isLineFavourite: (mode, line) => mode === 'bus' && line === '55',
+  };
+
+  it('renders a star control on each selected-summary chip', () => {
+    render(<ControlPanel {...summaryProps} />);
+    expandLineFilter();
+
+    expect(screen.getByRole('button', { name: /unfavourite line 55/i })).toBeTruthy();
+  });
+
+  it('clicking the summary-chip star invokes onFavouriteToggle for that line', () => {
+    const onFavouriteToggle = vi.fn();
+    render(<ControlPanel {...summaryProps} onFavouriteToggle={onFavouriteToggle} />);
+    expandLineFilter();
+
+    fireEvent.click(screen.getByRole('button', { name: /unfavourite line 55/i }));
+
+    expect(onFavouriteToggle).toHaveBeenCalledWith('bus', '55');
+  });
+
+  it('clicking the summary-chip star does not toggle the line selection', () => {
+    const onLineToggle = vi.fn();
+    render(<ControlPanel {...summaryProps} onLineToggle={onLineToggle} />);
+    expandLineFilter();
+
+    fireEvent.click(screen.getByRole('button', { name: /unfavourite line 55/i }));
+
+    expect(onLineToggle).not.toHaveBeenCalled();
+  });
+
+  it('renders "Clear favourites" as a distinct control from "Clear all"', () => {
+    render(<ControlPanel {...summaryProps} />);
+    expandLineFilter();
+
+    const clearAll = screen.getByRole('button', { name: /^clear all$/i });
+    const clearFavourites = screen.getByRole('button', { name: /clear favourites/i });
+    expect(clearAll).toBeTruthy();
+    expect(clearFavourites).toBeTruthy();
+    expect(clearAll).not.toBe(clearFavourites);
+  });
+
+  it('clicking "Clear favourites" invokes onClearFavourites, not onClearLines', () => {
+    const onClearFavourites = vi.fn();
+    const onClearLines = vi.fn();
+    render(
+      <ControlPanel
+        {...summaryProps}
+        onClearFavourites={onClearFavourites}
+        onClearLines={onClearLines}
+      />,
+    );
+    expandLineFilter();
+
+    fireEvent.click(screen.getByRole('button', { name: /clear favourites/i }));
+
+    expect(onClearFavourites).toHaveBeenCalledTimes(1);
+    expect(onClearLines).not.toHaveBeenCalled();
+  });
+});
