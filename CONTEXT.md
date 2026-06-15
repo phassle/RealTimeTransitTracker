@@ -26,6 +26,14 @@ Filter state — enabled modes, selected lines, and the mode/line invariant — 
 
 **Available lines:** derived from the live vehicle set, grouped per mode, numerically sorted. Lines for a disabled mode are excluded. `filteredVehicles` is the hook's primary output: the vehicle list after both mode and line filters are applied.
 
+### Favourite line
+
+A line the user has explicitly pinned so it is pre-selected on every visit (issue #34). A Favourite is **persistent**; a Selection is **ephemeral session state**. They are orthogonal axes: a line can be favourited but not currently selected, or selected this session without being favourited. On load, favourites seed the initial Selection, but the user can then deselect a line for the session without unfavouriting it.
+
+_Avoid_: pinned line, starred line, saved line (the UI control is a star; the concept is a **Favourite**).
+
+Favourites are owned by `useFilterSelection.js` alongside Selection, so `{mode, line}` keys never leak across the interface. They are **Essential storage** (a record of the user's own UI choice, like theme — see [ADR 0001](docs/adr/0001-cookieless-no-consent-popup.md)): persisted under a versioned localStorage key, no Consent required. Favourites must never drift into passively-collected behavioural state, which would trip the ADR 0001 reversal trigger.
+
 ## Webcam layer
 
 Terms for the webcam feature (issue #65). A **Webcam** is a camera whose owner has deliberately published its imagery openly; unsecured private surveillance cameras are never Webcams in this domain, regardless of technical reachability.
