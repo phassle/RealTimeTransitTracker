@@ -26,4 +26,27 @@ describe('LocateControl', () => {
     render(<LocateControl status="success" onLocate={() => {}} />);
     expect(screen.getByRole('button', { name: /locate/i }).disabled).toBe(false);
   });
+
+  it('disables the button and explains the decline when permission is denied', () => {
+    render(<LocateControl status="denied" onLocate={() => {}} />);
+    const btn = screen.getByRole('button', { name: /locat/i });
+    expect(btn.disabled).toBe(true);
+    expect(btn.title).toBe('you declined location access');
+  });
+
+  it('disables the button with a distinct tooltip when geolocation is unavailable', () => {
+    render(<LocateControl status="unavailable" onLocate={() => {}} />);
+    const btn = screen.getByRole('button', { name: /locat/i });
+    expect(btn.disabled).toBe(true);
+    expect(btn.title).toBe('location is unavailable in this context');
+  });
+
+  it('uses distinct tooltips for denied versus unavailable (never conflated)', () => {
+    const { unmount } = render(<LocateControl status="denied" onLocate={() => {}} />);
+    const deniedTitle = screen.getByRole('button', { name: /locat/i }).title;
+    unmount();
+    render(<LocateControl status="unavailable" onLocate={() => {}} />);
+    const unavailableTitle = screen.getByRole('button', { name: /locat/i }).title;
+    expect(deniedTitle).not.toBe(unavailableTitle);
+  });
 });

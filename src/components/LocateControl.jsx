@@ -4,21 +4,34 @@ import './LocateControl.css';
 // zoom + view toggle). A thin presenter: it derives everything from the
 // useGeolocation status and holds no geolocation logic of its own.
 //
-// This slice (issue #112) covers idle → locating → success. The button shows a
-// pending state while locating and is otherwise tappable. denied/unavailable
-// tooltips and disabling land in a later slice.
+// Enabled state and tooltip are a pure mapping from status (issue #113). The two
+// non-success terminal states are kept distinct: denied (the user refused) and
+// unavailable (no capability — insecure origin / no API) get separate tooltips
+// so refusal is never conflated with absent capability.
+const TOOLTIP = {
+  idle: 'Locate me',
+  locating: 'Locate me',
+  success: 'Locate me',
+  denied: 'you declined location access',
+  unavailable: 'location is unavailable in this context',
+};
+
+const DISABLED = new Set(['locating', 'denied', 'unavailable']);
+
 export function LocateControl({ status = 'idle', onLocate }) {
   const locating = status === 'locating';
+  const disabled = DISABLED.has(status);
+  const title = TOOLTIP[status] ?? TOOLTIP.idle;
 
   return (
     <button
       type="button"
       className="locate-control"
       onClick={onLocate}
-      disabled={locating}
+      disabled={disabled}
       aria-label="Locate me"
       aria-busy={locating}
-      title="Locate me"
+      title={title}
     >
       {locating ? '…' : '◎'}
     </button>

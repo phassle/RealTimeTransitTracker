@@ -71,6 +71,28 @@ describe('useGeolocation', () => {
     expect(calls[0].options.maximumAge).toBeGreaterThan(0);
   });
 
+  it('evaluates capability on mount: a missing geolocation API yields unavailable', () => {
+    navigator.geolocation = undefined;
+    const { result } = renderHook(() => useGeolocation());
+    expect(result.current.status).toBe('unavailable');
+  });
+
+  it('resolves to denied when the user rejects the permission', () => {
+    const { calls } = installGeolocation();
+    const { result } = renderHook(() => useGeolocation());
+    act(() => { result.current.locate(); });
+    act(() => { calls[0].onError({ code: 1, PERMISSION_DENIED: 1 }); });
+    expect(result.current.status).toBe('denied');
+  });
+
+  it('resolves to unavailable when the position is otherwise unobtainable', () => {
+    const { calls } = installGeolocation();
+    const { result } = renderHook(() => useGeolocation());
+    act(() => { result.current.locate(); });
+    act(() => { calls[0].onError({ code: 2, PERMISSION_DENIED: 1 }); });
+    expect(result.current.status).toBe('unavailable');
+  });
+
   it('exposes exactly { locate, position, status }', () => {
     installGeolocation();
     const { result } = renderHook(() => useGeolocation());
