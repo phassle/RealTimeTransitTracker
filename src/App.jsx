@@ -1,7 +1,8 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Map } from './components/Map';
 import { CommandCenter } from './components/CommandCenter';
 import { ControlPanel } from './components/ControlPanel';
+import { LocateControl } from './components/LocateControl';
 import { OfflineBanner } from './components/OfflineBanner';
 import { UpdateToast } from './components/UpdateToast';
 import { PrivacyNotice } from './components/PrivacyNotice';
@@ -9,6 +10,7 @@ import { useRealtimeVehicles } from './hooks/useRealtimeVehicles';
 import { useFilterSelection } from './hooks/useFilterSelection';
 import { useTheme } from './hooks/useTheme';
 import { useConnectivity } from './hooks/useConnectivity';
+import { useGeolocation } from './hooks/useGeolocation';
 import { useUpdatePrompt } from './hooks/useUpdatePrompt';
 import { useWebcams } from './hooks/useWebcams';
 import {
@@ -21,6 +23,7 @@ import { OPERATORS, OPERATOR_MAP, SWEDEN_CENTER, SWEDEN_ZOOM, getVisibleOperator
 function App() {
   const { theme, toggleTheme } = useTheme();
   const { isOnline } = useConnectivity();
+  const { locate, position: userLocation, status: geolocationStatus } = useGeolocation();
   const { needRefresh, updateServiceWorker, dismissUpdate } = useUpdatePrompt();
   const [mapCenter, setMapCenter] = useState([59.3293, 18.0686]);
   const [mapZoom, setMapZoom] = useState(11);
@@ -30,6 +33,17 @@ function App() {
   const [enabledCameraTypes, setEnabledCameraTypes] = useState(
     CAMERA_TYPE_DEFINITIONS.map(t => t.id),
   );
+
+  // Fly to the User location when a fix arrives, at city-level zoom (~12).
+  // This reuses the existing center/zoom → Map flyTo seam; moving the viewport
+  // also triggers the viewport→operators fetch, so the user's region loads
+  // its vehicles with no geolocation-specific polling code (PRD #111).
+  useEffect(() => {
+    if (userLocation) {
+      setMapCenter([userLocation.latitude, userLocation.longitude]);
+      setMapZoom(12);
+    }
+  }, [userLocation]);
 
   const { cameras, error: webcamsError, errors: webcamsErrors, loading: webcamsLoading } = useWebcams(webcamsEnabled);
 
@@ -121,6 +135,7 @@ function App() {
         zoom={mapZoom}
         onBoundsChange={handleBoundsChange}
         theme={theme}
+        userLocation={userLocation}
       />
       <ControlPanel
         vehicles={filteredVehicles}
@@ -155,6 +170,7 @@ function App() {
         cameraCounts={cameraCounts}
         onCameraTypeToggle={handleCameraTypeToggle}
       />
+      <LocateControl status={geolocationStatus} onLocate={locate} />
       <OfflineBanner isOnline={isOnline} />
       <UpdateToast isVisible={needRefresh} onReload={updateServiceWorker} onDismiss={dismissUpdate} />
       <PrivacyNotice />

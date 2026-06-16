@@ -18,6 +18,12 @@ The current canonical modes are: `metro | bus | train | tram | ferry | unknown`.
 
 `ship` is not a mode: no GTFS `route_type` in the Swedish feeds maps to it. Route type 1000 (Water Transport) maps to `ferry`.
 
+## User location
+
+The map position acquired from the browser's native geolocation, shown as a single "you are here" marker. A User location is **not** a Vehicle: it carries no line, mode, or operator, is styled as a distinct accent (never a transport-mode colour), and never enters the keyed marker-collection — it is one circle marker managed directly in `Map.jsx`. It is a **session-only singleton**: re-locating moves the one marker rather than accumulating, and it is forgotten on reload. Avoid the synonyms "GPS pin" / "current location".
+
+All `navigator.geolocation` interaction lives behind the **`useGeolocation`** hook (`locate()`, `position`, `status`), where `status` is the discriminated enum `idle | locating | success | denied | unavailable` (`denied` = the user declined; `unavailable` = no API / insecure origin — never conflated). The position is **ephemeral and client-only** ([ADR 0005](docs/adr/0005-geolocation-ephemeral-client-only.md)): held in memory only, never written to client storage and never sent to any service, so the browser-native permission prompt is the only gate — no Consent surface and no Privacy Notice change.
+
 ## Filter-selection module
 
 Filter state — enabled modes, selected lines, and the mode/line invariant — is owned entirely by **`src/hooks/useFilterSelection.js`**. No consumer builds or parses selection keys; the hook exposes `{mode, line}` objects and an `isLineSelected(mode, line)` predicate.

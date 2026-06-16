@@ -9,9 +9,13 @@ import { createMarkerCollection } from '../services/markerCollection';
 import { createVehicleAdapter, FULL_MARKER_MIN_ZOOM } from '../services/vehicleAdapter';
 import { createWebcamAdapter } from '../services/webcamAdapter';
 
-export function Map({ vehicles = [], cameras = [], center = [59.3293, 18.0686], zoom = 11, onBoundsChange = null, theme = 'light', highlightedVehicleIds = [] }) {
+export function Map({ vehicles = [], cameras = [], center = [59.3293, 18.0686], zoom = 11, onBoundsChange = null, theme = 'light', highlightedVehicleIds = [], userLocation = null }) {
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
+  // Singleton User location marker (PRD #111). A single circle marker managed
+  // directly here — deliberately NOT routed through the keyed marker-collection,
+  // which exists for id-diffed collections. Re-locating moves this one marker.
+  const userMarkerRef = useRef(null);
   const vehicleCollectionRef = useRef(null);
   // Highlight set is read live by the adapter so selection changes are reflected.
   const highlightRef = useRef(new Set());
@@ -138,6 +142,27 @@ export function Map({ vehicles = [], cameras = [], center = [59.3293, 18.0686], 
   useEffect(() => {
     webcamCollectionRef.current?.update(cameras, webcamAdapterRef.current);
   }, [cameras]);
+
+  // User location singleton: place once, then move on subsequent fixes. Styled
+  // as a distinct "you are here" blue accent — never a transport-mode colour —
+  // so it is never mistaken for a Vehicle.
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map || !userLocation) return;
+    const latlng = [userLocation.latitude, userLocation.longitude];
+    if (userMarkerRef.current) {
+      userMarkerRef.current.setLatLng(latlng);
+    } else {
+      userMarkerRef.current = L.circleMarker(latlng, {
+        radius: 8,
+        color: '#ffffff',
+        weight: 2,
+        fillColor: '#1d6fe0',
+        fillOpacity: 1,
+      }).addTo(map);
+      userMarkerRef.current.bindTooltip('You are here');
+    }
+  }, [userLocation]);
 
   return (
     <div
