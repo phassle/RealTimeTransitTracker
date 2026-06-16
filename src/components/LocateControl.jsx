@@ -13,6 +13,11 @@ import './LocateControl.css';
 // button is aria-busy and carries the --busy modifier (a spinning glyph), so a
 // tap visibly registers. It clears the moment status leaves locating — success,
 // denied, timeout, or unavailable all return the button to its resting state.
+//
+// Theme-awareness (issue #115, story 15): the active theme is reflected as a
+// data-theme attribute on the button so its dark/light styling is self-contained
+// (CSS keys off .locate-control[data-theme="dark"]) and assertable at the RTL
+// level — no reliance on an ancestor [data-theme] for this control.
 const TOOLTIP = {
   idle: 'Locate me',
   locating: 'Locate me',
@@ -23,7 +28,7 @@ const TOOLTIP = {
 
 const DISABLED = new Set(['locating', 'denied', 'unavailable']);
 
-export function LocateControl({ status = 'idle', onLocate }) {
+export function LocateControl({ status = 'idle', onLocate, theme = 'light' }) {
   const locating = status === 'locating';
   const disabled = DISABLED.has(status);
   const title = TOOLTIP[status] ?? TOOLTIP.idle;
@@ -36,6 +41,7 @@ export function LocateControl({ status = 'idle', onLocate }) {
       disabled={disabled}
       aria-label="Locate me"
       aria-busy={locating}
+      data-theme={theme}
       title={title}
     >
       {locating ? '…' : '◎'}

@@ -74,4 +74,24 @@ describe('LocateControl', () => {
       unmount();
     }
   });
+
+  // Issue #115 / PRD #111 story 14 — keyboard / screen-reader accessibility.
+  it('is keyboard-focusable and exposes an accessible name describing "locate me"', () => {
+    render(<LocateControl status="idle" onLocate={() => {}} />);
+    const btn = screen.getByRole('button', { name: /locate me/i });
+    btn.focus();
+    expect(document.activeElement).toBe(btn);
+    // a native <button> activates on Enter/Space — keyboard activation routes to onClick.
+    expect(btn.tagName).toBe('BUTTON');
+    expect(btn.disabled).toBe(false);
+  });
+
+  // Issue #115 / PRD #111 story 15 — button is theme-aware (legible per theme).
+  it('reflects the active theme so it can be styled legibly per theme', () => {
+    const { unmount } = render(<LocateControl status="idle" theme="dark" onLocate={() => {}} />);
+    expect(screen.getByRole('button', { name: /locat/i }).getAttribute('data-theme')).toBe('dark');
+    unmount();
+    render(<LocateControl status="idle" theme="light" onLocate={() => {}} />);
+    expect(screen.getByRole('button', { name: /locat/i }).getAttribute('data-theme')).toBe('light');
+  });
 });

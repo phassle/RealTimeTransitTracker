@@ -170,7 +170,7 @@ function App() {
         cameraCounts={cameraCounts}
         onCameraTypeToggle={handleCameraTypeToggle}
       />
-      <LocateControl status={geolocationStatus} onLocate={locate} />
+      <LocateControl status={geolocationStatus} onLocate={locate} theme={theme} />
       <OfflineBanner isOnline={isOnline} />
       <UpdateToast isVisible={needRefresh} onReload={updateServiceWorker} onDismiss={dismissUpdate} />
       <PrivacyNotice />

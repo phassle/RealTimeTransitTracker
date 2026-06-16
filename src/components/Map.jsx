@@ -145,24 +145,29 @@ export function Map({ vehicles = [], cameras = [], center = [59.3293, 18.0686], 
 
   // User location singleton: place once, then move on subsequent fixes. Styled
   // as a distinct "you are here" blue accent — never a transport-mode colour —
-  // so it is never mistaken for a Vehicle.
+  // so it is never mistaken for a Vehicle. The accent is theme-aware (issue
+  // #115, story 15): a deeper blue on light tiles, a brighter blue on dark tiles
+  // (matching the locate button), so it stays legible against either basemap
+  // while keeping its distinct white-ringed accent. Restyled on theme change.
   useEffect(() => {
     const map = mapInstanceRef.current;
     if (!map || !userLocation) return;
     const latlng = [userLocation.latitude, userLocation.longitude];
+    const style = {
+      radius: 8,
+      color: '#ffffff',
+      weight: 2,
+      fillColor: theme === 'dark' ? '#5b9dff' : '#1d6fe0',
+      fillOpacity: 1,
+    };
     if (userMarkerRef.current) {
       userMarkerRef.current.setLatLng(latlng);
+      userMarkerRef.current.setStyle(style);
     } else {
-      userMarkerRef.current = L.circleMarker(latlng, {
-        radius: 8,
-        color: '#ffffff',
-        weight: 2,
-        fillColor: '#1d6fe0',
-        fillOpacity: 1,
-      }).addTo(map);
+      userMarkerRef.current = L.circleMarker(latlng, style).addTo(map);
       userMarkerRef.current.bindTooltip('You are here');
     }
-  }, [userLocation]);
+  }, [userLocation, theme]);
 
   return (
     <div

@@ -46,12 +46,15 @@
   }
 }
 
-[data-theme="dark"] .locate-control {
+/* Theme-aware styling (issue #115, story 15): keyed off the control's own
+   data-theme attribute (set from the active theme) rather than an ancestor, so
+   the button stays legible on dark tiles and the styling is self-contained. */
+.locate-control[data-theme="dark"] {
   background: #1e1e2e;
   color: #5b9dff;
   border-color: rgba(255, 255, 255, 0.25);
 }
 
-[data-theme="dark"] .locate-control:hover {
+.locate-control[data-theme="dark"]:hover {
   background: #2a2a3e;
 }
