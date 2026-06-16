@@ -27,6 +27,25 @@
   opacity: 0.6;
 }
 
+/* In-progress feedback while a fix is being acquired (issue #114, PRD #111
+   story 9): the busy glyph spins so the tap reads as registered and working.
+   Cleared automatically once status leaves locating — the modifier class is a
+   pure function of status === 'locating'. */
+.locate-control--busy {
+  animation: locate-control-spin 0.9s linear infinite;
+}
+
+@keyframes locate-control-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .locate-control--busy {
+    animation: none;
+  }
+}
+
 [data-theme="dark"] .locate-control {
   background: #1e1e2e;
   color: #5b9dff;

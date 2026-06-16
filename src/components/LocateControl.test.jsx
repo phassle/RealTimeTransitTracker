@@ -49,4 +49,29 @@ describe('LocateControl', () => {
     const unavailableTitle = screen.getByRole('button', { name: /locat/i }).title;
     expect(deniedTitle).not.toBe(unavailableTitle);
   });
+
+  // Issue #114 / PRD #111 story 9 — in-progress feedback while acquiring the fix.
+  it('shows an in-progress busy indicator while locating', () => {
+    render(<LocateControl status="locating" onLocate={() => {}} />);
+    const btn = screen.getByRole('button', { name: /locat/i });
+    expect(btn.getAttribute('aria-busy')).toBe('true');
+    expect(btn.className).toContain('locate-control--busy');
+  });
+
+  it('clears the in-progress indicator once a fix arrives', () => {
+    render(<LocateControl status="success" onLocate={() => {}} />);
+    const btn = screen.getByRole('button', { name: /locat/i });
+    expect(btn.getAttribute('aria-busy')).toBe('false');
+    expect(btn.className).not.toContain('locate-control--busy');
+  });
+
+  it('clears the in-progress indicator if the request is denied or unavailable', () => {
+    for (const status of ['denied', 'unavailable', 'idle']) {
+      const { unmount } = render(<LocateControl status={status} onLocate={() => {}} />);
+      const btn = screen.getByRole('button', { name: /locat/i });
+      expect(btn.getAttribute('aria-busy')).toBe('false');
+      expect(btn.className).not.toContain('locate-control--busy');
+      unmount();
+    }
+  });
 });

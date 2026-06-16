@@ -8,6 +8,11 @@ import './LocateControl.css';
 // non-success terminal states are kept distinct: denied (the user refused) and
 // unavailable (no capability — insecure origin / no API) get separate tooltips
 // so refusal is never conflated with absent capability.
+//
+// In-progress feedback (issue #114, story 9): while status === 'locating' the
+// button is aria-busy and carries the --busy modifier (a spinning glyph), so a
+// tap visibly registers. It clears the moment status leaves locating — success,
+// denied, timeout, or unavailable all return the button to its resting state.
 const TOOLTIP = {
   idle: 'Locate me',
   locating: 'Locate me',
@@ -26,7 +31,7 @@ export function LocateControl({ status = 'idle', onLocate }) {
   return (
     <button
       type="button"
-      className="locate-control"
+      className={locating ? 'locate-control locate-control--busy' : 'locate-control'}
       onClick={onLocate}
       disabled={disabled}
       aria-label="Locate me"
