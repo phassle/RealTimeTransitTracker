@@ -31,6 +31,19 @@ describe('observationBuffer', () => {
     const times = buf.snapshots().map(s => s.time);
     // cutoff = 6000 - 5000 = 1000; the t=0 snapshot is dropped
     expect(times).toEqual([3000, 6000]);
+
+    buf.append({ time: 8000, vehicles: [v('boundary')] });
+    // cutoff = 8000 - 5000 = 3000; cutoff-boundary snapshots are retained
+    expect(buf.snapshots().map(s => s.time)).toEqual([3000, 6000, 8000]);
+  });
+
+  it('preserves retention semantics when timestamps arrive out of order', () => {
+    const buf = createObservationBuffer({ windowMs: 5000 });
+    buf.append({ time: 10000, vehicles: [v('newer')] });
+    buf.append({ time: 0, vehicles: [v('older')] });
+    buf.append({ time: 11000, vehicles: [v('latest')] });
+
+    expect(buf.snapshots().map(s => s.time)).toEqual([10000, 11000]);
   });
 
   it('defaults vehicles to an empty array', () => {

@@ -25,6 +25,37 @@ export class RecordingError extends Error {
   }
 }
 
+function compactExpiredSnapshots(snapshots, cutoff) {
+  let retained = 0;
+  for (const snapshot of snapshots) {
+    if (snapshot.time >= cutoff) {
+      snapshots[retained] = snapshot;
+      retained += 1;
+    }
+  }
+  snapshots.length = retained;
+}
+
+function trimExpiredSnapshots(snapshots, cutoff, isChronological) {
+  if (!isChronological) {
+    compactExpiredSnapshots(snapshots, cutoff);
+    return;
+  }
+
+  let firstRetained = 0;
+  while (firstRetained < snapshots.length && snapshots[firstRetained].time < cutoff) {
+    firstRetained += 1;
+  }
+  if (firstRetained > 0) snapshots.splice(0, firstRetained);
+}
+
+function isChronologicalSnapshots(snapshots) {
+  for (let i = 1; i < snapshots.length; i += 1) {
+    if (snapshots[i].time < snapshots[i - 1].time) return false;
+  }
+  return true;
+}
+
 function isValidSnapshot(s) {
   return (
     s != null &&
@@ -72,6 +103,7 @@ export function parseRecording(input) {
 
 export function createObservationBuffer({ windowMs = DEFAULT_WINDOW_MS } = {}) {
   let snapshots = [];
+  let isChronological = true;
 
   return {
     /**
@@ -84,9 +116,12 @@ export function createObservationBuffer({ windowMs = DEFAULT_WINDOW_MS } = {}) {
      * @returns {number} the number of snapshots retained
      */
     append({ time, vehicles, feeds }) {
+      if (snapshots.length > 0 && time < snapshots[snapshots.length - 1].time) {
+        isChronological = false;
+      }
       snapshots.push({ time, vehicles: vehicles ?? [], feeds: feeds ?? [] });
       const cutoff = time - windowMs;
-      snapshots = snapshots.filter(s => s.time >= cutoff);
+      trimExpiredSnapshots(snapshots, cutoff, isChronological);
       return snapshots.length;
     },
 
@@ -128,6 +163,7 @@ export function createObservationBuffer({ windowMs = DEFAULT_WINDOW_MS } = {}) {
 
     clear() {
       snapshots = [];
+      isChronological = true;
     },
 
     /**
@@ -157,6 +193,7 @@ export function createObservationBuffer({ windowMs = DEFAULT_WINDOW_MS } = {}) {
     importRecording(input) {
       const parsed = parseRecording(input);
       snapshots = parsed.snapshots.map(s => ({ time: s.time, vehicles: s.vehicles }));
+      isChronological = isChronologicalSnapshots(snapshots);
       return snapshots.length;
     },
   };
