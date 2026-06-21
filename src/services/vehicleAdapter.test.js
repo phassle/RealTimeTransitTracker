@@ -1,5 +1,4 @@
-import { describe, it, expect } from 'vitest';
-import { vi } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { createVehicleAdapter, FULL_MARKER_MIN_ZOOM } from './vehicleAdapter';
 
 // Leaflet mock — only the primitives used by vehicleAdapter
@@ -83,5 +82,94 @@ describe('createVehicleAdapter zoom-adaptive icons', () => {
     zoom = FULL_MARKER_MIN_ZOOM - 2;
     adapter.onUpdate(marker, makeVehicle());
     expect(marker.icon.iconSize).toEqual([10, 10]);
+  });
+
+  it('skips icon replacement when the visual state is unchanged', () => {
+    const adapter = createVehicleAdapter({ getZoom: () => FULL_MARKER_MIN_ZOOM });
+    const marker = {
+      setLatLng: vi.fn().mockReturnThis(),
+      setIcon: vi.fn().mockReturnThis(),
+      isPopupOpen: () => false,
+    };
+
+    adapter.onMarkerCreated(marker, makeVehicle());
+    adapter.onUpdate(marker, makeVehicle({ latitude: 59.34, longitude: 18.08, speed: 14 }));
+
+    expect(marker.setLatLng).toHaveBeenCalledWith([59.34, 18.08]);
+    expect(marker.setIcon).not.toHaveBeenCalled();
+  });
+
+  it('replaces the icon when the visual state changes', () => {
+    let highlighted = false;
+    const adapter = createVehicleAdapter({
+      getZoom: () => FULL_MARKER_MIN_ZOOM,
+      isHighlighted: () => highlighted,
+    });
+    const marker = {
+      setLatLng: vi.fn().mockReturnThis(),
+      setIcon: vi.fn().mockReturnThis(),
+      isPopupOpen: () => false,
+    };
+
+    adapter.onMarkerCreated(marker, makeVehicle());
+    highlighted = true;
+    adapter.onUpdate(marker, makeVehicle());
+
+    expect(marker.setIcon).toHaveBeenCalledOnce();
+    expect(marker.setIcon.mock.calls[0][0].className).toContain('vehicle-marker--highlighted');
+  });
+});
+
+describe('createVehicleAdapter lazy popups', () => {
+  it('defers vehicle popup formatting until Leaflet resolves popup content', () => {
+    const adapter = createVehicleAdapter();
+    const marker = {};
+    const timeSpy = vi.spyOn(Date.prototype, 'toLocaleTimeString');
+
+    const popupContent = adapter.toPopup(makeVehicle());
+
+    expect(typeof popupContent).toBe('function');
+    expect(timeSpy).not.toHaveBeenCalled();
+
+    adapter.onMarkerCreated(marker, makeVehicle());
+    popupContent(marker);
+
+    expect(timeSpy).toHaveBeenCalledOnce();
+    timeSpy.mockRestore();
+  });
+
+  it('renders the latest vehicle state when a lazy popup is opened later', () => {
+    const adapter = createVehicleAdapter();
+    const marker = {
+      setLatLng: vi.fn().mockReturnThis(),
+      setIcon: vi.fn().mockReturnThis(),
+      isPopupOpen: () => false,
+    };
+    const popupContent = adapter.toPopup(makeVehicle({ line: '17' }));
+
+    adapter.onMarkerCreated(marker, makeVehicle({ line: '17' }));
+    adapter.onUpdate(marker, makeVehicle({ line: '18' }));
+
+    expect(popupContent(marker)).toContain('bus 18');
+  });
+
+  it('refreshes popup content only when the popup is open', () => {
+    const adapter = createVehicleAdapter();
+    let open = false;
+    const marker = {
+      setLatLng: vi.fn().mockReturnThis(),
+      setPopupContent: vi.fn().mockReturnThis(),
+      setIcon: vi.fn().mockReturnThis(),
+      isPopupOpen: () => open,
+    };
+
+    adapter.onMarkerCreated(marker, makeVehicle());
+    adapter.onUpdate(marker, makeVehicle({ speed: 12 }));
+    expect(marker.setPopupContent).not.toHaveBeenCalled();
+
+    open = true;
+    adapter.onUpdate(marker, makeVehicle({ speed: 13 }));
+    expect(marker.setPopupContent).toHaveBeenCalledOnce();
+    expect(typeof marker.setPopupContent.mock.calls[0][0]).toBe('function');
   });
 });
