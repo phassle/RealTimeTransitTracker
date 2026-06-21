@@ -48,12 +48,14 @@ export function ControlPanel({
   const [lineFilterExpanded, setLineFilterExpanded] = useState(false);
   const [lineSearch, setLineSearch] = useState('');
 
-  const stats = vehicles.reduce((acc, v) => {
-    acc[v.mode] = (acc[v.mode] || 0) + 1;
-    return acc;
-  }, {});
+  const { stats, totalVisible } = useMemo(() => {
+    const stats = vehicles.reduce((acc, v) => {
+      acc[v.mode] = (acc[v.mode] || 0) + 1;
+      return acc;
+    }, {});
 
-  const totalVisible = vehicles.length;
+    return { stats, totalVisible: vehicles.length };
+  }, [vehicles]);
 
   const filteredLineOptions = useMemo(() => {
     if (!lineSearch.trim()) return availableLines;

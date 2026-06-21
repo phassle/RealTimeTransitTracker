@@ -12,6 +12,29 @@ const baseProps = {
   enabledModes: ['bus'],
 };
 
+describe('ControlPanel — Vehicle stats', () => {
+  it('memoizes mode counts across unrelated panel state renders', () => {
+    const vehicles = [
+      { mode: 'bus' },
+      { mode: 'bus' },
+      { mode: 'train' },
+    ];
+    const reduceSpy = vi.spyOn(vehicles, 'reduce');
+
+    render(<ControlPanel {...baseProps} vehicles={vehicles} enabledModes={['bus', 'train']} />);
+
+    expect(reduceSpy).toHaveBeenCalledTimes(1);
+    expect(screen.getByText('Total vehicles:').nextSibling.textContent).toBe('3');
+    expect(screen.getByText('(2)')).toBeTruthy();
+    expect(screen.getByText('(1)')).toBeTruthy();
+
+    fireEvent.click(screen.getByTitle('Collapse'));
+    fireEvent.click(screen.getByTitle('Expand'));
+
+    expect(reduceSpy).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe('ControlPanel — Favourite star control', () => {
   it('renders a star control on each available-line chip', () => {
     render(<ControlPanel {...baseProps} />);
