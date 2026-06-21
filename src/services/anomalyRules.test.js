@@ -90,6 +90,30 @@ describe('detectStationaryAnomalies — stationary on active trip', () => {
     });
     expect(detectStationaryAnomalies(snaps, 6 * MIN)).toHaveLength(1);
   });
+
+  it('preserves first-match semantics for duplicate vehicle ids after indexing', () => {
+    const dupStationary = vehicle({ id: 'dup' });
+    const dupMoved = vehicle({ id: 'dup', latitude: 59.4 });
+    const snaps = [
+      { time: 0, vehicles: [vehicle({ id: 'first' }), vehicle({ id: 'second' }), dupStationary] },
+      {
+        time: 3 * MIN,
+        vehicles: [
+          vehicle({ id: 'first' }),
+          vehicle({ id: 'second' }),
+          dupMoved,
+          dupStationary,
+        ],
+      },
+      {
+        time: 6 * MIN,
+        vehicles: [vehicle({ id: 'first' }), vehicle({ id: 'second' }), dupStationary],
+      },
+    ];
+
+    const vehicleIds = detectStationaryAnomalies(snaps, 6 * MIN).map((a) => a.vehicleId);
+    expect(vehicleIds).toEqual(['first', 'second']);
+  });
 });
 
 // Two locations: A is a habitual stop (terminal), B is far away (~8 km).
