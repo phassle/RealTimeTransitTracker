@@ -152,5 +152,26 @@ describe('detectFeedOutageAnomalies', () => {
       const anomalies = detectFeedOutageAnomalies(snaps, 2 * MIN);
       expect(anomalies.some((a) => a.operator === 'ul')).toBe(false);
     });
+
+    it('preserves watched-operator order and first feed outcome per snapshot', () => {
+      const snaps = [
+        snap(0, [
+          feed({ operator: 'ul', ok: false }),
+          feed({ operator: 'ul', ok: true }),
+          feed({ operator: 'sl', ok: false }),
+          feed({ operator: 'sl', ok: true }),
+        ]),
+        snap(1 * MIN, [
+          feed({ operator: 'ul', ok: false }),
+          feed({ operator: 'sl', ok: false }),
+        ]),
+        snap(2 * MIN, [
+          feed({ operator: 'ul', ok: false }),
+          feed({ operator: 'sl', ok: false }),
+        ]),
+      ];
+
+      expect(detectFeedOutageAnomalies(snaps, 2 * MIN).map((a) => a.operator)).toEqual(['ul', 'sl']);
+    });
   });
 });
