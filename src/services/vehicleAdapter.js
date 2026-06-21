@@ -30,6 +30,34 @@ export const FULL_MARKER_MIN_ZOOM = 12;
  *   render compact. Default: always full-size.
  */
 export function createVehicleAdapter({ isHighlighted = () => false, getZoom = () => FULL_MARKER_MIN_ZOOM } = {}) {
+  const markerVehicles = new WeakMap();
+  const markerVisualStateKeys = new WeakMap();
+
+  function visualStateFor(vehicle) {
+    const color = MODE_COLORS[vehicle.mode] || MODE_COLORS.unknown;
+    const icon = MODE_ICONS[vehicle.mode] || MODE_ICONS.unknown;
+    const highlighted = isHighlighted(vehicle.id);
+    const compact = !highlighted && getZoom() < FULL_MARKER_MIN_ZOOM;
+    const label = vehicle.line?.length <= 3 ? ['line', String(vehicle.line ?? '')] : ['icon', icon];
+
+    return {
+      color,
+      icon,
+      highlighted,
+      compact,
+      key: JSON.stringify([compact, color, highlighted, label]),
+    };
+  }
+
+  function lazyPopupContent(vehicle) {
+    return (source) => vehiclePopupContent(markerVehicles.get(source) ?? vehicle);
+  }
+
+  function updateOpenPopup(marker, vehicle) {
+    if (typeof marker.isPopupOpen !== 'function' || !marker.isPopupOpen()) return;
+    if (typeof marker.setPopupContent === 'function') marker.setPopupContent(lazyPopupContent(vehicle));
+  }
+
   function buildCompactIcon(color) {
     return L.divIcon({
       className: 'vehicle-marker vehicle-marker--compact',
@@ -49,22 +77,19 @@ export function createVehicleAdapter({ isHighlighted = () => false, getZoom = ()
     });
   }
 
-  function buildIcon(vehicle) {
-    const color = MODE_COLORS[vehicle.mode] || MODE_COLORS.unknown;
-    const icon = MODE_ICONS[vehicle.mode] || MODE_ICONS.unknown;
-    const highlighted = isHighlighted(vehicle.id);
-    if (!highlighted && getZoom() < FULL_MARKER_MIN_ZOOM) {
-      return buildCompactIcon(color);
+  function buildIcon(vehicle, state = visualStateFor(vehicle)) {
+    if (state.compact) {
+      return buildCompactIcon(state.color);
     }
-    const border = highlighted ? '3px solid #ffd400' : '2px solid white';
-    const shadow = highlighted
+    const border = state.highlighted ? '3px solid #ffd400' : '2px solid white';
+    const shadow = state.highlighted
       ? '0 0 0 3px rgba(255,212,0,0.5), 0 2px 4px rgba(0,0,0,0.3)'
       : '0 2px 4px rgba(0,0,0,0.3)';
     return L.divIcon({
-      className: highlighted ? 'vehicle-marker vehicle-marker--highlighted' : 'vehicle-marker',
+      className: state.highlighted ? 'vehicle-marker vehicle-marker--highlighted' : 'vehicle-marker',
       html: `
           <div style="
-            background: ${color};
+            background: ${state.color};
             border: ${border};
             border-radius: 50%;
             width: 20px;
@@ -78,7 +103,7 @@ export function createVehicleAdapter({ isHighlighted = () => false, getZoom = ()
             box-shadow: ${shadow};
             cursor: pointer;
           ">
-            ${vehicle.line?.length <= 3 ? escapeHtml(vehicle.line) : icon}
+            ${vehicle.line?.length <= 3 ? escapeHtml(vehicle.line) : state.icon}
           </div>
         `,
       iconSize: [24, 24],
@@ -97,15 +122,24 @@ export function createVehicleAdapter({ isHighlighted = () => false, getZoom = ()
     },
 
     toPopup(vehicle) {
-      return vehiclePopupContent(vehicle);
+      return lazyPopupContent(vehicle);
+    },
+
+    onMarkerCreated(marker, vehicle) {
+      markerVehicles.set(marker, vehicle);
+      markerVisualStateKeys.set(marker, visualStateFor(vehicle).key);
     },
 
     onUpdate(marker, vehicle) {
+      markerVehicles.set(marker, vehicle);
       marker.setLatLng([vehicle.latitude, vehicle.longitude]);
-      marker.setPopupContent(vehiclePopupContent(vehicle));
-      // Refresh the icon so highlight state tracks the selected Incident.
-      // Guarded: test fakes may not implement setIcon.
-      if (typeof marker.setIcon === 'function') marker.setIcon(buildIcon(vehicle));
+      updateOpenPopup(marker, vehicle);
+
+      const visualState = visualStateFor(vehicle);
+      if (markerVisualStateKeys.get(marker) === visualState.key) return;
+
+      markerVisualStateKeys.set(marker, visualState.key);
+      if (typeof marker.setIcon === 'function') marker.setIcon(buildIcon(vehicle, visualState));
     },
 
     // Moved markers must be re-added for clusters to re-bucket them. Only while

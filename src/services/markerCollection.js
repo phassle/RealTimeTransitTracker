@@ -23,7 +23,7 @@ function defaultCreateMarker(latLng, options) {
  * Adapter interface (passed per update call):
  *   toLatLng(item)  → [lat, lng] | null  (null skips the item)
  *   toIcon(item)    → Leaflet icon
- *   toPopup(item)   → HTML string
+ *   toPopup(item)   → HTML string or Leaflet popup content function
  *   onUpdate?       → (marker, item) called when updating an existing marker
  *                     (default: setLatLng + setPopupContent)
  *   shouldReadd?    → (marker, item) → boolean; when true and the layer is a
