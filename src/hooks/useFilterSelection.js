@@ -44,6 +44,7 @@ function writeFavouriteKeys(keys) {
 
 export function useFilterSelection(allVehicles) {
   const [enabledModes, setEnabledModes] = useState(ALL_MODE_IDS);
+  const enabledModeSet = useMemo(() => new Set(enabledModes), [enabledModes]);
   // Private: Set of "mode:line" keys for Favourites — orthogonal to Selection.
   // Restored from versioned localStorage on mount and write-through on toggle.
   // Favourites survive a mode being disabled, so toggleMode never touches this.
@@ -75,7 +76,7 @@ export function useFilterSelection(allVehicles) {
   };
 
   const toggleLine = (mode, line) => {
-    if (!enabledModes.includes(mode)) return;
+    if (!enabledModeSet.has(mode)) return;
     const key = `${mode}:${line}`;
     setSelectedKeys(prev => {
       const next = new Set(prev);
@@ -123,7 +124,7 @@ export function useFilterSelection(allVehicles) {
   const availableLines = useMemo(() => {
     const groups = {};
     for (const vehicle of vehicles) {
-      if (!enabledModes.includes(vehicle.mode) || !vehicle.line) continue;
+      if (!enabledModeSet.has(vehicle.mode) || !vehicle.line) continue;
       if (!groups[vehicle.mode]) groups[vehicle.mode] = {};
       groups[vehicle.mode][vehicle.line] = (groups[vehicle.mode][vehicle.line] || 0) + 1;
     }
@@ -139,15 +140,15 @@ export function useFilterSelection(allVehicles) {
         .map(([line, count]) => ({ line, count }));
     }
     return sorted;
-  }, [vehicles, enabledModes]);
+  }, [vehicles, enabledModeSet]);
 
   const filteredVehicles = useMemo(() => {
-    let filtered = vehicles.filter(vehicle => enabledModes.includes(vehicle.mode));
+    let filtered = vehicles.filter(vehicle => enabledModeSet.has(vehicle.mode));
     if (selectedKeys.size > 0) {
       filtered = filtered.filter(vehicle => selectedKeys.has(`${vehicle.mode}:${vehicle.line}`));
     }
     return filtered;
-  }, [vehicles, enabledModes, selectedKeys]);
+  }, [vehicles, enabledModeSet, selectedKeys]);
 
   return {
     enabledModes,
