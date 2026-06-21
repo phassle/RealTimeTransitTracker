@@ -9,20 +9,44 @@ import { createMarkerCollection } from '../services/markerCollection';
 import { createVehicleAdapter, FULL_MARKER_MIN_ZOOM } from '../services/vehicleAdapter';
 import { createWebcamAdapter } from '../services/webcamAdapter';
 
+function haveSameOrderedIds(previousIds, nextIds) {
+  if (previousIds.length !== nextIds.length) return false;
+  for (let i = 0; i < previousIds.length; i += 1) {
+    if (previousIds[i] !== nextIds[i]) return false;
+  }
+  return true;
+}
+
+function useStableHighlightState(highlightedVehicleIds) {
+  const highlightStateRef = useRef({
+    ids: [],
+    idSet: new Set(),
+    version: 0,
+  });
+  const highlightState = highlightStateRef.current;
+
+  if (!haveSameOrderedIds(highlightState.ids, highlightedVehicleIds)) {
+    highlightState.ids = highlightedVehicleIds.slice();
+    highlightState.idSet = new Set(highlightedVehicleIds);
+    highlightState.version += 1;
+  }
+
+  return highlightStateRef;
+}
+
 export function Map({ vehicles = [], cameras = [], center = [59.3293, 18.0686], zoom = 11, onBoundsChange = null, theme = 'light', highlightedVehicleIds = [] }) {
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const vehicleCollectionRef = useRef(null);
   // Highlight set is read live by the adapter so selection changes are reflected.
-  const highlightRef = useRef(new Set());
-  highlightRef.current = new Set(highlightedVehicleIds);
+  const highlightStateRef = useStableHighlightState(highlightedVehicleIds);
   // Current zoom, read live by the adapter; mapZoom state re-triggers the
   // marker-update effect so existing markers swap compact/full icons on zoom.
   const zoomRef = useRef(zoom);
   const [mapZoom, setMapZoom] = useState(zoom);
   const vehicleAdapterRef = useRef(
     createVehicleAdapter({
-      isHighlighted: (id) => highlightRef.current.has(id),
+      isHighlighted: (id) => highlightStateRef.current.idSet.has(id),
       getZoom: () => zoomRef.current,
     }),
   );
@@ -129,10 +153,10 @@ export function Map({ vehicles = [], cameras = [], center = [59.3293, 18.0686], 
 
   // Update vehicle markers via the marker-collection module. Re-runs when the
   // highlight set or zoom changes too, so existing markers refresh their icon.
-  const highlightKey = highlightedVehicleIds.join(',');
+  const highlightVersion = highlightStateRef.current.version;
   useEffect(() => {
     vehicleCollectionRef.current?.update(vehicles, vehicleAdapterRef.current);
-  }, [vehicles, highlightKey, mapZoom]);
+  }, [vehicles, highlightVersion, mapZoom]);
 
   // Update webcam markers via the marker-collection module (webcam adapter).
   useEffect(() => {
@@ -150,6 +174,5 @@ export function Map({ vehicles = [], cameras = [], center = [59.3293, 18.0686], 
     />
   );
 }
-
 
 
