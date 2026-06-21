@@ -56,41 +56,43 @@ async function fetchSingleOperator(slug, tripMapping, apiKey) {
   const timestamp = feed.header.timestamp;
   const dataTimestamp = timestamp != null ? Number(timestamp) : null;
 
-  const vehicles = feed.entity
-    .filter(entity => entity.vehicle && entity.vehicle.position)
-    .map(entity => {
-      const v = entity.vehicle;
-      const routeId = v.trip?.routeId;
-      const tripId = v.trip?.tripId;
+  const vehicles = [];
+  for (const entity of feed.entity) {
+    if (!entity.vehicle || !entity.vehicle.position) continue;
+    const v = entity.vehicle;
+    const routeId = v.trip?.routeId;
+    const tripId = v.trip?.tripId;
 
-      let mode = 'unknown';
-      let line = v.vehicle?.label || routeId || 'Unknown';
+    let mode = 'unknown';
+    let line = v.vehicle?.label || routeId || 'Unknown';
 
-      if (tripId && tripMapping) {
-        const tripInfo = tripMapping[tripId];
-        if (tripInfo) {
-          if (tripInfo.line) line = tripInfo.line;
-          mode = routeTypeToMode(tripInfo.routeType);
-        }
+    if (tripId && tripMapping) {
+      const tripInfo = tripMapping[tripId];
+      if (tripInfo) {
+        if (tripInfo.line) line = tripInfo.line;
+        mode = routeTypeToMode(tripInfo.routeType);
       }
+    }
 
-      return {
-        id: `${slug}:${v.vehicle?.id || entity.id}`,
-        operator: slug,
-        routeId,
-        line,
-        lineName: '',
-        mode,
-        latitude: v.position.latitude,
-        longitude: v.position.longitude,
-        bearing: v.position.bearing || 0,
-        speed: v.position.speed || 0,
-        timestamp: v.timestamp || timestamp,
-        tripId,
-        direction: v.trip?.directionId
-      };
-    })
-    .filter(v => v.latitude && v.longitude);
+    const vehicle = {
+      id: `${slug}:${v.vehicle?.id || entity.id}`,
+      operator: slug,
+      routeId,
+      line,
+      lineName: '',
+      mode,
+      latitude: v.position.latitude,
+      longitude: v.position.longitude,
+      bearing: v.position.bearing || 0,
+      speed: v.position.speed || 0,
+      timestamp: v.timestamp || timestamp,
+      tripId,
+      direction: v.trip?.directionId
+    };
+    if (vehicle.latitude && vehicle.longitude) {
+      vehicles.push(vehicle);
+    }
+  }
 
   return { vehicles, dataTimestamp };
 }
