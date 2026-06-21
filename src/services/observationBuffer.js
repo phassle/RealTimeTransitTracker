@@ -125,7 +125,11 @@ export function createObservationBuffer({ windowMs = DEFAULT_WINDOW_MS } = {}) {
       return snapshots.length;
     },
 
-    /** Chronological snapshots currently inside the window. */
+    /**
+     * Live snapshots array currently inside the window. Treat as read-only and
+     * do not retain across buffer mutations; append/clear/import may mutate the
+     * same array in place to avoid allocations in the polling hot path.
+     */
     snapshots() {
       return snapshots;
     },
