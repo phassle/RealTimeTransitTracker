@@ -50,6 +50,25 @@ function indexVehiclesById(vehicles) {
   return byId;
 }
 
+function createVehicleLookup(snapshots) {
+  const indexedSnapshots = new Map();
+  const linearLookupSnapshots = new Set();
+
+  return (snapshotIndex, vehicleId) => {
+    const indexed = indexedSnapshots.get(snapshotIndex);
+    if (indexed) return indexed.get(vehicleId);
+
+    if (!linearLookupSnapshots.has(snapshotIndex)) {
+      linearLookupSnapshots.add(snapshotIndex);
+      return snapshots[snapshotIndex].vehicles.find((x) => x.id === vehicleId);
+    }
+
+    const byId = indexVehiclesById(snapshots[snapshotIndex].vehicles);
+    indexedSnapshots.set(snapshotIndex, byId);
+    return byId.get(vehicleId);
+  };
+}
+
 /**
  * Learn Dwell spots from the observation history. A vehicle observed within the
  * displacement threshold of its own previous observation is "standing" at that
@@ -145,7 +164,7 @@ export function detectStationaryAnomalies(snapshots, now, { dwellSpots = [] } = 
   if (!snapshots || snapshots.length === 0) return [];
 
   const latest = snapshots[snapshots.length - 1];
-  const vehiclesBySnapshot = snapshots.map((snapshot) => indexVehiclesById(snapshot.vehicles));
+  const vehicleAt = createVehicleLookup(snapshots);
   const anomalies = [];
 
   for (const v of latest.vehicles) {
@@ -154,7 +173,7 @@ export function detectStationaryAnomalies(snapshots, now, { dwellSpots = [] } = 
 
     let startedAt = latest.time;
     for (let i = snapshots.length - 2; i >= 0; i--) {
-      const prev = vehiclesBySnapshot[i].get(v.id);
+      const prev = vehicleAt(i, v.id);
       if (!prev || !onActiveTrip(prev) || !hasCoords(prev)) break;
       if (distanceMeters(v.latitude, v.longitude, prev.latitude, prev.longitude) > DISPLACEMENT_THRESHOLD_M) {
         break;
