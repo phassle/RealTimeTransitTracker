@@ -28,14 +28,21 @@ function watchedOperators(latest) {
   return new Set((latest.feeds ?? []).map((f) => f.operator));
 }
 
-/** The operator's feed outcome series in chronological order (only where present). */
-function feedSeries(snapshots, operator) {
-  const series = [];
+/** Feed outcome series per watched operator in chronological order (only where present). */
+function feedSeriesByOperator(snapshots, operators) {
+  const byOperator = new Map(Array.from(operators, (operator) => [operator, []]));
+
   for (const s of snapshots) {
-    const f = (s.feeds ?? []).find((x) => x.operator === operator);
-    if (f) series.push({ time: s.time, ...f });
+    const seenInSnapshot = new Set();
+    for (const f of (s.feeds ?? [])) {
+      if (seenInSnapshot.has(f.operator)) continue;
+      const series = byOperator.get(f.operator);
+      if (!series) continue;
+      series.push({ time: s.time, ...f });
+      seenInSnapshot.add(f.operator);
+    }
   }
-  return series;
+  return byOperator;
 }
 
 function detectFetchFailure(series, operator, now) {
@@ -114,10 +121,11 @@ function detectVehicleCollapse(series, operator, now) {
 export function detectFeedOutageAnomalies(snapshots, now) {
   if (!snapshots || snapshots.length === 0) return [];
   const latest = snapshots[snapshots.length - 1];
+  const watched = watchedOperators(latest);
+  const seriesByOperator = feedSeriesByOperator(snapshots, watched);
 
   const anomalies = [];
-  for (const operator of watchedOperators(latest)) {
-    const series = feedSeries(snapshots, operator);
+  for (const [operator, series] of seriesByOperator) {
     const fetchFailure = detectFetchFailure(series, operator, now);
     if (fetchFailure) anomalies.push(fetchFailure);
     const frozen = detectFrozenTimestamps(series, operator, now);
