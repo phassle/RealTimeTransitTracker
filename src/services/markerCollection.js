@@ -37,7 +37,8 @@ export function createMarkerCollection(layer, { createMarker = defaultCreateMark
     typeof layer.removeLayers === 'function' && typeof layer.addLayers === 'function';
 
   function update(items, adapter) {
-    const currentIds = new Set(items.map(item => item.id));
+    const currentIds = new Set();
+    items.forEach(item => currentIds.add(item.id));
 
     for (const [id, marker] of markers.entries()) {
       if (!currentIds.has(id)) {
