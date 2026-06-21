@@ -2,8 +2,6 @@ import { useState, useMemo } from 'react';
 import './ControlPanel.css';
 import { MODES, MODE_COLORS as MODE_COLOR_MAP, MODE_LABELS as MODE_LABEL_MAP } from '../services/modes';
 
-const TRANSPORT_MODES = MODES;
-
 // Display names for webcam source slugs in partial-failure warnings.
 const SOURCE_LABELS = {
   trafikverket: 'Trafikverket',
@@ -182,7 +180,7 @@ export function ControlPanel({
 
           <div className="mode-filters">
             <h3>Transport Modes</h3>
-            {TRANSPORT_MODES.map(mode => (
+            {MODES.map(mode => (
               <label key={mode.id} className="mode-filter">
                 <input
                   type="checkbox"
