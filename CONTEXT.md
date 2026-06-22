@@ -105,6 +105,14 @@ An analyst action linking a Webcam to an Incident as visual confirmation ("this 
 
 A synthetic Incident inserted on demand to make a demo reproducible. Always explicitly labelled as demo content in the UI; never mixed silently with real detections. All live, non-injected data is real.
 
+### Projection
+
+A forward-looking derivation for a geographic Incident: a forecast of who is *about to* be affected by a known disruption (UI label "Expected impact"). A Projection is **not** an Anomaly — an Anomaly detects something that already happened; a Projection predicts something that has not. It is never asserted as fact: it is worded as a hedge ("likely", "expected") and is always rendered **visually distinct** from observed evidence so a prediction is never mistaken for an observation. It produces no Anomaly, creates no Incident, inbox row, or timeline entry, and is recomputed transiently per poll for the selected Incident only — it retracts (disappears) the moment the disruption clears (see [ADR 0005](docs/adr/0005-projections-transient-outside-anomaly-pipeline.md)). Like every detection it is auditable: every claim traces to the structured inputs it was computed from, and below a confidence floor the app stays silent rather than guessing.
+
+### Downstream vehicles
+
+The vehicles a Projection flags as likely to degrade: vehicles on the same `(operator, line, direction)` as the disruption that have **not yet passed** the stall point (they are still behind it). Same line but opposite direction is not downstream; a vehicle already past the stall point is not downstream. With no GTFS static stops or route polyline available, "behind" is a deliberately coarse geometric heuristic rather than a stop-sequence fact.
+
 ## Privacy & disclosure
 
 These three terms are deliberately kept distinct. They are commonly conflated in web product language; this project does not conflate them.

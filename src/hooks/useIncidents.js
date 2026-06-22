@@ -3,6 +3,7 @@ import { createObservationBuffer } from '../services/observationBuffer';
 import { detectStationaryAnomalies, learnDwellSpots } from '../services/anomalyRules';
 import { detectFeedOutageAnomalies } from '../services/feedOutageRules';
 import { clusterIncidents } from '../services/incidentClustering';
+import { predictImpact } from '../services/etaProjection';
 import { buildInjectedAnomalies } from '../services/injectedIncident';
 import { operatorFeedStatuses } from '../services/feedStatus';
 import { OPERATORS, OPERATOR_MAP, SWEDEN_CENTER } from '../config/operators';
@@ -90,7 +91,14 @@ export function useIncidents(vehicles, { now = () => Date.now(), feeds = [] } = 
   const selectedIncident = useMemo(() => {
     const base = incidents.find((i) => i.id === selectedIncidentId) ?? null;
     if (!base) return null;
-    return { ...base, verifications: verificationsById[base.id] ?? [] };
+    // Expected impact Projection: a transient, forward-looking forecast derived
+    // per poll for the selected Incident only. It is NOT an Anomaly and never
+    // joins the timeline — it is recomputed from the live buffer each render and
+    // becomes null the moment the disruption clears (ADR 0005, PRD #136).
+    const range = bufferRef.current.range();
+    const projection = predictImpact(base, bufferRef.current, range?.end ?? now());
+    return { ...base, verifications: verificationsById[base.id] ?? [], projection };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [incidents, selectedIncidentId, verificationsById]);
 
   // Mark a Webcam as a Verification of the selected Incident; lands on the

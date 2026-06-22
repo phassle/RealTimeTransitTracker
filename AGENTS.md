@@ -109,6 +109,7 @@ Keys from https://developer.trafiklab.se/. Rate limit: Bronze, 50 calls/min — 
 - [docs/adr/0002-dark-mode-tile-provider.md](docs/adr/0002-dark-mode-tile-provider.md) — why CartoDB Dark Matter for dark tiles
 - [docs/adr/0003-client-side-incident-derivation.md](docs/adr/0003-client-side-incident-derivation.md) — why the Command Center derives everything client-side, no backend
 - [docs/adr/0004-webcam-layer-static-images-no-embeds.md](docs/adr/0004-webcam-layer-static-images-no-embeds.md) — webcam embed boundary (hotlinked stills, no third-party embeds)
+- [docs/adr/0005-projections-transient-outside-anomaly-pipeline.md](docs/adr/0005-projections-transient-outside-anomaly-pipeline.md) — Expected impact Projections are transient, derived per-poll, outside the Anomaly→Incident pipeline
 - [docs/agents/domain.md](docs/agents/domain.md) — how agents consume CONTEXT.md + ADRs
 - [docs/agents/issue-tracker.md](docs/agents/issue-tracker.md) — GitHub issue conventions via `gh`
 - [docs/agents/triage-labels.md](docs/agents/triage-labels.md) — triage label vocabulary

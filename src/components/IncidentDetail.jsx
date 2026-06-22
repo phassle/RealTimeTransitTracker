@@ -95,6 +95,10 @@ export function IncidentDetail({ incident = null, webcams = [], onVerify = null 
   ].sort((a, b) => (a.time ?? 0) - (b.time ?? 0));
 
   const isDemo = incident.demo === true;
+  // Expected impact is a Projection — a forward-looking forecast, never an
+  // observation. Rendered only for geographic Incidents that currently have one;
+  // it retracts (the section disappears) the moment the projection is null.
+  const projection = !isOutage ? incident.projection ?? null : null;
 
   return (
     <div className="incident-detail">
@@ -159,6 +163,39 @@ export function IncidentDetail({ incident = null, webcams = [], onVerify = null 
           ))}
         </ul>
       </section>
+
+      {projection && projection.affected.length > 0 && (
+        <section
+          className="incident-detail__projection"
+          aria-label="Expected impact"
+        >
+          <h3 className="incident-detail__heading">
+            Expected impact
+            <span className="incident-detail__projection-tag"> · forecast</span>
+          </h3>
+          <p className="incident-projection__hedge">
+            Likely downstream impact — a forecast from current positions, not an observation.
+          </p>
+          <ul className="incident-projection" role="list">
+            {projection.affected.map((a) => (
+              <li key={`${a.line}:${a.direction}`} className="incident-projection__item">
+                <span className="incident-projection__line">
+                  Line {a.line} · direction {a.direction}
+                </span>
+                <span className="incident-projection__downstream">
+                  {a.downstreamVehicleIds.length} downstream vehicle
+                  {a.downstreamVehicleIds.length === 1 ? '' : 's'} expected to degrade:
+                </span>
+                <ul className="incident-projection__vehicles" role="list">
+                  {a.downstreamVehicleIds.map((id) => (
+                    <li key={id} className="incident-projection__vehicle">{id}</li>
+                  ))}
+                </ul>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <section className="incident-detail__timeline" aria-label="Incident timeline">
         <h3 className="incident-detail__heading">

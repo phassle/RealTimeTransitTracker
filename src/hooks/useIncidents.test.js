@@ -294,6 +294,76 @@ describe('useIncidents', () => {
     });
   });
 
+  describe('expected impact projection (transient, selected incident only)', () => {
+    // A stalled bus plus a downstream bus on the same line+direction; the
+    // downstream bus is far enough away to form no incident of its own.
+    const stalledPlusDownstream = (stalledLng = 18.0686) => [
+      { id: 'sl:bus-1', operator: 'sl', line: '4', direction: '0', tripId: 'trip-abc', latitude: 59.3293, longitude: stalledLng },
+      { id: 'sl:bus-2', operator: 'sl', line: '4', direction: '0', tripId: 'trip-def', latitude: 59.31, longitude: 18.06 },
+    ];
+
+    it('exposes a projection on the selected geographic incident naming the line, direction and downstream vehicles', () => {
+      let t = 0;
+      const now = () => t;
+      const { result, rerender } = renderHook(({ v }) => useIncidents(v, { now }), {
+        initialProps: { v: stalledPlusDownstream() },
+      });
+      act(() => { t = 6 * MIN; });
+      rerender({ v: stalledPlusDownstream() });
+
+      const inc = result.current.incidents.find((i) => i.vehicleIds.includes('sl:bus-1'));
+      act(() => { result.current.selectIncident(inc.id); });
+
+      const proj = result.current.selectedIncident.projection;
+      expect(proj).not.toBeNull();
+      expect(proj.affected).toHaveLength(1);
+      expect(proj.affected[0].line).toBe('4');
+      expect(proj.affected[0].direction).toBe('0');
+      expect(proj.affected[0].downstreamVehicleIds).toContain('sl:bus-2');
+    });
+
+    it('retracts the projection on the poll where the stall clears, leaving no incident/timeline trace', () => {
+      let t = 0;
+      const now = () => t;
+      const { result, rerender } = renderHook(({ v }) => useIncidents(v, { now }), {
+        initialProps: { v: stalledPlusDownstream() },
+      });
+      act(() => { t = 6 * MIN; });
+      rerender({ v: stalledPlusDownstream() });
+      const inc = result.current.incidents.find((i) => i.vehicleIds.includes('sl:bus-1'));
+      act(() => { result.current.selectIncident(inc.id); });
+      expect(result.current.selectedIncident.projection).not.toBeNull();
+      const anomalyCountBefore = result.current.selectedIncident.anomalies.length;
+
+      // Next poll: bus-1 has driven well away from the stall point.
+      act(() => { t = 7 * MIN; });
+      rerender({ v: stalledPlusDownstream(18.2) });
+
+      expect(result.current.selectedIncident.projection).toBeNull();
+      // The forecast never created or touched timeline entries.
+      expect(result.current.selectedIncident.anomalies.length).toBe(anomalyCountBefore);
+    });
+
+    it('exposes no projection for an operator-subject (feed outage) incident', () => {
+      const okFeeds = () => [{ operator: 'sl', ok: true, vehicleCount: 50, dataTimestamp: 1000 }];
+      const failFeeds = () => [{ operator: 'sl', ok: false, vehicleCount: 0, dataTimestamp: null }];
+      let t = 0;
+      const now = () => t;
+      const { result, rerender } = renderHook(
+        ({ v, feeds }) => useIncidents(v, { now, feeds }),
+        { initialProps: { v: [], feeds: okFeeds() } },
+      );
+      for (let i = 1; i <= 3; i++) {
+        act(() => { t = i * MIN; });
+        rerender({ v: [], feeds: failFeeds() });
+      }
+      const inc = result.current.incidents.find((i) => i.subject.kind === 'operator');
+      act(() => { result.current.selectIncident(inc.id); });
+
+      expect(result.current.selectedIncident.projection).toBeNull();
+    });
+  });
+
   it('selecting an incident exposes a focus on its subject and involved vehicles', () => {
     let t = 0;
     const now = () => t;

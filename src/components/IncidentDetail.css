@@ -242,3 +242,64 @@
   font-size: 11px;
   letter-spacing: 0.05em;
 }
+
+/* Expected impact — a Projection, deliberately styled UNLIKE the observed
+   "Why flagged?" evidence: a dashed accent border and a "forecast" voice so a
+   prediction is never mistaken for an observation (PRD #136 story 10). */
+.incident-detail__projection {
+  padding: 0.5rem 0.75rem;
+  border: 1px dashed var(--projection-accent, #8a6dff);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--projection-accent, #8a6dff) 8%, transparent);
+}
+
+.incident-detail__projection-tag {
+  color: var(--projection-accent, #8a6dff);
+  font-weight: 600;
+  text-transform: lowercase;
+  font-size: 11px;
+  letter-spacing: 0.03em;
+}
+
+.incident-projection__hedge {
+  margin: 0 0 0.5rem;
+  font-style: italic;
+  font-size: 0.8rem;
+  color: var(--text-muted, #888);
+}
+
+.incident-projection,
+.incident-projection__vehicles {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.incident-projection__line {
+  display: block;
+  font-weight: 600;
+}
+
+.incident-projection__downstream {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--text-muted, #888);
+}
+
+.incident-projection__vehicles {
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin-top: 0.25rem;
+}
+
+.incident-projection__vehicle {
+  font-size: 0.75rem;
+  font-family: var(--mono, monospace);
+  padding: 0.05rem 0.35rem;
+  border: 1px dashed var(--projection-accent, #8a6dff);
+  border-radius: 4px;
+}

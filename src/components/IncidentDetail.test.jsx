@@ -100,6 +100,65 @@ describe('IncidentDetail', () => {
     });
   });
 
+  describe('expected impact projection', () => {
+    const projection = {
+      incidentId: 'stationary:sl:bus-1',
+      affected: [
+        {
+          operator: 'sl',
+          line: '4',
+          direction: '0',
+          stalledVehicleId: 'sl:bus-1',
+          downstreamVehicleIds: ['sl:bus-2', 'sl:bus-3'],
+        },
+      ],
+    };
+
+    it('renders an Expected impact section between Why flagged? and the Timeline, naming line/direction and downstream vehicles', () => {
+      render(<IncidentDetail incident={{ ...incident([anomaly()]), projection }} />);
+
+      const section = screen.getByLabelText('Expected impact');
+      expect(section).toBeDefined();
+      // Names the affected line + direction and lists the downstream vehicles.
+      expect(within(section).getByText(/Line 4/)).toBeDefined();
+      expect(within(section).getByText(/sl:bus-2/)).toBeDefined();
+      expect(within(section).getByText(/sl:bus-3/)).toBeDefined();
+      // Hedged forecast language — never asserted as fact.
+      expect(within(section).getAllByText(/likely|expected|forecast/i).length).toBeGreaterThan(0);
+
+      // Slotted between "Why flagged?" and the Timeline.
+      const labels = [...document.querySelectorAll('section[aria-label]')].map((s) =>
+        s.getAttribute('aria-label'),
+      );
+      const why = labels.indexOf('Why flagged?');
+      const impact = labels.indexOf('Expected impact');
+      const timeline = labels.indexOf('Incident timeline');
+      expect(why).toBeLessThan(impact);
+      expect(impact).toBeLessThan(timeline);
+    });
+
+    it('shows no Expected impact section when there is no projection', () => {
+      render(<IncidentDetail incident={incident([anomaly()])} />);
+      expect(screen.queryByLabelText('Expected impact')).toBeNull();
+    });
+
+    it('shows no Expected impact section for an operator-subject incident', () => {
+      const outage = {
+        id: 'feed-outage:sl:0',
+        status: 'open',
+        subject: { kind: 'operator', operator: 'sl' },
+        lines: [],
+        vehicleIds: [],
+        startedAt: T0,
+        lastUpdate: T0 + 6 * MIN,
+        anomalies: [],
+        projection: null,
+      };
+      render(<IncidentDetail incident={outage} />);
+      expect(screen.queryByLabelText('Expected impact')).toBeNull();
+    });
+  });
+
   // Scenario: Evidence renders structured
   it('renders, for each contributing rule, the rule, threshold, measured value, affected vehicles/lines and start time', () => {
     render(<IncidentDetail incident={incident([anomaly()])} />);
