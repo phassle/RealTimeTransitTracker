@@ -4,14 +4,19 @@
 // Anomaly→Incident clustering seam, and is recomputed transiently per poll for
 // the selected Incident only (see ADR 0005, CONTEXT.md § Projection).
 //
-// Slice 2: the Downstream vehicles are the others in the latest snapshot that
-// share the stalled vehicle's `(operator, line, direction)` triple AND lie
-// genuinely *behind* the disruption. With no GTFS static stops / route polyline
-// available, "behind" is a coarse geometric heuristic (CONTEXT.md § Downstream
-// vehicles, ADR 0005): a candidate is downstream only when the vector
-// (candidate − stalled) points against the stalled vehicle's bearing (it has
-// not yet reached the stall point) and it sits within MAX_DOWNSTREAM_DISTANCE_M.
-// Delay magnitude and confidence gating arrive in later slices of PRD #136.
+// The Downstream vehicles are the others in the latest snapshot that share the
+// stalled vehicle's `(operator, line, direction)` triple AND lie genuinely
+// *behind* the disruption. With no GTFS static stops / route polyline available,
+// "behind" is a coarse geometric heuristic (CONTEXT.md § Downstream vehicles,
+// ADR 0005): a candidate is downstream only when the vector (candidate − stalled)
+// points against the stalled vehicle's bearing (it has not yet reached the stall
+// point) and it sits within MAX_DOWNSTREAM_DISTANCE_M.
+//
+// Slice 3 adds a coarse delay magnitude: first-order the measured stall duration
+// (from the stationary Anomaly's evidence), refined by the growth in a
+// time-headway proxy between the nearest Downstream vehicle and the stall across
+// the buffer window, surfaced only as a low-precision bucket (coarseDelayLabel).
+// Confidence gating arrives in a later slice of PRD #136.
 
 import { distanceMeters, DISPLACEMENT_THRESHOLD_M } from './anomalyRules';
 
@@ -19,7 +24,30 @@ import { distanceMeters, DISPLACEMENT_THRESHOLD_M } from './anomalyRules';
 // behind than this is too far back to be attributed to this disruption.
 export const MAX_DOWNSTREAM_DISTANCE_M = 3000;
 
+// Nominal cruising speed used to convert a spatial gap (metres) into a coarse
+// time headway (ms). With no GTFS static schedule or route polyline available
+// (ADR 0005) there is no real headway to read; this is a deliberately rough
+// proxy so "gap growth" can be expressed in the same unit as the stall duration.
+export const REFERENCE_SPEED_MPS = 30000 / 3600; // ~30 km/h urban transit
+
 const METERS_PER_DEG_LAT = 111320;
+
+/**
+ * Bucket a coarse delay magnitude into an honest, low-precision label. The
+ * forecast never claims minute-level precision: a measured delay only ever
+ * reads as ~5 / ~10 / 10+ minutes. This is presentation over the structured
+ * `estimatedDelayMs` — predictImpact itself never produces display strings.
+ *
+ * @param {number|null|undefined} estimatedDelayMs
+ * @returns {'~5 min'|'~10 min'|'10+ min'|null} null when the magnitude is unknown
+ */
+export function coarseDelayLabel(estimatedDelayMs) {
+  if (!Number.isFinite(estimatedDelayMs)) return null;
+  const minutes = estimatedDelayMs / 60000;
+  if (minutes < 7.5) return '~5 min';
+  if (minutes < 12.5) return '~10 min';
+  return '10+ min';
+}
 
 /**
  * Coarse "behind the disruption" test for a Downstream candidate. True when the
@@ -44,12 +72,59 @@ export function isBehind(stalled, candidate) {
   return east * forwardEast + north * forwardNorth < 0;
 }
 
-function latestSnapshot(buffer) {
+function snapshotsOf(buffer) {
   // Tolerate either the observation buffer object or a plain snapshots array,
   // so the service stays trivially testable with fixture arrays.
   const snapshots = typeof buffer?.snapshots === 'function' ? buffer.snapshots() : buffer;
-  if (!Array.isArray(snapshots) || snapshots.length === 0) return null;
-  return snapshots[snapshots.length - 1];
+  return Array.isArray(snapshots) ? snapshots : [];
+}
+
+/**
+ * Coarse delay magnitude for one affected (line, direction). First-order
+ * estimate is the disruption's measured stall duration (from the stationary
+ * Anomaly's evidence). When the buffer holds enough history for the nearest
+ * Downstream vehicle, that is refined by the growth in the time-headway gap to
+ * the vehicle ahead (the stall) across the window — and the larger of the two
+ * wins. Without that history the estimate falls back to the stall duration alone.
+ *
+ * Returns structured inputs only (story 7); the presenter renders text.
+ */
+function estimateMagnitude(incident, stalled, downstreamVehicleIds, snapshots) {
+  // First-order: the longest measured stall on this vehicle in the Incident.
+  let measuredStationaryMs = null;
+  for (const a of incident.anomalies ?? []) {
+    if (a.vehicleId === stalled.id && Number.isFinite(a.measuredStationaryMs)) {
+      measuredStationaryMs = Math.max(measuredStationaryMs ?? 0, a.measuredStationaryMs);
+    }
+  }
+
+  // Headway proxy: track the nearest Downstream vehicle and the stall across the
+  // window. The time-headway is the spatial gap converted at a nominal speed.
+  const nearestId = downstreamVehicleIds[0];
+  const headwaySeries = [];
+  for (const snap of snapshots) {
+    const vehicles = snap.vehicles ?? [];
+    const ahead = vehicles.find((v) => v.id === stalled.id);
+    const behind = vehicles.find((v) => v.id === nearestId);
+    if (!ahead || !behind) continue;
+    const gapM = distanceMeters(ahead.latitude, ahead.longitude, behind.latitude, behind.longitude);
+    headwaySeries.push((gapM / REFERENCE_SPEED_MPS) * 1000);
+  }
+
+  // Enough history = the gap is observed in at least two snapshots, so a growth
+  // can be measured rather than guessed.
+  const enoughHistory = headwaySeries.length >= 2;
+  const headwayBaselineMs = enoughHistory ? headwaySeries[0] : null;
+  const gapGrowthMs = enoughHistory
+    ? Math.max(0, headwaySeries[headwaySeries.length - 1] - headwaySeries[0])
+    : null;
+
+  const candidates = [];
+  if (Number.isFinite(measuredStationaryMs)) candidates.push(measuredStationaryMs);
+  if (enoughHistory) candidates.push(gapGrowthMs);
+  const estimatedDelayMs = candidates.length > 0 ? Math.max(...candidates) : null;
+
+  return { measuredStationaryMs, headwayBaselineMs, gapGrowthMs, estimatedDelayMs };
 }
 
 /**
@@ -69,8 +144,9 @@ function latestSnapshot(buffer) {
 export function predictImpact(incident, buffer, now) {
   if (!incident || incident.subject?.kind !== 'geographic') return null;
 
-  const latest = latestSnapshot(buffer);
-  if (!latest) return null;
+  const snapshots = snapshotsOf(buffer);
+  if (snapshots.length === 0) return null;
+  const latest = snapshots[snapshots.length - 1];
   const vehicles = latest.vehicles ?? [];
   const byId = new Map();
   for (const v of vehicles) if (!byId.has(v.id)) byId.set(v.id, v);
@@ -119,9 +195,17 @@ export function predictImpact(incident, buffer, now) {
             v.longitude,
           ) <= MAX_DOWNSTREAM_DISTANCE_M,
       )
+      // Nearest-first: the closest Downstream vehicle anchors the headway proxy.
+      .sort(
+        (a, b) =>
+          distanceMeters(stalled.latitude, stalled.longitude, a.latitude, a.longitude) -
+          distanceMeters(stalled.latitude, stalled.longitude, b.latitude, b.longitude),
+      )
       .map((v) => v.id);
 
     if (downstreamVehicleIds.length === 0) continue;
+
+    const magnitude = estimateMagnitude(incident, stalled, downstreamVehicleIds, snapshots);
 
     affected.push({
       operator: stalled.operator,
@@ -129,6 +213,7 @@ export function predictImpact(incident, buffer, now) {
       direction: stalled.direction,
       stalledVehicleId: stalled.id,
       downstreamVehicleIds,
+      ...magnitude,
     });
   }
 

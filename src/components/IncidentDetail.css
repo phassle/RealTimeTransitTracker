@@ -303,3 +303,26 @@
   border: 1px dashed var(--projection-accent, #8a6dff);
   border-radius: 4px;
 }
+
+.incident-projection__magnitude {
+  display: block;
+  font-size: 0.85rem;
+  margin-top: 0.15rem;
+}
+
+.incident-projection__inputs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  margin: 0.4rem 0 0;
+  font-size: 0.72rem;
+  color: var(--text-muted, #888);
+}
+
+.incident-projection__inputs dt {
+  font-weight: 600;
+}
+
+.incident-projection__inputs dd {
+  margin: 0;
+}

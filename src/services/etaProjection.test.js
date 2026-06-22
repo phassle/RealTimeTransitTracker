@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { predictImpact } from './etaProjection';
+import { predictImpact, coarseDelayLabel } from './etaProjection';
 
 const MIN = 60 * 1000;
 
@@ -135,5 +135,96 @@ describe('predictImpact', () => {
   it('returns null when nothing is selected or the buffer is empty', () => {
     expect(predictImpact(null, [snapshot([vehicle()])], 6 * MIN)).toBeNull();
     expect(predictImpact(geographicIncident(), [], 6 * MIN)).toBeNull();
+  });
+
+  // --- Slice 3: coarse delay magnitude from headway/gap growth ---
+
+  // A stationary anomaly as clusterIncidents folds onto the Incident: it carries
+  // the measured stall duration that seeds the first-order delay estimate.
+  function stationaryAnomaly(overrides = {}) {
+    return {
+      ruleId: 'stationary-on-active-trip',
+      vehicleId: 'sl:bus-1',
+      operator: 'sl',
+      line: '4',
+      measuredStationaryMs: 10 * MIN,
+      thresholdMs: 5 * MIN,
+      ...overrides,
+    };
+  }
+
+  it('estimates a ~10 min magnitude for a ten-minute stall with downstream history', () => {
+    // Stall measured at ten minutes; the downstream bus is present across two
+    // snapshots so headway growth can be measured (here it is stable).
+    const stalled = vehicle({ id: 'sl:bus-1' });
+    const behind = vehicle({ id: 'sl:bus-2', latitude: 59.31, longitude: 18.06 });
+    const buffer = [
+      snapshot([stalled, behind], 5 * MIN),
+      snapshot([stalled, behind], 6 * MIN),
+    ];
+    const incident = geographicIncident({ anomalies: [stationaryAnomaly()] });
+
+    const projection = predictImpact(incident, buffer, 6 * MIN);
+
+    expect(projection).not.toBeNull();
+    const a = projection.affected[0];
+    expect(coarseDelayLabel(a.estimatedDelayMs)).toBe('~10 min');
+    // Exposes its inputs so the forecast is auditable (story 7).
+    expect(a.measuredStationaryMs).toBe(10 * MIN);
+    expect(Number.isFinite(a.headwayBaselineMs)).toBe(true);
+    expect(Number.isFinite(a.gapGrowthMs)).toBe(true);
+    expect(a.downstreamVehicleIds).toEqual(['sl:bus-2']);
+  });
+
+  it('falls back to the stationary duration when there is no headway history', () => {
+    // Only one snapshot ⇒ no window to measure headway growth over.
+    const stalled = vehicle({ id: 'sl:bus-1' });
+    const behind = vehicle({ id: 'sl:bus-2', latitude: 59.31, longitude: 18.06 });
+    const buffer = [snapshot([stalled, behind], 6 * MIN)];
+    const incident = geographicIncident({ anomalies: [stationaryAnomaly()] });
+
+    const a = predictImpact(incident, buffer, 6 * MIN).affected[0];
+
+    expect(a.estimatedDelayMs).toBe(10 * MIN); // stationary duration alone
+    expect(a.headwayBaselineMs).toBeNull();
+    expect(a.gapGrowthMs).toBeNull();
+  });
+
+  it('refines the estimate upward when the headway gap grows across the window', () => {
+    // Downstream bus drifts much further back between polls — a growing gap that
+    // exceeds the stall duration, so the estimate is driven by the gap growth.
+    const stalled = vehicle({ id: 'sl:bus-1' });
+    const near = vehicle({ id: 'sl:bus-2', latitude: 59.329, longitude: 18.066 });
+    const far = vehicle({ id: 'sl:bus-2', latitude: 59.304, longitude: 18.06 });
+    const buffer = [
+      snapshot([stalled, near], 5 * MIN),
+      snapshot([stalled, far], 6 * MIN),
+    ];
+    // A short 3-min stall, but the gap to the vehicle behind has ballooned.
+    const incident = geographicIncident({
+      anomalies: [stationaryAnomaly({ measuredStationaryMs: 3 * MIN })],
+    });
+
+    const a = predictImpact(incident, buffer, 6 * MIN).affected[0];
+
+    expect(a.gapGrowthMs).toBeGreaterThan(0);
+    expect(a.estimatedDelayMs).toBe(a.gapGrowthMs); // growth dominates the stall
+    expect(a.estimatedDelayMs).toBeGreaterThan(5 * MIN);
+  });
+
+  describe('coarseDelayLabel buckets magnitude without false precision', () => {
+    it.each([
+      [3, '~5 min'],
+      [7, '~5 min'],
+      [9, '~10 min'],
+      [14, '10+ min'],
+    ])('%i min of delay ⇒ "%s"', (minutes, bucket) => {
+      expect(coarseDelayLabel(minutes * MIN)).toBe(bucket);
+    });
+
+    it('returns null for an unknown (non-finite) magnitude', () => {
+      expect(coarseDelayLabel(null)).toBeNull();
+      expect(coarseDelayLabel(undefined)).toBeNull();
+    });
   });
 });

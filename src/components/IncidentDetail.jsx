@@ -4,6 +4,7 @@ import {
   timelineAnomalies,
   anomalyEvidence,
 } from '../services/incidentEvidence';
+import { coarseDelayLabel } from '../services/etaProjection';
 import { OPERATOR_MAP } from '../config/operators';
 import './IncidentDetail.css';
 
@@ -26,6 +27,13 @@ function formatTime(t) {
 
 function joinOrDash(values) {
   return values.length > 0 ? values.join(', ') : '—';
+}
+
+// Round a duration to whole minutes for an audit-input line. Distinct from the
+// coarse delay bucket (~5/~10/10+): inputs are shown as measured, the headline
+// magnitude is the honest low-precision bucket.
+function minutes(ms) {
+  return ms == null ? '—' : `${Math.round(ms / 60000)} min`;
 }
 
 // Webcam list item. Image-capable cameras show their current still inline
@@ -177,22 +185,44 @@ export function IncidentDetail({ incident = null, webcams = [], onVerify = null 
             Likely downstream impact — a forecast from current positions, not an observation.
           </p>
           <ul className="incident-projection" role="list">
-            {projection.affected.map((a) => (
-              <li key={`${a.line}:${a.direction}`} className="incident-projection__item">
-                <span className="incident-projection__line">
-                  Line {a.line} · direction {a.direction}
-                </span>
-                <span className="incident-projection__downstream">
-                  {a.downstreamVehicleIds.length} downstream vehicle
-                  {a.downstreamVehicleIds.length === 1 ? '' : 's'} expected to degrade:
-                </span>
-                <ul className="incident-projection__vehicles" role="list">
-                  {a.downstreamVehicleIds.map((id) => (
-                    <li key={id} className="incident-projection__vehicle">{id}</li>
-                  ))}
-                </ul>
-              </li>
-            ))}
+            {projection.affected.map((a) => {
+              const magnitude = coarseDelayLabel(a.estimatedDelayMs);
+              return (
+                <li key={`${a.line}:${a.direction}`} className="incident-projection__item">
+                  <span className="incident-projection__line">
+                    Line {a.line} · direction {a.direction}
+                  </span>
+                  {magnitude && (
+                    <span className="incident-projection__magnitude">
+                      Expected delay <strong>{magnitude}</strong>
+                    </span>
+                  )}
+                  <span className="incident-projection__downstream">
+                    {a.downstreamVehicleIds.length} downstream vehicle
+                    {a.downstreamVehicleIds.length === 1 ? '' : 's'} expected to degrade:
+                  </span>
+                  <ul className="incident-projection__vehicles" role="list">
+                    {a.downstreamVehicleIds.map((id) => (
+                      <li key={id} className="incident-projection__vehicle">{id}</li>
+                    ))}
+                  </ul>
+                  <dl className="incident-projection__inputs">
+                    <div>
+                      <dt>Stall duration</dt>
+                      <dd>{minutes(a.measuredStationaryMs)}</dd>
+                    </div>
+                    <div>
+                      <dt>Headway baseline</dt>
+                      <dd>{minutes(a.headwayBaselineMs)}</dd>
+                    </div>
+                    <div>
+                      <dt>Gap growth</dt>
+                      <dd>{minutes(a.gapGrowthMs)}</dd>
+                    </div>
+                  </dl>
+                </li>
+              );
+            })}
           </ul>
         </section>
       )}

@@ -110,6 +110,10 @@ describe('IncidentDetail', () => {
           direction: '0',
           stalledVehicleId: 'sl:bus-1',
           downstreamVehicleIds: ['sl:bus-2', 'sl:bus-3'],
+          measuredStationaryMs: 10 * MIN,
+          headwayBaselineMs: 4 * MIN,
+          gapGrowthMs: 1 * MIN,
+          estimatedDelayMs: 10 * MIN,
         },
       ],
     };
@@ -125,6 +129,9 @@ describe('IncidentDetail', () => {
       expect(within(section).getByText(/sl:bus-3/)).toBeDefined();
       // Hedged forecast language — never asserted as fact.
       expect(within(section).getAllByText(/likely|expected|forecast/i).length).toBeGreaterThan(0);
+      // Coarse magnitude (bucketed, no false precision) and its audit inputs.
+      expect(within(section).getByText(/~10 min/)).toBeDefined();
+      expect(within(section).getAllByText(/headway|gap/i).length).toBeGreaterThan(0);
 
       // Slotted between "Why flagged?" and the Timeline.
       const labels = [...document.querySelectorAll('section[aria-label]')].map((s) =>
