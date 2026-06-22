@@ -114,6 +114,7 @@ describe('IncidentDetail', () => {
           headwayBaselineMs: 4 * MIN,
           gapGrowthMs: 1 * MIN,
           estimatedDelayMs: 10 * MIN,
+          confidence: 0.85,
         },
       ],
     };
@@ -142,6 +143,14 @@ describe('IncidentDetail', () => {
       const timeline = labels.indexOf('Incident timeline');
       expect(why).toBeLessThan(impact);
       expect(impact).toBeLessThan(timeline);
+    });
+
+    it('surfaces the forecast confidence level', () => {
+      render(<IncidentDetail incident={{ ...incident([anomaly()]), projection }} />);
+
+      const section = screen.getByLabelText('Expected impact');
+      expect(within(section).getAllByText(/confidence/i).length).toBeGreaterThan(0);
+      expect(within(section).getByText(/high/i)).toBeDefined();
     });
 
     it('shows no Expected impact section when there is no projection', () => {

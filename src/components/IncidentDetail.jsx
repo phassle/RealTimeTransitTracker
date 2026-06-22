@@ -4,7 +4,7 @@ import {
   timelineAnomalies,
   anomalyEvidence,
 } from '../services/incidentEvidence';
-import { coarseDelayLabel } from '../services/etaProjection';
+import { coarseDelayLabel, confidenceLabel } from '../services/etaProjection';
 import { OPERATOR_MAP } from '../config/operators';
 import './IncidentDetail.css';
 
@@ -187,11 +187,17 @@ export function IncidentDetail({ incident = null, webcams = [], onVerify = null 
           <ul className="incident-projection" role="list">
             {projection.affected.map((a) => {
               const magnitude = coarseDelayLabel(a.estimatedDelayMs);
+              const confidence = confidenceLabel(a.confidence);
               return (
                 <li key={`${a.line}:${a.direction}`} className="incident-projection__item">
                   <span className="incident-projection__line">
                     Line {a.line} · direction {a.direction}
                   </span>
+                  {confidence && (
+                    <span className="incident-projection__confidence">
+                      Confidence <strong>{confidence}</strong>
+                    </span>
+                  )}
                   {magnitude && (
                     <span className="incident-projection__magnitude">
                       Expected delay <strong>{magnitude}</strong>

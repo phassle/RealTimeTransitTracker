@@ -16,7 +16,11 @@
 // (from the stationary Anomaly's evidence), refined by the growth in a
 // time-headway proxy between the nearest Downstream vehicle and the stall across
 // the buffer window, surfaced only as a low-precision bucket (coarseDelayLabel).
-// Confidence gating arrives in a later slice of PRD #136.
+//
+// Slice 4 adds a confidence score (0–1) per affected (line, direction), driven
+// by direction-known, the count of fresh downstream observations, and their
+// recency. Below CONFIDENCE_FLOOR the entry is suppressed; with none surviving
+// the whole Projection is null — silence over a guess (stories 5/6).
 
 import { distanceMeters, DISPLACEMENT_THRESHOLD_M } from './anomalyRules';
 
@@ -29,6 +33,21 @@ export const MAX_DOWNSTREAM_DISTANCE_M = 3000;
 // (ADR 0005) there is no real headway to read; this is a deliberately rough
 // proxy so "gap growth" can be expressed in the same unit as the stall duration.
 export const REFERENCE_SPEED_MPS = 30000 / 3600; // ~30 km/h urban transit
+
+// Confidence gate. A Projection below this floor is suppressed entirely
+// (predictImpact drops the affected entry, and returns null when none survive):
+// the app stays silent rather than guessing (PRD #136 stories 5/6). Confidence
+// is a 0–1 score driven by direction-known, count of fresh downstream
+// observations, and observation recency.
+export const CONFIDENCE_FLOOR = 0.5;
+
+// A downstream observation older than this (relative to `now`) is stale: it no
+// longer counts toward the fresh-observation tally and decays the recency term.
+export const OBSERVATION_FRESH_MS = 2 * 60 * 1000;
+
+// Confidence weights (sum to 1): a known direction is the dominant signal, then
+// having ≥2 fresh downstream observations, then how recent the latest one is.
+const CONFIDENCE_WEIGHTS = { direction: 0.4, count: 0.35, recency: 0.25 };
 
 const METERS_PER_DEG_LAT = 111320;
 
@@ -47,6 +66,55 @@ export function coarseDelayLabel(estimatedDelayMs) {
   if (minutes < 7.5) return '~5 min';
   if (minutes < 12.5) return '~10 min';
   return '10+ min';
+}
+
+/**
+ * Map a 0–1 confidence to an honest, low-precision label for the presenter.
+ * Below the floor never reaches the UI (predictImpact suppresses it), so the
+ * label only ever reads 'medium' or 'high'. Rules never produce display strings.
+ *
+ * @param {number|null|undefined} confidence
+ * @returns {'high'|'medium'|'low'|null} null when confidence is unknown
+ */
+export function confidenceLabel(confidence) {
+  if (!Number.isFinite(confidence)) return null;
+  if (confidence >= 0.8) return 'high';
+  if (confidence >= CONFIDENCE_FLOOR) return 'medium';
+  return 'low';
+}
+
+/**
+ * Confidence (0–1) for one affected (line, direction): how much to trust the
+ * forecast. Driven by (a) direction known, (b) count of fresh downstream
+ * observations across the buffer window (≥2 ⇒ full credit, 1 ⇒ half), and
+ * (c) recency of the most recent such observation. A direction-less or
+ * single-stale basis falls below CONFIDENCE_FLOOR and is suppressed.
+ */
+function confidenceFor(downstreamVehicleIds, direction, snapshots, now) {
+  const ids = new Set(downstreamVehicleIds);
+  let freshCount = 0;
+  let latestAge = Infinity;
+  for (const snap of snapshots) {
+    const present = (snap.vehicles ?? []).some((v) => ids.has(v.id));
+    if (!present) continue;
+    const age = now - snap.time;
+    if (Number.isFinite(age) && age >= 0) {
+      if (age <= OBSERVATION_FRESH_MS) freshCount += 1;
+      if (age < latestAge) latestAge = age;
+    }
+  }
+
+  const directionScore = direction != null ? 1 : 0;
+  const countScore = freshCount >= 2 ? 1 : freshCount === 1 ? 0.5 : 0;
+  const recencyScore = Number.isFinite(latestAge)
+    ? Math.max(0, 1 - latestAge / OBSERVATION_FRESH_MS)
+    : 0;
+
+  return (
+    CONFIDENCE_WEIGHTS.direction * directionScore +
+    CONFIDENCE_WEIGHTS.count * countScore +
+    CONFIDENCE_WEIGHTS.recency * recencyScore
+  );
 }
 
 /**
@@ -205,6 +273,11 @@ export function predictImpact(incident, buffer, now) {
 
     if (downstreamVehicleIds.length === 0) continue;
 
+    // Below the confidence floor there is nothing honest to say — drop the line
+    // rather than guess (stories 5/6). A surviving entry carries its confidence.
+    const confidence = confidenceFor(downstreamVehicleIds, stalled.direction, snapshots, now);
+    if (confidence < CONFIDENCE_FLOOR) continue;
+
     const magnitude = estimateMagnitude(incident, stalled, downstreamVehicleIds, snapshots);
 
     affected.push({
@@ -214,6 +287,7 @@ export function predictImpact(incident, buffer, now) {
       stalledVehicleId: stalled.id,
       downstreamVehicleIds,
       ...magnitude,
+      confidence,
     });
   }
 

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { predictImpact, coarseDelayLabel } from './etaProjection';
+import { predictImpact, coarseDelayLabel, CONFIDENCE_FLOOR } from './etaProjection';
 
 const MIN = 60 * 1000;
 
@@ -210,6 +210,35 @@ describe('predictImpact', () => {
     expect(a.gapGrowthMs).toBeGreaterThan(0);
     expect(a.estimatedDelayMs).toBe(a.gapGrowthMs); // growth dominates the stall
     expect(a.estimatedDelayMs).toBeGreaterThan(5 * MIN);
+  });
+
+  // --- Slice 4: confidence floor — silence below the floor ---
+
+  it('surfaces a confidence at or above the floor for fresh observations with a known direction', () => {
+    // Two fresh snapshots of a downstream vehicle on a known direction — enough
+    // recent observation to clear the floor.
+    const stalled = vehicle({ id: 'sl:bus-1' });
+    const behind = vehicle({ id: 'sl:bus-2', latitude: 59.31, longitude: 18.06 });
+    const buffer = [
+      snapshot([stalled, behind], 5 * MIN),
+      snapshot([stalled, behind], 6 * MIN),
+    ];
+
+    const projection = predictImpact(geographicIncident(), buffer, 6 * MIN);
+
+    expect(projection).not.toBeNull();
+    const a = projection.affected[0];
+    expect(a.confidence).toBeGreaterThanOrEqual(CONFIDENCE_FLOOR);
+  });
+
+  it('returns null when the single downstream observation is stale (below the floor)', () => {
+    // One observation, and it is old relative to `now` — too little, too stale to
+    // forecast honestly. Silence over a guess.
+    const stalled = vehicle({ id: 'sl:bus-1' });
+    const behind = vehicle({ id: 'sl:bus-2', latitude: 59.31, longitude: 18.06 });
+    const buffer = [snapshot([stalled, behind], 0)];
+
+    expect(predictImpact(geographicIncident(), buffer, 30 * MIN)).toBeNull();
   });
 
   describe('coarseDelayLabel buckets magnitude without false precision', () => {
