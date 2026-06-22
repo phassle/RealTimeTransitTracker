@@ -98,6 +98,40 @@ describe('predictImpact', () => {
     expect(predictImpact(geographicIncident(), buffer, 6 * MIN)).toBeNull();
   });
 
+  // --- Slice 2: "behind" heuristic (bearing dot-product + distance cap) ---
+
+  it('includes a same-line/direction vehicle upstream of the stall within the distance cap', () => {
+    // Stalled heading east (bearing 90); candidate sits to the west (upstream),
+    // a few hundred metres back — clearly behind and inside the cap.
+    const stalled = vehicle({ id: 'sl:bus-1', bearing: 90 });
+    const upstream = vehicle({ id: 'sl:bus-2', longitude: 18.06 }); // west of stall
+    const buffer = [snapshot([stalled, upstream])];
+
+    const projection = predictImpact(geographicIncident(), buffer, 6 * MIN);
+
+    expect(projection).not.toBeNull();
+    expect(projection.affected[0].downstreamVehicleIds).toEqual(['sl:bus-2']);
+  });
+
+  it('excludes a same-line/direction vehicle that has already passed the stall point', () => {
+    // Stalled heading east (bearing 90); candidate sits to the east — ahead of
+    // the stall, so it has already passed and is not downstream.
+    const stalled = vehicle({ id: 'sl:bus-1', bearing: 90 });
+    const ahead = vehicle({ id: 'sl:bus-3', longitude: 18.08 }); // east of stall
+    const buffer = [snapshot([stalled, ahead])];
+
+    expect(predictImpact(geographicIncident(), buffer, 6 * MIN)).toBeNull();
+  });
+
+  it('excludes a same-line/direction vehicle upstream but beyond the distance cap', () => {
+    // West of the stall (behind) but ~3.4 km away — beyond MAX_DOWNSTREAM_DISTANCE_M.
+    const stalled = vehicle({ id: 'sl:bus-1', bearing: 90 });
+    const farUpstream = vehicle({ id: 'sl:bus-4', longitude: 18.008 });
+    const buffer = [snapshot([stalled, farUpstream])];
+
+    expect(predictImpact(geographicIncident(), buffer, 6 * MIN)).toBeNull();
+  });
+
   it('returns null when nothing is selected or the buffer is empty', () => {
     expect(predictImpact(null, [snapshot([vehicle()])], 6 * MIN)).toBeNull();
     expect(predictImpact(geographicIncident(), [], 6 * MIN)).toBeNull();

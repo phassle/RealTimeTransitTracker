@@ -4,13 +4,45 @@
 // Anomaly→Incident clustering seam, and is recomputed transiently per poll for
 // the selected Incident only (see ADR 0005, CONTEXT.md § Projection).
 //
-// Slice 1 (walking skeleton): the simplest line+direction match. For each
-// stalled vehicle of the Incident, the Downstream vehicles are the others in
-// the latest snapshot sharing its `(operator, line, direction)` triple. The
-// precise "behind" heuristic, delay magnitude, and confidence gating arrive in
-// later slices of PRD #136.
+// Slice 2: the Downstream vehicles are the others in the latest snapshot that
+// share the stalled vehicle's `(operator, line, direction)` triple AND lie
+// genuinely *behind* the disruption. With no GTFS static stops / route polyline
+// available, "behind" is a coarse geometric heuristic (CONTEXT.md § Downstream
+// vehicles, ADR 0005): a candidate is downstream only when the vector
+// (candidate − stalled) points against the stalled vehicle's bearing (it has
+// not yet reached the stall point) and it sits within MAX_DOWNSTREAM_DISTANCE_M.
+// Delay magnitude and confidence gating arrive in later slices of PRD #136.
 
 import { distanceMeters, DISPLACEMENT_THRESHOLD_M } from './anomalyRules';
+
+// Distance cap on the Downstream set: a same-line/direction vehicle further
+// behind than this is too far back to be attributed to this disruption.
+export const MAX_DOWNSTREAM_DISTANCE_M = 3000;
+
+const METERS_PER_DEG_LAT = 111320;
+
+/**
+ * Coarse "behind the disruption" test for a Downstream candidate. True when the
+ * candidate has not yet passed the stall point along the stalled vehicle's
+ * direction of travel: the local ground vector (candidate − stalled) has a
+ * negative dot product with the stalled vehicle's bearing (a forward unit
+ * vector, compass 0=N/90=E). When the bearing is unknown the heuristic cannot
+ * orient itself, so it falls back to the distance cap alone (handled by the
+ * caller) and reports the candidate as behind.
+ */
+export function isBehind(stalled, candidate) {
+  if (!Number.isFinite(stalled.bearing)) return true;
+  const toRad = (d) => (d * Math.PI) / 180;
+  const brg = toRad(stalled.bearing);
+  const forwardEast = Math.sin(brg);
+  const forwardNorth = Math.cos(brg);
+  const north = (candidate.latitude - stalled.latitude) * METERS_PER_DEG_LAT;
+  const east =
+    (candidate.longitude - stalled.longitude) *
+    METERS_PER_DEG_LAT *
+    Math.cos(toRad(stalled.latitude));
+  return east * forwardEast + north * forwardNorth < 0;
+}
 
 function latestSnapshot(buffer) {
   // Tolerate either the observation buffer object or a plain snapshots array,
@@ -78,7 +110,14 @@ export function predictImpact(incident, buffer, now) {
           v.id !== stalled.id &&
           v.operator === stalled.operator &&
           v.line === stalled.line &&
-          v.direction === stalled.direction,
+          v.direction === stalled.direction &&
+          isBehind(stalled, v) &&
+          distanceMeters(
+            stalled.latitude,
+            stalled.longitude,
+            v.latitude,
+            v.longitude,
+          ) <= MAX_DOWNSTREAM_DISTANCE_M,
       )
       .map((v) => v.id);
 

@@ -26,7 +26,7 @@ The Expected impact forecast is a **Projection**, computed by a new pure service
 
 ## Consequences
 
-- **"Behind" without route geometry.** No GTFS static stops or route polyline are available, so a Downstream vehicle cannot be defined by stop sequence. "Behind the disruption" is a deliberately coarse geometric heuristic (same `(operator, line, direction)`; later slices add a bearing/dot-product + distance-cap test). This imprecision is accepted as the cost of the zero-extra-data constraint (ADR 0001/0003) and is recorded here rather than as a separate ADR.
+- **"Behind" without route geometry.** No GTFS static stops or route polyline are available, so a Downstream vehicle cannot be defined by stop sequence. "Behind the disruption" is a deliberately coarse geometric heuristic: same `(operator, line, direction)`, plus a bearing dot-product test (the candidate has not yet passed the stall point along the stalled vehicle's heading) and a `MAX_DOWNSTREAM_DISTANCE_M` cap (slice 2, `etaProjection.isBehind`). This imprecision is accepted as the cost of the zero-extra-data constraint (ADR 0001/0003) and is recorded here rather than as a separate ADR.
 - **Walking skeleton first.** Slice 1 ships the simplest line+direction match; delay magnitude and confidence gating (a `CONFIDENCE_FLOOR` below which `predictImpact` returns `null` — silence over a guess) arrive in later slices without changing this structural decision.
 - **Downstream code must not assume persistence.** Because a Projection is recomputed and may vanish each poll, no consumer may store it, key off it across polls, or treat it as a stable Incident field.
 
