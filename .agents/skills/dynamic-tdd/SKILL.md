@@ -16,9 +16,10 @@ Phase prompts live in [reference/](reference/) (`plan-prompt.md`, `implement-pro
 1. **Resolve the PRD.** Take the number from `/dynamic-tdd <PRD#>`; if absent, ask. Read it and list its open children:
    ```bash
    gh issue view <PRD#> --json number,title,body
-   gh issue list --state open --json number,title,body --jq '[.[] | select(.body | test("#<PRD#>")) | {number,title}]'
+   # Children = issues whose ## Parent section names #<PRD#> as the PRIMARY (first) parent:
+   gh issue list --state open --json number,title,body --jq '[.[] | select(.body | test("(?i)## *parent")) | {number,title,body}]'
    ```
-   If there are zero children, stop and tell the user.
+   Keep only those whose `## Parent` section lists `#<PRD#>` first — exclude prose mentions, soft deps, and other PRDs' slices. If there are zero children, stop and tell the user.
 
 2. **Confirm scope + branch name with the user** (this run will create commits and merges). Derive a slug from the PRD title → `feature/<prd-slug>`. Show the PRD, the child issues, and the branch name; get a go-ahead.
 
