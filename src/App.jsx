@@ -2,6 +2,9 @@ import { useState, useMemo, useEffect } from 'react';
 import { Map } from './components/Map';
 import { CommandCenter } from './components/CommandCenter';
 import { ControlPanel } from './components/ControlPanel';
+// PROTOTYPE — fancy-interface variants, dev-only. Remove with src/components/prototype/. See NOTES.md.
+import { FancyControlPanel } from './components/prototype/FancyControlPanel';
+const PanelComponent = import.meta.env.DEV ? FancyControlPanel : ControlPanel;
 import { LocateControl } from './components/LocateControl';
 import { OfflineBanner } from './components/OfflineBanner';
 import { UpdateToast } from './components/UpdateToast';
@@ -137,7 +140,7 @@ function App() {
         theme={theme}
         userLocation={userLocation}
       />
-      <ControlPanel
+      <PanelComponent
         vehicles={filteredVehicles}
         loading={loading}
         error={error}

@@ -1,0 +1,87 @@
+/* PROTOTYPE — Variant B "Command Dock". Bottom horizontal command bar. */
+.dock-root {
+  position: absolute;
+  left: 50%;
+  bottom: 70px; /* clears the prototype switcher pill */
+  transform: translateX(-50%);
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  max-width: calc(100vw - 40px);
+  font-family: -apple-system, system-ui, sans-serif;
+}
+
+.dock {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 16px;
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--chrome-bg) 85%, transparent);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+  border: 1px solid var(--chrome-border);
+  box-shadow: 0 10px 36px var(--chrome-shadow);
+  color: var(--chrome-text);
+}
+
+.dock-stats { display: flex; gap: 14px; }
+.dock-stat { display: flex; flex-direction: column; align-items: center; line-height: 1.1; }
+.dock-stat b { font-size: 20px; font-weight: 800; letter-spacing: -.5px; }
+.dock-stat span { font-size: 10px; color: var(--chrome-text-muted); text-transform: uppercase; letter-spacing: .5px; }
+
+.dock-divider { width: 1px; align-self: stretch; background: var(--chrome-border); }
+
+.dock-segment {
+  display: flex; gap: 0; border-radius: 10px; overflow: hidden;
+  border: 1px solid var(--chrome-border);
+}
+.dock-seg {
+  display: flex; align-items: center; gap: 5px;
+  padding: 7px 11px; border: none; border-right: 1px solid var(--chrome-border);
+  background: var(--chrome-chip-bg); color: var(--chrome-text);
+  font-size: 12px; font-weight: 600; cursor: pointer; transition: all .15s;
+}
+.dock-seg:last-child { border-right: none; }
+.dock-seg:not(.on) { opacity: .5; }
+.dock-seg-count { font-size: 10px; opacity: .85; }
+
+.dock-actions { display: flex; align-items: center; gap: 6px; }
+.dock-btn {
+  position: relative;
+  padding: 7px 11px; border-radius: 10px; border: 1px solid var(--chrome-border);
+  background: var(--chrome-chip-bg); color: var(--chrome-text);
+  font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap;
+}
+.dock-btn.icon { padding: 7px 9px; font-size: 14px; }
+.dock-btn.open { border-color: #4ECDC4; background: var(--chrome-chip-selected-bg); }
+.dock-btn:disabled { opacity: .6; }
+.dock-badge {
+  margin-left: 5px; background: #4ECDC4; color: #fff; border-radius: 9px;
+  font-size: 10px; padding: 1px 6px;
+}
+
+.dock-pop {
+  width: min(520px, calc(100vw - 40px));
+  padding: 14px 16px; border-radius: 14px;
+  background: var(--chrome-bg); border: 1px solid var(--chrome-border);
+  box-shadow: 0 10px 36px var(--chrome-shadow); color: var(--chrome-text);
+}
+.dock-pop-title { font-size: 12px; font-weight: 700; color: var(--chrome-text-strong); margin-bottom: 10px; text-transform: uppercase; letter-spacing: .5px; }
+.dock-pop-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.dock-pop-chips.scroll { max-height: 160px; overflow-y: auto; }
+.dock-search {
+  width: 100%; box-sizing: border-box; padding: 8px 11px; margin-bottom: 10px;
+  border-radius: 9px; border: 1px solid var(--chrome-border);
+  background: var(--chrome-chip-bg); color: var(--chrome-text); font-size: 13px; outline: none;
+}
+.dock-search:focus { border-color: #4ECDC4; }
+.dock-chip {
+  padding: 4px 11px; border-radius: 999px; font-size: 12px; font-weight: 600; cursor: pointer;
+  background: var(--chrome-chip-bg); border: 1.5px solid var(--chrome-border); color: var(--chrome-text);
+}
+.dock-chip.all { border-color: #4ECDC4; color: #45b8af; }
+.dock-chip.active { border-color: var(--accent, #4ECDC4); background: var(--chrome-chip-selected-bg); }
+.dock-empty { color: var(--chrome-text-muted); font-size: 12px; }
