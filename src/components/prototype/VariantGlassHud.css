@@ -1,0 +1,93 @@
+/* PROTOTYPE — Variant A "Glass HUD". Frosted glass, neon accents. */
+.glass-hud {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  z-index: 1000;
+  width: 300px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px;
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--chrome-bg) 70%, transparent);
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
+  backdrop-filter: blur(18px) saturate(160%);
+  border: 1px solid color-mix(in srgb, var(--chrome-text) 12%, transparent);
+  box-shadow: 0 12px 40px var(--chrome-shadow);
+  color: var(--chrome-text);
+  font-family: -apple-system, system-ui, sans-serif;
+}
+
+.glass-hud-top { display: flex; align-items: center; justify-content: space-between; }
+.glass-hud-title { display: flex; align-items: center; gap: 10px; }
+.glass-hud-title h2 { margin: 0; font-size: 16px; font-weight: 700; }
+.glass-hud-title small { color: var(--chrome-text-muted); font-size: 11px; }
+.glass-hud-pulse {
+  width: 10px; height: 10px; border-radius: 50%; background: #4ECDC4;
+  box-shadow: 0 0 0 0 #4ECDC4aa; animation: glassPulse 2s infinite;
+}
+@keyframes glassPulse {
+  0% { box-shadow: 0 0 0 0 #4ECDC4aa; }
+  70% { box-shadow: 0 0 0 8px #4ECDC400; }
+  100% { box-shadow: 0 0 0 0 #4ECDC400; }
+}
+.glass-hud-icon {
+  border: none; background: var(--chrome-hover-bg); border-radius: 10px;
+  width: 32px; height: 32px; cursor: pointer; font-size: 15px; color: var(--chrome-text);
+}
+
+.glass-hud-hero {
+  display: flex; align-items: center; gap: 12px;
+  padding: 14px; border-radius: 14px;
+  background: linear-gradient(135deg, color-mix(in srgb, #4ECDC4 22%, transparent), transparent);
+}
+.glass-hud-metric { display: flex; flex-direction: column; flex: 1; }
+.glass-hud-num { font-size: 30px; font-weight: 800; line-height: 1; letter-spacing: -1px; }
+.glass-hud-cap { font-size: 11px; color: var(--chrome-text-muted); text-transform: uppercase; letter-spacing: 1px; }
+.glass-hud-refresh {
+  width: 42px; height: 42px; border-radius: 50%; border: none; cursor: pointer;
+  background: #4ECDC4; color: #fff; font-size: 20px;
+}
+.glass-hud-refresh:disabled { opacity: .6; animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.glass-hud-modes { display: flex; flex-wrap: wrap; gap: 6px; }
+.glass-hud-pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 5px 10px; border-radius: 999px; cursor: pointer; font-size: 12px; font-weight: 600;
+  background: var(--chrome-chip-bg); color: var(--chrome-text);
+  border: 1.5px solid var(--chrome-border); transition: all .18s;
+}
+.glass-hud-pill:not(.on) { opacity: .55; }
+.glass-hud-dot { width: 8px; height: 8px; border-radius: 50%; }
+.glass-hud-pill-count { font-size: 11px; opacity: .8; }
+
+.glass-hud-layer { display: flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer; }
+
+.glass-hud-regions { display: flex; flex-wrap: wrap; gap: 5px; }
+.glass-hud-region {
+  padding: 3px 10px; border-radius: 999px; font-size: 11px; cursor: pointer;
+  background: var(--chrome-chip-bg); color: var(--chrome-text);
+  border: 1.5px solid var(--chrome-border);
+}
+.glass-hud-region.all { border-color: #4ECDC4; color: #45b8af; font-weight: 700; }
+.glass-hud-region.active { border-color: #4ECDC4; background: var(--chrome-chip-selected-bg); font-weight: 600; }
+
+.glass-hud-lines { display: flex; flex-direction: column; gap: 8px; }
+.glass-hud-search {
+  width: 100%; box-sizing: border-box; padding: 9px 12px; border-radius: 10px;
+  border: 1px solid var(--chrome-border); background: var(--chrome-chip-bg); color: var(--chrome-text);
+  font-size: 13px; outline: none;
+}
+.glass-hud-search:focus { border-color: #4ECDC4; }
+.glass-hud-clear { background: none; border: none; color: var(--chrome-text-muted); font-size: 12px; cursor: pointer; text-align: left; }
+.glass-hud-line-scroll { max-height: 180px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; }
+.glass-hud-line-group { display: flex; flex-wrap: wrap; gap: 5px; }
+.glass-hud-chip {
+  padding: 3px 9px; border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer;
+  background: var(--chrome-chip-bg); border: 1.5px solid var(--chrome-border); color: var(--chrome-text);
+}
+.glass-hud-chip.sel { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 18%, transparent); }
+.glass-hud-empty { color: var(--chrome-text-muted); font-size: 12px; padding: 6px 0; }
+.glass-hud-foot { font-size: 11px; color: var(--chrome-text-muted); text-align: center; }

@@ -1,0 +1,43 @@
+/* PROTOTYPE — throwaway. High-contrast pill so it's obviously not the design. */
+.proto-switcher {
+  position: fixed;
+  bottom: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 99999;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 8px;
+  border-radius: 999px;
+  background: #111;
+  color: #fff;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45);
+  font: 600 13px/1 -apple-system, system-ui, sans-serif;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.proto-switcher-label {
+  padding: 0 10px;
+  white-space: nowrap;
+}
+
+.proto-switcher-label strong {
+  color: #4ECDC4;
+}
+
+.proto-switcher-arrow {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.proto-switcher-arrow:hover {
+  background: rgba(255, 255, 255, 0.25);
+}

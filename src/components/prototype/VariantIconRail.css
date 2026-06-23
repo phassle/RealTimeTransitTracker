@@ -1,0 +1,214 @@
+/* PROTOTYPE — Variant C "Icon Rail", Palantir-inspired.
+   Operational console aesthetic: hairline borders, sharp 2px corners, a steel-blue
+   accent, monospace readouts, uppercase micro-labels. Scoped palette below derives
+   from the app theme but pushes toward a denser, more neutral command-console look. */
+
+.rail-root {
+  /* light (rare for ops UIs, but kept usable) */
+  --pal-bg: #f7f8fa;
+  --pal-panel: #ffffff;
+  --pal-line: #d4d9e0;
+  --pal-line-soft: #e7eaef;
+  --pal-text: #1b2733;
+  --pal-muted: #5b6878;
+  --pal-faint: #8a96a6;
+  --pal-accent: #2f6fed;
+  --pal-accent-soft: rgba(47, 111, 237, 0.1);
+  --pal-mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  z-index: 1000;
+  display: flex;
+  align-items: stretch;
+  gap: 10px;
+  font-family: -apple-system, system-ui, sans-serif;
+}
+
+[data-theme="dark"] .rail-root {
+  /* signature dark ops palette: near-black slate, steel-blue accent */
+  --pal-bg: #0b0e14;
+  --pal-panel: #11161f;
+  --pal-line: #232b38;
+  --pal-line-soft: #1a212c;
+  --pal-text: #c6d0dc;
+  --pal-muted: #7a8694;
+  --pal-faint: #545f6d;
+  --pal-accent: #4d9dff;
+  --pal-accent-soft: rgba(77, 157, 255, 0.12);
+}
+
+/* ── Rail ───────────────────────────────────────────────── */
+.rail {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 2px;
+  padding: 8px 6px;
+  border-radius: 2px;
+  background: var(--pal-panel);
+  border: 1px solid var(--pal-line);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.28);
+}
+.rail-logo {
+  font-family: var(--pal-mono);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: var(--pal-accent);
+  text-align: center;
+  padding: 4px 0 8px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid var(--pal-line-soft);
+}
+.rail-spacer { flex: 1; min-height: 12px; }
+.rail-btn {
+  position: relative;
+  width: 38px; height: 38px;
+  border-radius: 2px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  background: transparent;
+  color: var(--pal-muted);
+  display: flex; align-items: center; justify-content: center;
+  transition: background .12s, color .12s, border-color .12s;
+}
+.rail-btn:hover { background: var(--pal-accent-soft); color: var(--pal-text); }
+.rail-btn.active {
+  color: var(--pal-accent);
+  background: var(--pal-accent-soft);
+  border-color: color-mix(in srgb, var(--pal-accent) 45%, transparent);
+}
+.rail-btn:disabled { opacity: .5; cursor: default; }
+.rail-btn:focus-visible { outline: 2px solid var(--pal-accent); outline-offset: 1px; }
+.rail-glyph { font-size: 18px; line-height: 1; }
+.rail-glyph.spin { display: inline-block; animation: railspin 1s linear infinite; }
+@keyframes railspin { to { transform: rotate(360deg); } }
+.rail-dot {
+  position: absolute; top: 2px; right: 2px;
+  background: var(--pal-accent); color: #fff;
+  border-radius: 2px; font-family: var(--pal-mono);
+  font-size: 9px; min-width: 15px; height: 15px; padding: 0 3px;
+  display: flex; align-items: center; justify-content: center; font-weight: 700;
+}
+
+/* ── Flyout ─────────────────────────────────────────────── */
+.rail-flyout {
+  width: 286px;
+  border-radius: 2px;
+  background: var(--pal-panel);
+  border: 1px solid var(--pal-line);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.28);
+  color: var(--pal-text);
+  overflow: hidden;
+  animation: railIn .15s ease;
+}
+@keyframes railIn { from { opacity: 0; transform: translateX(-6px); } to { opacity: 1; transform: none; } }
+
+.rail-status {
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 12px;
+  background: var(--pal-bg);
+  border-bottom: 1px solid var(--pal-line);
+  font-family: var(--pal-mono);
+  font-size: 10.5px;
+  letter-spacing: .5px;
+  color: var(--pal-muted);
+}
+.rail-led { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.rail-led.live { background: #2ec27e; box-shadow: 0 0 6px #2ec27e; animation: railpulse 2s infinite; }
+.rail-led.busy { background: var(--pal-accent); box-shadow: 0 0 6px var(--pal-accent); }
+@keyframes railpulse { 0%,100% { opacity: 1; } 50% { opacity: .35; } }
+.rail-status-text { color: var(--pal-text); font-weight: 600; }
+.rail-status-clock { margin-left: auto; color: var(--pal-faint); }
+
+.rail-flyout h3 {
+  margin: 0; padding: 12px 14px 10px;
+  font-family: var(--pal-mono);
+  font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.2px;
+  color: var(--pal-faint);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.rail-clear {
+  background: none; border: 1px solid var(--pal-line); border-radius: 2px;
+  color: var(--pal-muted); font-family: var(--pal-mono); font-size: 10px; letter-spacing: .5px;
+  cursor: pointer; padding: 2px 6px;
+}
+.rail-clear:hover { border-color: var(--pal-accent); color: var(--pal-accent); }
+
+/* Overview readout */
+.rail-readout {
+  display: grid; grid-template-columns: 1fr 1fr;
+  border-top: 1px solid var(--pal-line-soft);
+  border-bottom: 1px solid var(--pal-line-soft);
+}
+.rail-readout-cell {
+  padding: 12px 14px;
+  display: flex; flex-direction: column; gap: 4px;
+}
+.rail-readout-cell + .rail-readout-cell { border-left: 1px solid var(--pal-line-soft); }
+.rail-readout-num {
+  font-family: var(--pal-mono); font-size: 30px; font-weight: 700;
+  line-height: 1; letter-spacing: -1px; color: var(--pal-text);
+}
+.rail-readout-cap {
+  font-size: 10px; text-transform: uppercase; letter-spacing: .8px; color: var(--pal-faint);
+}
+
+.rail-modebars { padding: 12px 14px; display: flex; flex-direction: column; gap: 9px; }
+.rail-bar { display: flex; align-items: center; gap: 9px; font-size: 11px; }
+.rail-bar-label { width: 48px; color: var(--pal-muted); text-transform: uppercase; letter-spacing: .4px; font-size: 10px; }
+.rail-bar-track { flex: 1; height: 4px; background: var(--pal-line-soft); overflow: hidden; }
+.rail-bar-fill { height: 100%; }
+.rail-bar-num { width: 30px; text-align: right; font-family: var(--pal-mono); font-weight: 600; color: var(--pal-text); }
+
+/* Mode / layer rows */
+.rail-modelist { padding: 6px; display: flex; flex-direction: column; }
+.rail-mode {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  padding: 9px 10px; border: none; border-radius: 2px; cursor: pointer;
+  background: transparent; color: var(--pal-text); font-size: 13px; text-align: left;
+  transition: background .12s;
+}
+.rail-mode:hover { background: var(--pal-accent-soft); }
+.rail-mode:not(.on) { opacity: .55; }
+.rail-swatch { width: 10px; height: 10px; flex-shrink: 0; }
+.rail-mode-name { flex: 1; font-weight: 600; }
+.rail-mode-count { font-family: var(--pal-mono); font-size: 11px; color: var(--pal-muted); }
+.rail-toggle {
+  width: 30px; height: 16px; border-radius: 2px; background: var(--pal-line);
+  position: relative; transition: background .15s; flex-shrink: 0;
+}
+.rail-toggle::after {
+  content: ''; position: absolute; top: 2px; left: 2px; width: 12px; height: 12px;
+  border-radius: 1px; background: var(--pal-faint); transition: transform .15s, background .15s;
+}
+.rail-toggle.on { background: var(--pal-accent-soft); }
+.rail-toggle.on::after { transform: translateX(14px); background: var(--pal-accent); }
+
+/* Chips */
+.rail-chips { display: flex; flex-wrap: wrap; gap: 5px; padding: 4px 14px 14px; }
+.rail-chips.scroll { max-height: 230px; overflow-y: auto; }
+.rail-chip {
+  padding: 4px 9px; border-radius: 2px; font-family: var(--pal-mono);
+  font-size: 11px; font-weight: 600; cursor: pointer; letter-spacing: .3px;
+  background: var(--pal-bg); border: 1px solid var(--pal-line); color: var(--pal-text);
+  transition: border-color .12s, background .12s;
+}
+.rail-chip:hover { border-color: var(--pal-muted); }
+.rail-chip.all { border-color: var(--pal-accent); color: var(--pal-accent); }
+.rail-chip.active {
+  border-color: var(--accent, var(--pal-accent));
+  background: color-mix(in srgb, var(--accent, var(--pal-accent)) 16%, transparent);
+  color: var(--pal-text);
+}
+.rail-search {
+  width: calc(100% - 28px); margin: 0 14px 10px; box-sizing: border-box;
+  padding: 8px 10px; border-radius: 2px; border: 1px solid var(--pal-line);
+  background: var(--pal-bg); color: var(--pal-text);
+  font-family: var(--pal-mono); font-size: 12px; letter-spacing: .5px; outline: none;
+}
+.rail-search::placeholder { color: var(--pal-faint); }
+.rail-search:focus { border-color: var(--pal-accent); }
+.rail-empty { color: var(--pal-faint); font-size: 12px; padding: 4px 0; }
