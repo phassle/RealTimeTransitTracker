@@ -5,3 +5,4 @@ dist/
 .DS_Store
 .claude/worktrees/
 .aspire/
+.claude/settings.local.json
