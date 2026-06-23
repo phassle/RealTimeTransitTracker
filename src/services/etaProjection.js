@@ -21,8 +21,15 @@
 // by direction-known, the count of fresh downstream observations, and their
 // recency. Below CONFIDENCE_FLOOR the entry is suppressed; with none surviving
 // the whole Projection is null — silence over a guess (stories 5/6).
+//
+// Slice 6 generalises the Projection to carry one structured entry per affected
+// (line, direction): a geographic Incident can merge several stalled vehicles
+// (within PROXIMITY_THRESHOLD_M of its subject) across several lines or both
+// directions of one line, so a multi-line disruption is fully covered with one
+// entry each, while a single-line/direction Incident yields exactly one (story 14).
 
-import { distanceMeters, DISPLACEMENT_THRESHOLD_M } from './anomalyRules';
+import { distanceMeters } from './anomalyRules';
+import { PROXIMITY_THRESHOLD_M } from './incidentClustering';
 
 // Distance cap on the Downstream set: a same-line/direction vehicle further
 // behind than this is too far back to be attributed to this disruption.
@@ -225,16 +232,21 @@ export function predictImpact(incident, buffer, now) {
     const stalled = byId.get(vehicleId);
     if (!stalled) continue; // gone from the feed — no current basis
 
-    // Still stalled? If the vehicle has progressed beyond the displacement
-    // threshold of the Incident's stall point, the disruption has cleared for
-    // it and the forecast retracts.
+    // Still part of the stall cluster? A geographic Incident merges several
+    // stalled vehicles within PROXIMITY_THRESHOLD_M of its subject (one per
+    // (line, direction) in a multi-line disruption — see incidentClustering),
+    // so a stalled vehicle is still part of the disruption while it sits within
+    // that same radius. Once it has progressed beyond it the disruption has
+    // cleared for that vehicle and its forecast retracts. Using the clustering
+    // radius (not the tighter displacement threshold) keeps every merged stall
+    // eligible, so multi-line / multi-direction Incidents yield an entry each.
     if (
       distanceMeters(
         stalled.latitude,
         stalled.longitude,
         incident.subject.latitude,
         incident.subject.longitude,
-      ) > DISPLACEMENT_THRESHOLD_M
+      ) > PROXIMITY_THRESHOLD_M
     ) {
       continue;
     }

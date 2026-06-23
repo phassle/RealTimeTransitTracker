@@ -23,13 +23,19 @@ export function vehiclePopupContent(vehicle) {
 export const FULL_MARKER_MIN_ZOOM = 12;
 
 /**
- * @param {{ isHighlighted?: (vehicleId: string) => boolean, getZoom?: () => number }} [opts]
+ * @param {{ isHighlighted?: (vehicleId: string) => boolean, isPredicted?: (vehicleId: string) => boolean, getZoom?: () => number }} [opts]
  *   isHighlighted lets the command-center view highlight vehicles involved in a
  *   selected Incident. Default: nothing highlighted (existing map view behaviour).
+ *   isPredicted accents Downstream vehicles a selected Incident's projection
+ *   forecasts will degrade (PRD #136). Styled distinctly from the highlight — a
+ *   dashed violet ring vs the solid gold selection — so a forward-looking
+ *   Projection never reads as an observed selection on the ground. The highlight
+ *   (observation) wins when a vehicle is both. Default: nothing predicted
+ *   (existing map view behaviour).
  *   getZoom supplies the current map zoom; below FULL_MARKER_MIN_ZOOM markers
  *   render compact. Default: always full-size.
  */
-export function createVehicleAdapter({ isHighlighted = () => false, getZoom = () => FULL_MARKER_MIN_ZOOM } = {}) {
+export function createVehicleAdapter({ isHighlighted = () => false, isPredicted = () => false, getZoom = () => FULL_MARKER_MIN_ZOOM } = {}) {
   const markerVehicles = new WeakMap();
   const markerVisualStateKeys = new WeakMap();
 
@@ -37,15 +43,21 @@ export function createVehicleAdapter({ isHighlighted = () => false, getZoom = ()
     const color = MODE_COLORS[vehicle.mode] || MODE_COLORS.unknown;
     const icon = MODE_ICONS[vehicle.mode] || MODE_ICONS.unknown;
     const highlighted = isHighlighted(vehicle.id);
-    const compact = !highlighted && getZoom() < FULL_MARKER_MIN_ZOOM;
+    // The selection/highlight (an observation) always wins over a prediction so
+    // a Downstream-vehicle accent never overrides the observed selection.
+    const predicted = !highlighted && isPredicted(vehicle.id);
+    // Predicted vehicles stay full-size (like highlighted) so the accent is
+    // legible even when the surrounding field is clustered/compact.
+    const compact = !highlighted && !predicted && getZoom() < FULL_MARKER_MIN_ZOOM;
     const label = vehicle.line?.length <= 3 ? ['line', String(vehicle.line ?? '')] : ['icon', icon];
 
     return {
       color,
       icon,
       highlighted,
+      predicted,
       compact,
-      key: JSON.stringify([compact, color, highlighted, label]),
+      key: JSON.stringify([compact, color, highlighted, predicted, label]),
     };
   }
 
@@ -81,12 +93,23 @@ export function createVehicleAdapter({ isHighlighted = () => false, getZoom = ()
     if (state.compact) {
       return buildCompactIcon(state.color);
     }
-    const border = state.highlighted ? '3px solid #ffd400' : '2px solid white';
-    const shadow = state.highlighted
-      ? '0 0 0 3px rgba(255,212,0,0.5), 0 2px 4px rgba(0,0,0,0.3)'
-      : '0 2px 4px rgba(0,0,0,0.3)';
+    let border = '2px solid white';
+    let shadow = '0 2px 4px rgba(0,0,0,0.3)';
+    let className = 'vehicle-marker';
+    if (state.highlighted) {
+      // Observed selection: solid gold ring.
+      border = '3px solid #ffd400';
+      shadow = '0 0 0 3px rgba(255,212,0,0.5), 0 2px 4px rgba(0,0,0,0.3)';
+      className = 'vehicle-marker vehicle-marker--highlighted';
+    } else if (state.predicted) {
+      // Forecast (Projection): dashed violet ring — deliberately unlike the
+      // gold selection so a prediction never reads as an observation.
+      border = '2px dashed #8a6dff';
+      shadow = '0 0 0 3px rgba(138,109,255,0.35), 0 2px 4px rgba(0,0,0,0.3)';
+      className = 'vehicle-marker vehicle-marker--predicted';
+    }
     return L.divIcon({
-      className: state.highlighted ? 'vehicle-marker vehicle-marker--highlighted' : 'vehicle-marker',
+      className,
       html: `
           <div style="
             background: ${state.color};

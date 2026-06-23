@@ -9,7 +9,7 @@ import { createMarkerCollection } from '../services/markerCollection';
 import { createVehicleAdapter, FULL_MARKER_MIN_ZOOM } from '../services/vehicleAdapter';
 import { createWebcamAdapter } from '../services/webcamAdapter';
 
-const EMPTY_HIGHLIGHTED_VEHICLE_IDS = [];
+const EMPTY_VEHICLE_IDS = [];
 
 function haveSameOrderedIds(previousIds, nextIds) {
   if (previousIds.length !== nextIds.length) return false;
@@ -19,16 +19,22 @@ function haveSameOrderedIds(previousIds, nextIds) {
   return true;
 }
 
+function createIdSetState(ids) {
+  return {
+    ids: ids.slice(),
+    idSet: new Set(ids),
+  };
+}
+
 function createHighlightState(highlightedVehicleIds) {
   return {
-    ids: highlightedVehicleIds.slice(),
-    idSet: new Set(highlightedVehicleIds),
+    ...createIdSetState(highlightedVehicleIds),
     vehicles: null,
     mapZoom: null,
   };
 }
 
-export function Map({ vehicles = [], cameras = [], center = [59.3293, 18.0686], zoom = 11, onBoundsChange = null, theme = 'light', highlightedVehicleIds = EMPTY_HIGHLIGHTED_VEHICLE_IDS, userLocation = null }) {
+export function Map({ vehicles = [], cameras = [], center = [59.3293, 18.0686], zoom = 11, onBoundsChange = null, theme = 'light', highlightedVehicleIds = EMPTY_VEHICLE_IDS, predictedVehicleIds = EMPTY_VEHICLE_IDS, userLocation = null }) {
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
   // Singleton User location marker (PRD #111). A single circle marker managed
@@ -39,6 +45,12 @@ export function Map({ vehicles = [], cameras = [], center = [59.3293, 18.0686], 
   // Highlight set is read live by the adapter so selection changes are reflected.
   const [initialHighlightState] = useState(() => createHighlightState(highlightedVehicleIds));
   const highlightStateRef = useRef(initialHighlightState);
+  // Predicted (Downstream) set: a selected Incident projection's forecast (PRD
+  // #136). Read live by the adapter, parallel to the highlight set, so a
+  // forecast accent never reads as the observed selection. Empty in the plain
+  // map view and whenever the projection is null/retracted.
+  const [initialPredictedState] = useState(() => createIdSetState(predictedVehicleIds));
+  const predictedStateRef = useRef(initialPredictedState);
   // Current zoom, read live by the adapter; mapZoom state re-triggers the
   // marker-update effect so existing markers swap compact/full icons on zoom.
   const zoomRef = useRef(zoom);
@@ -46,6 +58,7 @@ export function Map({ vehicles = [], cameras = [], center = [59.3293, 18.0686], 
   const vehicleAdapterRef = useRef(
     createVehicleAdapter({
       isHighlighted: (id) => highlightStateRef.current.idSet.has(id),
+      isPredicted: (id) => predictedStateRef.current.idSet.has(id),
       getZoom: () => zoomRef.current,
     }),
   );
@@ -151,8 +164,9 @@ export function Map({ vehicles = [], cameras = [], center = [59.3293, 18.0686], 
   }, [center, zoom]);
 
   // Update vehicle markers via the marker-collection module. Runs after render
-  // so highlight bookkeeping stays out of render; the equality gate prevents
-  // marker churn unless vehicles, ordered highlights, or zoom actually changed.
+  // so highlight/predicted bookkeeping stays out of render; the equality gate
+  // prevents marker churn unless vehicles, ordered highlights, the predicted
+  // (Downstream) set, or zoom actually changed.
   useEffect(() => {
     const highlightState = highlightStateRef.current;
     const highlightsChanged = !haveSameOrderedIds(highlightState.ids, highlightedVehicleIds);
@@ -161,9 +175,16 @@ export function Map({ vehicles = [], cameras = [], center = [59.3293, 18.0686], 
       highlightState.idSet = new Set(highlightedVehicleIds);
     }
 
+    const predictedState = predictedStateRef.current;
+    const predictedChanged = !haveSameOrderedIds(predictedState.ids, predictedVehicleIds);
+    if (predictedChanged) {
+      predictedState.ids = predictedVehicleIds.slice();
+      predictedState.idSet = new Set(predictedVehicleIds);
+    }
+
     const vehiclesChanged = highlightState.vehicles !== vehicles;
     const zoomChanged = highlightState.mapZoom !== mapZoom;
-    if (!vehiclesChanged && !highlightsChanged && !zoomChanged) return;
+    if (!vehiclesChanged && !highlightsChanged && !predictedChanged && !zoomChanged) return;
 
     highlightState.vehicles = vehicles;
     highlightState.mapZoom = mapZoom;

@@ -241,6 +241,76 @@ describe('predictImpact', () => {
     expect(predictImpact(geographicIncident(), buffer, 30 * MIN)).toBeNull();
   });
 
+  // --- Slice 6: per-(line, direction) projection entries (PRD #136, issue #142) ---
+
+  it('emits one entry per line when an Incident spans two distinct lines', () => {
+    // Two buses stalled close together (clusterIncidents merges them within
+    // PROXIMITY_THRESHOLD_M into one geographic Incident) but on different lines,
+    // each with its own downstream vehicle. The projection carries one entry per
+    // (line, direction).
+    const stalled4 = vehicle({ id: 'sl:bus-1', line: '4', direction: '0' });
+    const behind4 = vehicle({ id: 'sl:bus-2', line: '4', direction: '0', latitude: 59.31, longitude: 18.06 });
+    // Second stall ~120 m away (inside the 250 m clustering radius, outside the
+    // 30 m displacement threshold) on a different line.
+    const stalled6 = vehicle({ id: 'sl:bus-3', line: '6', direction: '0', latitude: 59.3304, longitude: 18.0686 });
+    const behind6 = vehicle({ id: 'sl:bus-4', line: '6', direction: '0', latitude: 59.31, longitude: 18.06 });
+    const buffer = [snapshot([stalled4, behind4, stalled6, behind6])];
+    const incident = geographicIncident({
+      lines: ['4', '6'],
+      vehicleIds: ['sl:bus-1', 'sl:bus-3'],
+    });
+
+    const projection = predictImpact(incident, buffer, 6 * MIN);
+
+    expect(projection).not.toBeNull();
+    expect(projection.affected).toHaveLength(2);
+    const lines = projection.affected.map((a) => a.line).sort();
+    expect(lines).toEqual(['4', '6']);
+  });
+
+  it('emits one entry per direction when an Incident involves both directions of one line', () => {
+    // Both directions of line 4 stalled near the same point, each with a
+    // same-direction downstream vehicle. Opposite directions must NOT collapse
+    // into one entry, nor leak into each other's downstream set.
+    const stalledOut = vehicle({ id: 'sl:bus-1', line: '4', direction: '0' });
+    const behindOut = vehicle({ id: 'sl:bus-2', line: '4', direction: '0', latitude: 59.31, longitude: 18.06 });
+    const stalledIn = vehicle({ id: 'sl:bus-3', line: '4', direction: '1', latitude: 59.3304, longitude: 18.0686 });
+    const behindIn = vehicle({ id: 'sl:bus-4', line: '4', direction: '1', latitude: 59.31, longitude: 18.06 });
+    const buffer = [snapshot([stalledOut, behindOut, stalledIn, behindIn])];
+    const incident = geographicIncident({
+      lines: ['4'],
+      vehicleIds: ['sl:bus-1', 'sl:bus-3'],
+    });
+
+    const projection = predictImpact(incident, buffer, 6 * MIN);
+
+    expect(projection).not.toBeNull();
+    expect(projection.affected).toHaveLength(2);
+    const directions = projection.affected.map((a) => a.direction).sort();
+    expect(directions).toEqual(['0', '1']);
+    // No cross-contamination of downstream sets between directions.
+    const out = projection.affected.find((a) => a.direction === '0');
+    const inb = projection.affected.find((a) => a.direction === '1');
+    expect(out.downstreamVehicleIds).toEqual(['sl:bus-2']);
+    expect(inb.downstreamVehicleIds).toEqual(['sl:bus-4']);
+  });
+
+  it('emits exactly one entry, with no duplication, for a single line and direction', () => {
+    // The Incident lists the same stalled vehicle twice (e.g. two polls folded
+    // the same anomaly) — the projection must still yield exactly one entry.
+    const stalled = vehicle({ id: 'sl:bus-1', line: '4', direction: '0' });
+    const behind = vehicle({ id: 'sl:bus-2', line: '4', direction: '0', latitude: 59.31, longitude: 18.06 });
+    const buffer = [snapshot([stalled, behind])];
+    const incident = geographicIncident({ vehicleIds: ['sl:bus-1', 'sl:bus-1'] });
+
+    const projection = predictImpact(incident, buffer, 6 * MIN);
+
+    expect(projection).not.toBeNull();
+    expect(projection.affected).toHaveLength(1);
+    expect(projection.affected[0].line).toBe('4');
+    expect(projection.affected[0].direction).toBe('0');
+  });
+
   describe('coarseDelayLabel buckets magnitude without false precision', () => {
     it.each([
       [3, '~5 min'],

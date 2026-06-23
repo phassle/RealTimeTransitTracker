@@ -120,6 +120,66 @@ describe('createVehicleAdapter zoom-adaptive icons', () => {
   });
 });
 
+describe('createVehicleAdapter downstream prediction accent', () => {
+  it('accents predicted (downstream) vehicles distinctly from highlighted ones', () => {
+    const adapter = createVehicleAdapter({
+      getZoom: () => FULL_MARKER_MIN_ZOOM,
+      isPredicted: (id) => id === 'v1',
+    });
+    const icon = adapter.toIcon(makeVehicle());
+
+    // A prediction must never read as the observed selection/highlight.
+    expect(icon.className).toContain('vehicle-marker--predicted');
+    expect(icon.className).not.toContain('vehicle-marker--highlighted');
+  });
+
+  it('keeps predicted vehicles full-size even below the zoom threshold', () => {
+    const adapter = createVehicleAdapter({
+      getZoom: () => FULL_MARKER_MIN_ZOOM - 3,
+      isPredicted: (id) => id === 'v1',
+    });
+    const icon = adapter.toIcon(makeVehicle());
+    expect(icon.iconSize).toEqual([24, 24]);
+  });
+
+  it('lets the selection/highlight win when a vehicle is both highlighted and predicted', () => {
+    const adapter = createVehicleAdapter({
+      getZoom: () => FULL_MARKER_MIN_ZOOM,
+      isHighlighted: (id) => id === 'v1',
+      isPredicted: (id) => id === 'v1',
+    });
+    const icon = adapter.toIcon(makeVehicle());
+    expect(icon.className).toContain('vehicle-marker--highlighted');
+    expect(icon.className).not.toContain('vehicle-marker--predicted');
+  });
+
+  it('replaces the icon when prediction state changes', () => {
+    let predicted = false;
+    const adapter = createVehicleAdapter({
+      getZoom: () => FULL_MARKER_MIN_ZOOM,
+      isPredicted: () => predicted,
+    });
+    const marker = {
+      setLatLng: vi.fn().mockReturnThis(),
+      setIcon: vi.fn().mockReturnThis(),
+      isPopupOpen: () => false,
+    };
+
+    adapter.onMarkerCreated(marker, makeVehicle());
+    predicted = true;
+    adapter.onUpdate(marker, makeVehicle());
+
+    expect(marker.setIcon).toHaveBeenCalledOnce();
+    expect(marker.setIcon.mock.calls[0][0].className).toContain('vehicle-marker--predicted');
+  });
+
+  it('defaults to nothing predicted (existing map view behaviour)', () => {
+    const adapter = createVehicleAdapter();
+    const icon = adapter.toIcon(makeVehicle());
+    expect(icon.className).not.toContain('vehicle-marker--predicted');
+  });
+});
+
 describe('createVehicleAdapter lazy popups', () => {
   it('defers vehicle popup formatting until Leaflet resolves popup content', () => {
     const adapter = createVehicleAdapter();

@@ -57,6 +57,81 @@ describe('CommandCenter', () => {
     expect(props.last.highlightedVehicleIds).toEqual(['sl:bus-1']);
   });
 
+  describe('downstream accent on the map (PRD #136)', () => {
+    // A stalled bus plus a same-line+direction downstream bus near enough to be
+    // forecast as degrading. The downstream bus keeps moving (it is approaching,
+    // not stalled) so it forms no Incident of its own — leaving exactly one
+    // "Line 4" row to select. `poll` shifts its position so it never trips the
+    // stationary rule. Mirrors the useIncidents projection fixture.
+    const stalledPlusDownstream = (stalledLng = 18.0686, poll = 0) => [
+      { id: 'sl:bus-1', operator: 'sl', line: '4', direction: '0', tripId: 'trip-abc', latitude: 59.3293, longitude: stalledLng },
+      { id: 'sl:bus-2', operator: 'sl', line: '4', direction: '0', tripId: 'trip-def', latitude: 59.31, longitude: 18.06 + poll * 0.001 },
+    ];
+
+    it('accents the selected geographic Incident\'s downstream (forecast) vehicles, distinct from the highlight', () => {
+      const { FakeMap, props } = makeFakeMap();
+      let t = 0;
+      const now = () => t;
+
+      const { rerender } = render(
+        <CommandCenter vehicles={stalledPlusDownstream(18.0686, 0)} MapComponent={FakeMap} now={now} />,
+      );
+      act(() => { t = 6 * MIN; });
+      rerender(<CommandCenter vehicles={stalledPlusDownstream(18.0686, 1)} MapComponent={FakeMap} now={now} />);
+
+      // No selection yet ⇒ no forecast accent.
+      expect(props.last.predictedVehicleIds).toEqual([]);
+
+      fireEvent.click(screen.getByRole('button', { name: /Line 4/ }));
+
+      // The Downstream vehicle is accented, and the accent channel is separate
+      // from the selection/highlight channel (the stalled bus is highlighted,
+      // the downstream bus is predicted — never the same id in both).
+      expect(props.last.predictedVehicleIds).toContain('sl:bus-2');
+      expect(props.last.predictedVehicleIds).not.toContain('sl:bus-1');
+      expect(props.last.highlightedVehicleIds).toContain('sl:bus-1');
+    });
+
+    it('shows no downstream accent when the projection retracts between polls', () => {
+      const { FakeMap, props } = makeFakeMap();
+      let t = 0;
+      const now = () => t;
+
+      const { rerender } = render(
+        <CommandCenter vehicles={stalledPlusDownstream(18.0686, 0)} MapComponent={FakeMap} now={now} />,
+      );
+      act(() => { t = 6 * MIN; });
+      rerender(<CommandCenter vehicles={stalledPlusDownstream(18.0686, 1)} MapComponent={FakeMap} now={now} />);
+      fireEvent.click(screen.getByRole('button', { name: /Line 4/ }));
+      expect(props.last.predictedVehicleIds).toContain('sl:bus-2');
+
+      // Next poll: the stalled bus has driven away — the projection retracts.
+      act(() => { t = 7 * MIN; });
+      rerender(<CommandCenter vehicles={stalledPlusDownstream(18.2, 2)} MapComponent={FakeMap} now={now} />);
+
+      expect(props.last.predictedVehicleIds).toEqual([]);
+    });
+
+    it('shows no downstream accent for an operator-subject (feed outage) Incident', () => {
+      const { FakeMap, props } = makeFakeMap();
+      let t = 0;
+      const now = () => t;
+      const failFeeds = () => [{ operator: 'sl', ok: false, vehicleCount: 0, dataTimestamp: null }];
+
+      const { rerender } = render(
+        <CommandCenter vehicles={[]} feeds={failFeeds()} MapComponent={FakeMap} now={now} />,
+      );
+      for (let i = 1; i <= 3; i++) {
+        act(() => { t = i * MIN; });
+        rerender(<CommandCenter vehicles={[]} feeds={failFeeds()} MapComponent={FakeMap} now={now} />);
+      }
+
+      fireEvent.click(screen.getByRole('button', { name: /Feed outage · SL/ }));
+
+      expect(props.last.predictedVehicleIds).toEqual([]);
+    });
+  });
+
   it('shows the selected Incident\'s why-flagged panel and timeline', () => {
     const { FakeMap } = makeFakeMap();
     let t = 0;
