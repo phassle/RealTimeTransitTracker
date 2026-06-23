@@ -9,7 +9,10 @@ export const meta = {
 }
 
 // args (passed by the orchestrator): { prd, featureBranch, base?, maxIterations?, maxParallel? }
-const { prd, featureBranch, base = 'develop', maxIterations = 10, maxParallel = 6 } = args || {}
+// Tolerate args arriving as a JSON-encoded string (the Workflow tool may stringify it).
+let _args = args
+if (typeof _args === 'string') { try { _args = JSON.parse(_args) } catch { _args = {} } }
+const { prd, featureBranch, base = 'develop', maxIterations = 10, maxParallel = 6 } = _args || {}
 if (!prd || !featureBranch) throw new Error('dynamic-tdd: args.prd and args.featureBranch are required')
 
 const PLAN_SCHEMA = {
