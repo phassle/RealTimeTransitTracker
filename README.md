@@ -1,95 +1,131 @@
 # Real-Time Transit Tracker — Sweden
 
-A real-time map showing public transport vehicles across Sweden with 2-second update frequency. Currently configured for Stockholm (SL), but the GTFS Sweden 3 API covers all of Sweden — the goal is to support any region by filtering vehicles within the selected map area.
+Client-only React app for viewing real-time public-transport vehicles across Sweden on a Leaflet map. The app polls Trafiklab GTFS-RT feeds, fetches only operators whose regions overlap the current viewport, and also includes a Command Center view for incident-style monitoring.
 
 ## Features
 
-- **Live tracking** of public transport vehicles in real time
-- **Multiple transport modes**: Metro, Bus, Train, Tram, Ship, Ferry
-- **Real-time updates** every 2 seconds
-- **Color-coded** by transport mode
-- **Clickable markers** with vehicle details
-- **Filter by transport mode**
-- **Live statistics** and vehicle counts
+- Sweden-wide vehicle map with **15 regional operators**
+- **Viewport-driven polling** of only visible operators
+- **2s base polling**, auto-scaled by operator count to stay under rate limits
+- Filters by **transport mode** and **line**
+- **Favourite lines** persisted between visits
+- **Region shortcuts** for jumping around Sweden
+- Optional **webcam layer** with type filters
+- **Command Center** view with incidents, replay, and feed-status monitoring
+- **Dark/light theme**, **offline banner**, **update prompt**, and **user location**
+- PWA build via Vite PWA
 
-## Roadmap
+## Current transport modes
 
-- [ ] Support all of Sweden — show vehicles from any transit operator, not just SL
-- [ ] Area-based filtering — only fetch/display vehicles within the current map viewport
-- [ ] Operator selector — choose which transit authority to display
+- Metro
+- Bus
+- Train
+- Tram
+- Ferry
+- Other
 
-## Tech Stack
+## Tech stack
 
-- **Frontend**: React 19 + Vite
-- **Map**: Leaflet.js with OpenStreetMap tiles
-- **Data**: Trafiklab GTFS-RT API (GTFS Sweden 3)
-- **Parsing**: gtfs-realtime-bindings (Protocol Buffers)
+- **UI**: React 19, JSX
+- **Build**: Vite 7, ES modules
+- **Map**: Leaflet 1.9
+- **Data**: Trafiklab GTFS-RT protobuf feeds
+- **Parsing**: `gtfs-realtime-bindings`
+- **Tests**: Vitest + Testing Library
+- **Runtime**: Node.js **>= 20.19**
 
-## Getting Started
+## Getting started
 
-### Prerequisites
+### 1. Install
 
-- Node.js 18+ installed
-- Trafiklab API keys (see below)
+```bash
+npm install
+```
 
-### Get API Keys
+### 2. Configure environment
 
-1. Register a free account at https://developer.trafiklab.se/
-2. Create a new project
-3. Subscribe to the following APIs (Bronze tier is free):
-   - **GTFS Sweden 3 Realtime** — live vehicle positions
-   - **GTFS Regional Realtime** — regional real-time data
-   - **GTFS Regional Static** — static schedule data (used by build scripts)
-4. Copy the API keys from your project dashboard
+```bash
+cp .env.example .env
+```
 
-### Installation
+Fill in the keys you need from:
 
-1. Clone and navigate to the project:
-   ```bash
-   cd RealTimeTransitTracker
-   ```
+- https://developer.trafiklab.se/
+- https://data.trafikverket.se
+- https://api.windy.com/webcams
 
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
+### 3. Run locally
 
-3. Set up environment variables:
-   ```bash
-   cp .env.example .env
-   ```
-   Then open `.env` and paste your API keys.
+```bash
+npm run dev
+```
 
-4. Start the development server:
-   ```bash
-   npm run dev
-   ```
+Open http://localhost:3000
 
-5. Open http://localhost:3000/ in your browser
+## Scripts
 
-## Available Scripts
+```bash
+npm run dev         # Vite dev server
+npm test            # Vitest single run
+npm run build       # Production build to dist/
+npm run typecheck   # Alias for vite build
+npm run preview     # Preview production build
+npm run aspire:start
+npm run aspire:build
+npm run aspire:dev
+```
 
-- `npm run dev` - Start development server
-- `npm run build` - Build for production
-- `npm run preview` - Preview production build
+Debug / data scripts:
 
-## Data Sources
+```bash
+node test-api.js
+node explore-routes.js
+node find-buses.js
+node scripts/build-trip-mapping.js
+```
 
-- **GTFS-RT Vehicle Positions**: Real-time GPS coordinates of public transport vehicles across Sweden
-- **SL Transport API**: Line information and designations
-- **OpenStreetMap**: Map tiles (free)
+## Environment variables
 
-## API Usage
+See `.env.example`.
 
-The app polls the GTFS-RT API every 2 seconds:
-- **Bronze tier** (free): 50 calls/minute, 30,000 calls/month
-- **Rate**: 30 calls/minute (one every 2 seconds)
+| Variable | Purpose |
+|---|---|
+| `VITE_TRAFIKLAB_API_KEY` | Client-side GTFS-RT realtime feeds |
+| `VITE_GTFS_REGIONAL_REALTIME_KEY` | Regional realtime key |
+| `VITE_GTFS_REGIONAL_STATIC_KEY` | Regional static key |
+| `GTFS_REGIONAL_API_KEY` | Build-time key for `scripts/build-trip-mapping.js` |
+| `VITE_TRAFIKVERKET_API_KEY` | Trafikverket webcam source |
+| `VITE_WINDY_API_KEY` | Windy webcam source |
 
-## License
+`VITE_` variables are bundled into the client by design.
 
-Data from Trafiklab under CC-BY 4.0 license.
+## Data flow
+
+```text
+Trafiklab per-operator GTFS-RT feeds + static trip mapping
+  -> src/services/trafiklab.js
+  -> src/hooks/useRealtimeVehicles.js
+  -> src/App.jsx
+  -> map / control panel / command center
+```
+
+## Data sources
+
+- **Trafiklab GTFS Sweden 3** — vehicle positions
+- **GTFS static data** — trip/route enrichment
+- **Trafikverket** — webcam data
+- **Windy** — webcam metadata
+- **OpenStreetMap / CARTO** — map tiles
+
+## Notes
+
+- No backend; everything runs in the browser
+- Privacy model is cookieless except for essential storage such as theme / favourites / notice acknowledgement
+- Production build ships without sourcemaps
 
 ## Attribution
 
 - Data: [Trafiklab.se](https://trafiklab.se)
+- Traffic cameras: [Trafikverket](https://www.trafikverket.se/)
 - Map: [OpenStreetMap](https://www.openstreetmap.org/copyright) contributors
+- Dark tiles: [CARTO](https://carto.com/)
