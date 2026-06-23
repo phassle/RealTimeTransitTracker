@@ -1,0 +1,60 @@
+.locate-control {
+  position: absolute;
+  bottom: 24px;
+  right: 12px;
+  z-index: 1000;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #ffffff;
+  color: #1d6fe0;
+  border: 2px solid rgba(0, 0, 0, 0.2);
+  border-radius: 6px;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.4);
+}
+
+.locate-control:hover {
+  background: #f4f4f4;
+}
+
+.locate-control:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+/* In-progress feedback while a fix is being acquired (issue #114, PRD #111
+   story 9): the busy glyph spins so the tap reads as registered and working.
+   Cleared automatically once status leaves locating — the modifier class is a
+   pure function of status === 'locating'. */
+.locate-control--busy {
+  animation: locate-control-spin 0.9s linear infinite;
+}
+
+@keyframes locate-control-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .locate-control--busy {
+    animation: none;
+  }
+}
+
+/* Theme-aware styling (issue #115, story 15): keyed off the control's own
+   data-theme attribute (set from the active theme) rather than an ancestor, so
+   the button stays legible on dark tiles and the styling is self-contained. */
+.locate-control[data-theme="dark"] {
+  background: #1e1e2e;
+  color: #5b9dff;
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+.locate-control[data-theme="dark"]:hover {
+  background: #2a2a3e;
+}

@@ -1,7 +1,11 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Map } from './components/Map';
 import { CommandCenter } from './components/CommandCenter';
 import { ControlPanel } from './components/ControlPanel';
+// PROTOTYPE — fancy-interface variants, dev-only. Remove with src/components/prototype/. See NOTES.md.
+import { FancyControlPanel } from './components/prototype/FancyControlPanel';
+const PanelComponent = import.meta.env.DEV ? FancyControlPanel : ControlPanel;
+import { LocateControl } from './components/LocateControl';
 import { OfflineBanner } from './components/OfflineBanner';
 import { UpdateToast } from './components/UpdateToast';
 import { PrivacyNotice } from './components/PrivacyNotice';
@@ -9,6 +13,7 @@ import { useRealtimeVehicles } from './hooks/useRealtimeVehicles';
 import { useFilterSelection } from './hooks/useFilterSelection';
 import { useTheme } from './hooks/useTheme';
 import { useConnectivity } from './hooks/useConnectivity';
+import { useGeolocation } from './hooks/useGeolocation';
 import { useUpdatePrompt } from './hooks/useUpdatePrompt';
 import { useWebcams } from './hooks/useWebcams';
 import {
@@ -21,6 +26,7 @@ import { OPERATORS, OPERATOR_MAP, SWEDEN_CENTER, SWEDEN_ZOOM, getVisibleOperator
 function App() {
   const { theme, toggleTheme } = useTheme();
   const { isOnline } = useConnectivity();
+  const { locate, position: userLocation, status: geolocationStatus } = useGeolocation();
   const { needRefresh, updateServiceWorker, dismissUpdate } = useUpdatePrompt();
   const [mapCenter, setMapCenter] = useState([59.3293, 18.0686]);
   const [mapZoom, setMapZoom] = useState(11);
@@ -31,6 +37,17 @@ function App() {
     CAMERA_TYPE_DEFINITIONS.map(t => t.id),
   );
 
+  // Fly to the User location when a fix arrives, at city-level zoom (~12).
+  // This reuses the existing center/zoom → Map flyTo seam; moving the viewport
+  // also triggers the viewport→operators fetch, so the user's region loads
+  // its vehicles with no geolocation-specific polling code (PRD #111).
+  useEffect(() => {
+    if (userLocation) {
+      setMapCenter([userLocation.latitude, userLocation.longitude]);
+      setMapZoom(12);
+    }
+  }, [userLocation]);
+
   const { cameras, error: webcamsError, errors: webcamsErrors, loading: webcamsLoading } = useWebcams(webcamsEnabled);
 
   const cameraCounts = useMemo(() => cameraCountsByType(cameras), [cameras]);
@@ -39,10 +56,8 @@ function App() {
     [cameras, enabledCameraTypes],
   );
 
-  const visibleOperators = useMemo(() => {
-    if (!viewportBounds) return ['sl'];
-    return getVisibleOperators(viewportBounds);
-  }, [viewportBounds]);
+  // ponytail: trivial derivation, no memo needed
+  const visibleOperators = viewportBounds ? getVisibleOperators(viewportBounds) : ['sl'];
 
   const { vehicles: allVehicles, feedOutcomes, error, loading, lastUpdate, refresh, activeOperators, effectiveInterval } =
     useRealtimeVehicles(visibleOperators, 2000, isOnline);
@@ -60,10 +75,6 @@ function App() {
     availableLines,
     filteredVehicles,
   } = useFilterSelection(allVehicles);
-
-  const handleBoundsChange = (bounds) => {
-    setViewportBounds(bounds);
-  };
 
   const handleCameraTypeToggle = (typeId) => {
     setEnabledCameraTypes(prev =>
@@ -119,10 +130,11 @@ function App() {
         cameras={webcamsEnabled ? filteredCameras : []}
         center={mapCenter}
         zoom={mapZoom}
-        onBoundsChange={handleBoundsChange}
+        onBoundsChange={setViewportBounds}
         theme={theme}
+        userLocation={userLocation}
       />
-      <ControlPanel
+      <PanelComponent
         vehicles={filteredVehicles}
         loading={loading}
         error={error}
@@ -155,6 +167,7 @@ function App() {
         cameraCounts={cameraCounts}
         onCameraTypeToggle={handleCameraTypeToggle}
       />
+      <LocateControl status={geolocationStatus} onLocate={locate} theme={theme} />
       <OfflineBanner isOnline={isOnline} />
       <UpdateToast isVisible={needRefresh} onReload={updateServiceWorker} onDismiss={dismissUpdate} />
       <PrivacyNotice />
