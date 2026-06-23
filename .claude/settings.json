@@ -7,6 +7,22 @@
             "type": "command",
             "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/sync-skills.sh\"",
             "statusMessage": "Syncing project skills (.agents/skills → .claude/skills)"
+          },
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/reinforce-daily.sh\"",
+            "statusMessage": "Reinforcement loop: daily distill/reinforce check"
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/reinforce-capture.sh\"",
+            "statusMessage": "Capturing session signals (reinforcement loop)"
           }
         ]
       }

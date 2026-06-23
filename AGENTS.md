@@ -44,6 +44,7 @@ Real-time Leaflet map of Swedish public-transport vehicles, polled ~2s from Traf
 | [docs/agents/domain.md](docs/agents/domain.md) | how agents consume CONTEXT.md + ADRs |
 | [docs/agents/issue-tracker.md](docs/agents/issue-tracker.md) | GitHub issue conventions via `gh` |
 | [docs/agents/triage-labels.md](docs/agents/triage-labels.md) | triage label vocabulary |
+| [docs/agents/reinforcement-loop.md](docs/agents/reinforcement-loop.md) | how sessions are distilled into AGENTS.md/skill improvements (`/distill`, `/reinforce`) |
 | [research/](research/) | 8-part design docs (APIs, GTFS-RT, stack, multi-operator) |
 
 ### Skills — `.agents/skills/<name>/SKILL.md`
@@ -54,6 +55,7 @@ Real-time Leaflet map of Swedish public-transport vehicles, polled ~2s from Traf
 - [refresh-trip-mapping](.agents/skills/refresh-trip-mapping/SKILL.md) — rebuild the GTFS static trip mapping
 - [create-pr](.agents/skills/create-pr/SKILL.md) — open a PR (asks base branch) with pre-PR gates
 - [observe-running-app](.agents/skills/observe-running-app/SKILL.md) — see the running SPA's browser console/network via Aspire
+- [distill](.agents/skills/distill/SKILL.md) / [reinforce](.agents/skills/reinforce/SKILL.md) — reinforcement loop: turn past sessions into AGENTS.md/skill improvements (slash-only)
 
 Plus a general library in the same dir: engineering workflow (`tdd`, `diagnose`, `improve-codebase-architecture`, `prototype`, `handoff`), planning/issues (`to-prd`, `to-issues`, `triage`, `grill-me`, `grill-with-docs`), Aspire (`aspire`, `aspire-monitoring`, `aspire-orchestration`, `aspire-deployment`, `aspireify`, `aspire-init`), and authoring (`write-a-skill`, `teach`, `zoom-out`). Browse `.agents/skills/` for the full set.
 
