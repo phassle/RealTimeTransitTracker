@@ -51,6 +51,29 @@ export function CommandCenter({ vehicles = [], feeds = [], theme = 'light', MapC
   const zoom = focus ? INCIDENT_FOCUS_ZOOM : 6;
   const highlightedVehicleIds = focus ? focus.vehicleIds : [];
 
+  // Downstream accent (PRD #136, stories 11/12): the deduped union of the
+  // selected Incident projection's Downstream vehicles, surfaced through a
+  // channel separate from the highlight so a forecast never reads as an
+  // observation on the map. Empty when there is no projection — operator-subject
+  // Incidents (projection always null) and retracted forecasts disappear for
+  // free. The highlighted (stalled) vehicles are excluded so a vehicle is never
+  // both selected and predicted.
+  const predictedVehicleIds = useMemo(() => {
+    const affected = selectedIncident?.projection?.affected;
+    if (!affected) return [];
+    const highlighted = new Set(highlightedVehicleIds);
+    const ids = [];
+    const seen = new Set();
+    for (const a of affected) {
+      for (const id of a.downstreamVehicleIds ?? []) {
+        if (highlighted.has(id) || seen.has(id)) continue;
+        seen.add(id);
+        ids.push(id);
+      }
+    }
+    return ids;
+  }, [selectedIncident, highlightedVehicleIds]);
+
   return (
     <div className="command-center">
       <aside className="command-center__inbox" aria-label="Incident inbox">
@@ -76,6 +99,7 @@ export function CommandCenter({ vehicles = [], feeds = [], theme = 'light', MapC
           zoom={zoom}
           theme={theme}
           highlightedVehicleIds={highlightedVehicleIds}
+          predictedVehicleIds={predictedVehicleIds}
         />
         {selectedIncident?.demo && (
           <div className="command-center__demo-overlay" role="note">
