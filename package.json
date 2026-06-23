@@ -10,7 +10,10 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "sandcastle": "tsx .sandcastle/main.ts"
+    "sandcastle": "tsx .sandcastle/main.ts",
+    "aspire:start": "npm --prefix aspire-apphost run aspire:start",
+    "aspire:build": "npm --prefix aspire-apphost run aspire:build",
+    "aspire:dev": "npm --prefix aspire-apphost run aspire:dev"
   },
   "keywords": [],
   "author": "",
