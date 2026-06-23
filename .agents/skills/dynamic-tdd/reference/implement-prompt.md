@@ -43,7 +43,13 @@ Use RGR (red-green-refactor) to complete the task. Tests sit beside the file (`*
 
 # FEEDBACK LOOPS
 
-Before committing, run `npm run typecheck` and `npm test` to ensure everything passes. **Both must pass before you commit.**
+You are in a **fresh worktree**, so `node_modules/` will be missing. Install dependencies first:
+
+```
+[ -d node_modules ] || npm install
+```
+
+Then, before committing, run `npm run typecheck` and `npm test` to ensure everything passes. **Both must pass before you commit.**
 
 # COMMIT
 
