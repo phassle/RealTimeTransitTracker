@@ -1,0 +1,133 @@
+.incident-inbox {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  overflow-y: auto;
+}
+
+.incident-inbox--empty {
+  padding: 16px;
+  color: #888;
+  font-size: 13px;
+}
+
+.incident-inbox__item {
+  margin: 0;
+}
+
+.incident-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-areas:
+    'line started'
+    'count started';
+  gap: 2px 8px;
+  width: 100%;
+  text-align: left;
+  padding: 10px 12px;
+  border: none;
+  border-left: 3px solid #e53935;
+  background: rgba(255, 255, 255, 0.04);
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+}
+
+.incident-row:hover {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.incident-row--selected {
+  background: rgba(229, 57, 53, 0.12);
+  outline: 2px solid #e53935;
+}
+
+/* Resolved Incidents read as inactive: muted border, dimmed, sorted below open. */
+.incident-row--resolved {
+  border-left-color: #9e9e9e;
+  opacity: 0.65;
+}
+
+.incident-row__status {
+  font-weight: 600;
+  font-size: 12px;
+  color: #9e9e9e;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.incident-row__line {
+  grid-area: line;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.incident-row__count {
+  grid-area: count;
+  font-size: 12px;
+  color: #888;
+}
+
+.incident-row__times {
+  grid-area: started;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 1px;
+}
+
+.incident-row__started {
+  font-size: 12px;
+  color: #888;
+}
+
+/* Last-update time: dimmer than started-at so the start anchors the row and
+   recency reads as a secondary fact (PRD #84 story 2). */
+.incident-row__updated {
+  font-size: 11px;
+  color: #6b6b6b;
+}
+
+/* Feed outage rows read as data problems, not on-the-ground traffic. */
+.incident-row--outage {
+  border-left: 3px solid #c77dff;
+}
+
+.incident-row__count--data {
+  color: #c77dff;
+  font-style: italic;
+}
+
+/* Stale rows: source feed blind, frozen (not resolved). Amber, not muted —
+   the situation is still open, the data behind it just stopped flowing. */
+.incident-row--stale {
+  border-left-color: #f6a609;
+}
+
+.incident-row__stale {
+  font-weight: 600;
+  font-size: 12px;
+  color: #f6a609;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+/* Injected (demo) incidents are explicitly labelled so synthetic content is
+   never mistaken for a real detection (PRD #84 stories 26–28). */
+.incident-row__demo {
+  display: inline-block;
+  margin-right: 6px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: #ffd60a;
+  color: #1b1f24;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  vertical-align: middle;
+}

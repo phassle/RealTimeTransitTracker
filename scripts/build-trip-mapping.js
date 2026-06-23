@@ -138,7 +138,7 @@ async function saveTripMapping(mapping) {
 
   fs.writeFileSync(
     outputPath,
-    JSON.stringify(mapping, null, 2)
+    JSON.stringify(mapping)
   );
 
   const sizeKB = (fs.statSync(outputPath).size / 1024).toFixed(2);

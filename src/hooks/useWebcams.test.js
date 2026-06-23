@@ -1,0 +1,161 @@
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { renderHook, waitFor } from '@testing-library/react';
+import { useWebcams } from './useWebcams';
+import * as service from '../services/webcams';
+
+const SAMPLE = [
+  { id: 'trafikverket:1', name: 'A', type: 'traffic', media: 'image',
+    lat: 59.3, lon: 18.0, imageUrl: 'x', pageUrl: 'x',
+    source: 'trafikverket', attribution: 'Trafikverket', lastUpdated: null },
+];
+
+describe('useWebcams', () => {
+  beforeEach(() => {
+    vi.spyOn(service, 'fetchCameras').mockResolvedValue({
+      cameras: SAMPLE,
+      errors: [],
+    });
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('does not fetch while disabled', () => {
+    renderHook(() => useWebcams(false));
+    expect(service.fetchCameras).not.toHaveBeenCalled();
+  });
+
+  it('disabled hook exposes empty cameras, no error, not loading', () => {
+    const { result } = renderHook(() => useWebcams(false));
+    expect(result.current.cameras).toEqual([]);
+    expect(result.current.error).toBeNull();
+    expect(result.current.loading).toBe(false);
+  });
+
+  it('fetches once on first enable and exposes the cameras', async () => {
+    const { result } = renderHook(({ enabled }) => useWebcams(enabled), {
+      initialProps: { enabled: true },
+    });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(service.fetchCameras).toHaveBeenCalledTimes(1);
+    expect(result.current.cameras).toEqual(SAMPLE);
+    expect(result.current.error).toBeNull();
+  });
+
+  it('does not refetch when toggled off and on within a session', async () => {
+    const { result, rerender } = renderHook(({ enabled }) => useWebcams(enabled), {
+      initialProps: { enabled: false },
+    });
+    expect(service.fetchCameras).not.toHaveBeenCalled();
+
+    rerender({ enabled: true });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(service.fetchCameras).toHaveBeenCalledTimes(1);
+
+    rerender({ enabled: false });
+    rerender({ enabled: true });
+    rerender({ enabled: false });
+    rerender({ enabled: true });
+
+    // Give any stray async work a chance to fire.
+    await new Promise(r => setTimeout(r, 10));
+    expect(service.fetchCameras).toHaveBeenCalledTimes(1);
+    expect(result.current.cameras).toEqual(SAMPLE);
+  });
+
+  it('cameras remain available after toggling off (cached for the session)', async () => {
+    const { result, rerender } = renderHook(({ enabled }) => useWebcams(enabled), {
+      initialProps: { enabled: true },
+    });
+    await waitFor(() => expect(result.current.cameras).toHaveLength(1));
+
+    rerender({ enabled: false });
+    rerender({ enabled: true });
+
+    expect(result.current.cameras).toEqual(SAMPLE);
+  });
+
+  it('surfaces error state when the service reports errors and no cameras', async () => {
+    service.fetchCameras.mockResolvedValueOnce({
+      cameras: [],
+      errors: [{ source: 'trafikverket', message: 'HTTP 503' }],
+    });
+    const { result } = renderHook(() => useWebcams(true));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.cameras).toEqual([]);
+    expect(result.current.error).toMatch(/trafikverket|503/i);
+  });
+
+  it('does not throw when the service throws — keeps cameras empty and surfaces an error', async () => {
+    service.fetchCameras.mockRejectedValueOnce(new Error('boom'));
+    const { result } = renderHook(() => useWebcams(true));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.cameras).toEqual([]);
+    expect(result.current.error).toMatch(/boom/i);
+  });
+
+  it('does not throw when the fetch resolves after unmount', async () => {
+    let resolvePending;
+    service.fetchCameras.mockImplementationOnce(
+      () => new Promise(r => { resolvePending = r; }),
+    );
+
+    const { unmount } = renderHook(() => useWebcams(true));
+    unmount();
+
+    resolvePending({ cameras: SAMPLE, errors: [] });
+    await new Promise(r => setTimeout(r, 10));
+    // No assertion needed — the test fails if the post-unmount resolve throws
+    // or triggers a React state-update-after-unmount warning.
+  });
+
+  it('exposes per-source errors even when other sources delivered cameras (partial failure)', async () => {
+    service.fetchCameras.mockResolvedValueOnce({
+      cameras: SAMPLE,
+      errors: [{ source: 'trafikverket', message: 'HTTP 503' }],
+    });
+    const { result } = renderHook(() => useWebcams(true));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.cameras).toEqual(SAMPLE);
+    expect(result.current.error).toBeNull();
+    expect(result.current.errors).toEqual([
+      { source: 'trafikverket', message: 'HTTP 503' },
+    ]);
+  });
+
+  it('retries on next enable after a total failure (transient outage does not lock the session)', async () => {
+    service.fetchCameras.mockResolvedValueOnce({
+      cameras: [],
+      errors: [{ source: 'trafikverket', message: 'network down' }],
+    });
+    const { result, rerender } = renderHook(({ enabled }) => useWebcams(enabled), {
+      initialProps: { enabled: true },
+    });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.error).toMatch(/network down/i);
+    expect(service.fetchCameras).toHaveBeenCalledTimes(1);
+
+    rerender({ enabled: false });
+    rerender({ enabled: true });
+    await waitFor(() => expect(result.current.cameras).toEqual(SAMPLE));
+    expect(service.fetchCameras).toHaveBeenCalledTimes(2);
+    expect(result.current.error).toBeNull();
+  });
+
+  it('does not retry after a partial success — the session cache holds', async () => {
+    service.fetchCameras.mockResolvedValueOnce({
+      cameras: SAMPLE,
+      errors: [{ source: 'windy', message: 'HTTP 403' }],
+    });
+    const { result, rerender } = renderHook(({ enabled }) => useWebcams(enabled), {
+      initialProps: { enabled: true },
+    });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    rerender({ enabled: false });
+    rerender({ enabled: true });
+    await new Promise(r => setTimeout(r, 10));
+    expect(service.fetchCameras).toHaveBeenCalledTimes(1);
+  });
+});

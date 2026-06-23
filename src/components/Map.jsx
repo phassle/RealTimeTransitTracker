@@ -1,43 +1,55 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import { tileLayerConfig } from './tileLayerConfig';
+import 'leaflet.markercluster';
+import 'leaflet.markercluster/dist/MarkerCluster.css';
+import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
+import { createMarkerCollection } from '../services/markerCollection';
+import { createVehicleAdapter, FULL_MARKER_MIN_ZOOM } from '../services/vehicleAdapter';
+import { createWebcamAdapter } from '../services/webcamAdapter';
 
-const MODE_COLORS = {
-  metro: '#FF6B35',
-  bus: '#4ECDC4',
-  train: '#95E1D3',
-  tram: '#F38181',
-  ship: '#AA96DA',
-  ferry: '#FCBAD3',
-  unknown: '#888888'
-};
+const EMPTY_HIGHLIGHTED_VEHICLE_IDS = [];
 
-const MODE_ICONS = {
-  metro: 'M',
-  bus: 'B',
-  train: 'T',
-  tram: 'S',
-  ship: '⛴',
-  ferry: '⛴',
-  unknown: '?'
-};
-
-function escapeHtml(str) {
-  return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
+function haveSameOrderedIds(previousIds, nextIds) {
+  if (previousIds.length !== nextIds.length) return false;
+  for (let i = 0; i < previousIds.length; i += 1) {
+    if (previousIds[i] !== nextIds[i]) return false;
+  }
+  return true;
 }
 
-// Use globalThis.Map to avoid collision with React component name
-const JSMap = globalThis.Map;
+function createHighlightState(highlightedVehicleIds) {
+  return {
+    ids: highlightedVehicleIds.slice(),
+    idSet: new Set(highlightedVehicleIds),
+    vehicles: null,
+    mapZoom: null,
+  };
+}
 
-export function Map({ vehicles = [], center = [59.3293, 18.0686], zoom = 11, onBoundsChange = null }) {
+export function Map({ vehicles = [], cameras = [], center = [59.3293, 18.0686], zoom = 11, onBoundsChange = null, theme = 'light', highlightedVehicleIds = EMPTY_HIGHLIGHTED_VEHICLE_IDS }) {
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
-  const markersRef = useRef(new JSMap());
+  const vehicleCollectionRef = useRef(null);
+  // Highlight set is read live by the adapter so selection changes are reflected.
+  const [initialHighlightState] = useState(() => createHighlightState(highlightedVehicleIds));
+  const highlightStateRef = useRef(initialHighlightState);
+  // Current zoom, read live by the adapter; mapZoom state re-triggers the
+  // marker-update effect so existing markers swap compact/full icons on zoom.
+  const zoomRef = useRef(zoom);
+  const [mapZoom, setMapZoom] = useState(zoom);
+  const vehicleAdapterRef = useRef(
+    createVehicleAdapter({
+      isHighlighted: (id) => highlightStateRef.current.idSet.has(id),
+      getZoom: () => zoomRef.current,
+    }),
+  );
+  const webcamCollectionRef = useRef(null);
+  const webcamAdapterRef = useRef(createWebcamAdapter());
   const markerLayerRef = useRef(null);
+  const tileLayerRef = useRef(null);
+  const cameraClusterRef = useRef(null);
   const boundsTimerRef = useRef(null);
   const onBoundsChangeRef = useRef(onBoundsChange);
   const initialRenderRef = useRef(true);
@@ -51,18 +63,37 @@ export function Map({ vehicles = [], center = [59.3293, 18.0686], zoom = 11, onB
   useEffect(() => {
     if (!mapInstanceRef.current && mapRef.current) {
       const map = L.map(mapRef.current, {
-        preferCanvas: true // Better performance for many markers
+        preferCanvas: true, // Better performance for many markers
+        zoomControl: false, // Default top-left sits under the control panel
       }).setView(center, zoom);
+      L.control.zoom({ position: 'topright' }).addTo(map);
 
       mapInstanceRef.current = map;
 
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> | Data: <a href="https://trafiklab.se">Trafiklab</a>',
-        maxZoom: 19,
-      }).addTo(map);
+      const { url, attribution } = tileLayerConfig(theme);
+      tileLayerRef.current = L.tileLayer(url, { attribution, maxZoom: 19 }).addTo(map);
 
-      // Create layer for markers
-      markerLayerRef.current = L.layerGroup().addTo(map);
+      // Clustered layer for vehicle markers: count bubbles when zoomed out,
+      // individual markers from FULL_MARKER_MIN_ZOOM and in. Animations off —
+      // 2000+ markers are re-fed every poll.
+      markerLayerRef.current = L.markerClusterGroup({
+        disableClusteringAtZoom: FULL_MARKER_MIN_ZOOM,
+        maxClusterRadius: 50,
+        showCoverageOnHover: false,
+        spiderfyOnMaxZoom: false,
+        chunkedLoading: true,
+        animate: false,
+        animateAddingMarkers: false,
+      }).addTo(map);
+      vehicleCollectionRef.current = createMarkerCollection(markerLayerRef.current);
+
+      // Clustered layer for webcam markers — second adapter on the marker-collection module.
+      cameraClusterRef.current = L.markerClusterGroup({
+        showCoverageOnHover: false,
+        spiderfyOnMaxZoom: true,
+        chunkedLoading: true,
+      }).addTo(map);
+      webcamCollectionRef.current = createMarkerCollection(cameraClusterRef.current);
 
       // Viewport bounds reporting (debounced 300ms)
       const reportBounds = () => {
@@ -80,6 +111,10 @@ export function Map({ vehicles = [], center = [59.3293, 18.0686], zoom = 11, onB
 
       map.on('moveend', reportBounds);
       map.on('zoomend', reportBounds);
+      map.on('zoomend', () => {
+        zoomRef.current = map.getZoom();
+        setMapZoom(map.getZoom());
+      });
       reportBounds(); // initial bounds
     }
 
@@ -92,6 +127,14 @@ export function Map({ vehicles = [], center = [59.3293, 18.0686], zoom = 11, onB
     };
   }, []);
 
+  // Swap tile layer when theme changes
+  useEffect(() => {
+    if (!mapInstanceRef.current || !tileLayerRef.current) return;
+    const { url, attribution } = tileLayerConfig(theme);
+    tileLayerRef.current.remove();
+    tileLayerRef.current = L.tileLayer(url, { attribution, maxZoom: 19 }).addTo(mapInstanceRef.current);
+  }, [theme]);
+
   // Fly to new center/zoom when props change (skip first render)
   useEffect(() => {
     if (initialRenderRef.current) {
@@ -103,72 +146,30 @@ export function Map({ vehicles = [], center = [59.3293, 18.0686], zoom = 11, onB
     }
   }, [center, zoom]);
 
-  // Update vehicle markers
+  // Update vehicle markers via the marker-collection module. Runs after render
+  // so highlight bookkeeping stays out of render; the equality gate prevents
+  // marker churn unless vehicles, ordered highlights, or zoom actually changed.
   useEffect(() => {
-    if (!markerLayerRef.current) return;
-
-    const layer = markerLayerRef.current;
-    const currentVehicleIds = new Set(vehicles.map(v => v.id));
-    const existingMarkers = markersRef.current;
-
-    // Remove markers for vehicles that no longer exist
-    for (const [vehicleId, marker] of existingMarkers.entries()) {
-      if (!currentVehicleIds.has(vehicleId)) {
-        layer.removeLayer(marker);
-        existingMarkers.delete(vehicleId);
-      }
+    const highlightState = highlightStateRef.current;
+    const highlightsChanged = !haveSameOrderedIds(highlightState.ids, highlightedVehicleIds);
+    if (highlightsChanged) {
+      highlightState.ids = highlightedVehicleIds.slice();
+      highlightState.idSet = new Set(highlightedVehicleIds);
     }
 
-    // Update or create markers
-    vehicles.forEach(vehicle => {
-      const existingMarker = existingMarkers.get(vehicle.id);
-      const color = MODE_COLORS[vehicle.mode] || MODE_COLORS.unknown;
-      const icon = MODE_ICONS[vehicle.mode] || MODE_ICONS.unknown;
+    const vehiclesChanged = highlightState.vehicles !== vehicles;
+    const zoomChanged = highlightState.mapZoom !== mapZoom;
+    if (!vehiclesChanged && !highlightsChanged && !zoomChanged) return;
 
-      if (existingMarker) {
-        // Update existing marker
-        existingMarker.setLatLng([vehicle.latitude, vehicle.longitude]);
-        existingMarker.setPopupContent(createPopupContent(vehicle));
-      } else {
-        // Create new marker
-        const markerIcon = L.divIcon({
-          className: 'vehicle-marker',
-          html: `
-            <div style="
-              background: ${color};
-              border: 2px solid white;
-              border-radius: 50%;
-              width: 20px;
-              height: 20px;
-              display: flex;
-              align-items: center;
-              justify-content: center;
-              font-size: 10px;
-              font-weight: bold;
-              color: white;
-              box-shadow: 0 2px 4px rgba(0,0,0,0.3);
-              cursor: pointer;
-            ">
-              ${vehicle.line?.length <= 3 ? escapeHtml(vehicle.line) : icon}
-            </div>
-          `,
-          iconSize: [24, 24],
-          iconAnchor: [12, 12],
-        });
+    highlightState.vehicles = vehicles;
+    highlightState.mapZoom = mapZoom;
+    vehicleCollectionRef.current?.update(vehicles, vehicleAdapterRef.current);
+  });
 
-        const marker = L.marker([vehicle.latitude, vehicle.longitude], {
-          icon: markerIcon,
-          title: `${escapeHtml(vehicle.mode)} ${escapeHtml(vehicle.line)}`
-        })
-          .bindPopup(createPopupContent(vehicle), { closeButton: true })
-          .addTo(layer);
-
-        existingMarkers.set(vehicle.id, marker);
-      }
-    });
-
-    markersRef.current = existingMarkers;
-  }, [vehicles]);
+  // Update webcam markers via the marker-collection module (webcam adapter).
+  useEffect(() => {
+    webcamCollectionRef.current?.update(cameras, webcamAdapterRef.current);
+  }, [cameras]);
 
   return (
     <div
@@ -180,20 +181,4 @@ export function Map({ vehicles = [], center = [59.3293, 18.0686], zoom = 11, onB
       }}
     />
   );
-}
-
-function createPopupContent(vehicle) {
-  const time = new Date(vehicle.timestamp * 1000).toLocaleTimeString('sv-SE');
-  const speedKmh = (vehicle.speed * 3.6).toFixed(1);
-
-  return `
-    <div style="font-family: sans-serif; min-width: 150px;">
-      <strong style="font-size: 14px; text-transform: capitalize;">${escapeHtml(vehicle.mode)} ${escapeHtml(vehicle.line)}</strong><br/>
-      ${vehicle.operator ? `<em style="color: #666; font-size: 12px;">${escapeHtml(vehicle.operator.toUpperCase())}</em><br/>` : ''}
-      <hr style="margin: 5px 0; border: none; border-top: 1px solid #eee;"/>
-      Speed: ${speedKmh} km/h<br/>
-      Bearing: ${vehicle.bearing}°<br/>
-      Updated: ${time}
-    </div>
-  `;
 }

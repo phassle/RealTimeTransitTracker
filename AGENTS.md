@@ -1,117 +1,62 @@
 # RealTimeTransitTracker — Sweden Real-Time Transit Map
 
-Real-time map showing ~1,600 public transport vehicles with 2-second polling. Currently Stockholm (SL), expanding to all of Sweden.
+Real-time Leaflet map of Swedish public-transport vehicles, polled ~2s from Trafiklab GTFS-RT feeds (15 regional operators, fetched only when their region is in the viewport). Client-only SPA, no backend, cookieless (ADR 0001).
 
-## Response Style
+## Essentials (every task)
+
+- **Package manager**: npm (`npm install`). **Runtime**: Node ≥20.19 (≥22.13 if using the Aspire AppHost).
+- **Dev**: `npm run dev` → http://localhost:3000
+- **Build**: `npm run build` (prod → `dist/`)
+- **Typecheck**: `npm run typecheck` (= `vite build`)
+- **Test**: `npm test` (Vitest single run; `test:watch` to watch). Tests sit beside the file (`*.test.js[x]`); `src/App.test.jsx` is excluded (`vite.config.js:16`). No e2e suite.
+
+## Response style
 
 - Be extremely concise. Sacrifice grammar for concision.
-- At the end of each plan, list unresolved questions (if any).
+- End each plan with a list of unresolved questions.
 
-## Tech Stack
+## Critical workflows
 
-| Layer | Technology |
-|-------|-----------|
-| UI | React 19, JSX |
-| Build | Vite 7, ES modules (`"type": "module"`) |
-| Map | Leaflet 1.9 + OpenStreetMap tiles |
-| Data | GTFS-RT (Protocol Buffers) via Trafiklab API |
-| Parsing | gtfs-realtime-bindings |
-| Runtime | Node.js 18+ |
+**Never push to `main` or `develop` — always open a PR.** Branch protection requires it.
 
-## Project Structure
+### Feature work
+1. Branch off `develop` (git flow; `main` is release-only).
+2. Read [CONTEXT.md](CONTEXT.md) (domain glossary — use its terms) + relevant [docs/adr/](docs/adr/).
+3. Implement; verify in the browser via `npm run dev` (or the [observe-running-app](.agents/skills/observe-running-app/SKILL.md) skill).
+4. `npm test` must pass; add tests beside the file. Code review before committing.
+5. Open a PR into `develop` via the [create-pr](.agents/skills/create-pr/SKILL.md) skill — it runs the pre-PR gates.
 
-```
-RealTimeTransitTracker/
-├── src/
-│   ├── App.jsx                    # Root component, state owner
-│   ├── main.jsx                   # React DOM mount
-│   ├── components/
-│   │   ├── Map.jsx                # Leaflet map + vehicle markers
-│   │   └── ControlPanel.jsx       # Mode filters, stats, controls
-│   ├── hooks/
-│   │   └── useRealtimeVehicles.js # Polling hook (2s interval)
-│   └── services/
-│       └── trafiklab.js           # API client, protobuf parsing, line cache
-├── scripts/
-│   └── build-trip-mapping.js      # GTFS static data → trip-mapping.json
-├── research/                      # Design docs (01-07)
-├── test-api.js                    # API connectivity test
-├── explore-routes.js              # GTFS-RT data inspector
-├── find-buses.js                  # Active bus line finder
-├── index.html                     # SPA entry (loads Leaflet CSS from CDN)
-├── vite.config.js                 # Vite config (port 3000)
-├── package.json                   # Dependencies and scripts
-├── .env                           # API keys (VITE_TRAFIKLAB_API_KEY)
-└── .env.example                   # Template for API keys (safe to commit)
-```
+### Pre-PR gates
+1. `npm run build` succeeds (sourcemaps stay off — `vite.config.js:9-11`).
+2. Security review — [docs/security-review.md](docs/security-review.md).
+3. PR into `develop`; issues/PRDs via `gh` — [docs/agents/issue-tracker.md](docs/agents/issue-tracker.md).
 
-## Data Flow
+## Map (read on demand)
 
-```
-Trafiklab GTFS-RT API (protobuf) + SL Lines API (JSON)
-  → trafiklab.js (parse, enrich, cache)
-    → useRealtimeVehicles (poll, state management)
-      → App.jsx (filter by mode)
-        → Map.jsx (render markers) + ControlPanel.jsx (UI controls)
-```
+| File | What |
+|------|------|
+| [CONTEXT.md](CONTEXT.md) | domain glossary; Privacy Notice vs consent vs essential storage |
+| [docs/architecture.md](docs/architecture.md) | tech stack, data flow, Command Center pipeline, key implementation facts |
+| [docs/architectural_patterns.md](docs/architectural_patterns.md) | 15 recurring patterns with file:line anchors |
+| [docs/environment.md](docs/environment.md) | env vars, API keys, rate limit, debug scripts |
+| [docs/security-review.md](docs/security-review.md) | mandatory pre-PR security checklist |
+| [docs/adr/](docs/adr/) | ADRs 0001–0005: cookieless, dark tiles, client-side incidents, webcam embeds, transient projections |
+| [docs/agents/domain.md](docs/agents/domain.md) | how agents consume CONTEXT.md + ADRs |
+| [docs/agents/issue-tracker.md](docs/agents/issue-tracker.md) | GitHub issue conventions via `gh` |
+| [docs/agents/triage-labels.md](docs/agents/triage-labels.md) | triage label vocabulary |
+| [research/](research/) | 8-part design docs (APIs, GTFS-RT, stack, multi-operator) |
 
-## Commands
+### Skills — `.agents/skills/<name>/SKILL.md`
 
-```bash
-npm install                          # Install dependencies
-npm run dev                          # Dev server at http://localhost:3000
-npm run build                        # Production build to dist/
-npm run preview                      # Preview production build
-node test-api.js                     # Test API connectivity
-node explore-routes.js               # Inspect GTFS-RT data structure
-node find-buses.js                   # List active bus lines
-node scripts/build-trip-mapping.js   # Build GTFS static trip mapping
-```
+**Check this directory first** — 25 skills live here, each invokable via the Skill tool. Match the task to a skill's `description` before improvising. Project-specific:
 
-## Environment Variables
+- [add-operator](.agents/skills/add-operator/SKILL.md) — add a regional operator to the map
+- [refresh-trip-mapping](.agents/skills/refresh-trip-mapping/SKILL.md) — rebuild the GTFS static trip mapping
+- [create-pr](.agents/skills/create-pr/SKILL.md) — open a PR (asks base branch) with pre-PR gates
+- [observe-running-app](.agents/skills/observe-running-app/SKILL.md) — see the running SPA's browser console/network via Aspire
 
-Defined in `.env`. Keys prefixed with `VITE_` are exposed to the client via Vite. See `.env.example` for all required keys.
+Plus a general library in the same dir: engineering workflow (`tdd`, `diagnose`, `improve-codebase-architecture`, `prototype`, `handoff`), planning/issues (`to-prd`, `to-issues`, `triage`, `grill-me`, `grill-with-docs`), Aspire (`aspire`, `aspire-monitoring`, `aspire-orchestration`, `aspire-deployment`, `aspireify`, `aspire-init`), and authoring (`write-a-skill`, `teach`, `zoom-out`). Browse `.agents/skills/` for the full set.
 
-| Variable | Used by | Purpose |
-|----------|---------|---------|
-| `VITE_TRAFIKLAB_API_KEY` | `trafiklab.js:3` | GTFS Sweden 3 realtime API key |
-| `GTFS_REGIONAL_API_KEY` | `scripts/build-trip-mapping.js:164` | GTFS static data download |
+## Data attribution
 
-Get keys from https://developer.trafiklab.se/
-
-## Key Implementation Details
-
-**Transport modes**: metro, bus, train, tram, ship, ferry, unknown — each with a consistent color defined in `src/components/Map.jsx:5-13` and `src/components/ControlPanel.jsx:4-12`.
-
-**Vehicle object shape** (returned by `trafiklab.js:69-90`):
-`{ id, routeId, line, lineName, mode, latitude, longitude, bearing, speed, timestamp, tripId, direction }`
-
-**API endpoints**:
-- Vehicle positions: `opendata.samtrafiken.se/gtfs-rt-sweden/sl/VehiclePositionsSweden.pb` — `trafiklab.js:4`
-- Line metadata: `transport.integration.sl.se/v1/lines` — `trafiklab.js:16`
-
-**Rate limits**: Bronze tier — 50 calls/min, 30k calls/month. Current usage: 30 calls/min (2s interval).
-
-**Performance**: `preferCanvas: true` on Leaflet (`Map.jsx:38`), marker reuse instead of recreation (`Map.jsx:67-119`), `useMemo` for filtered vehicles (`App.jsx:14-17`).
-
-## No Build System / Test Suite
-
-POC — no test framework, CI, or linting. Validation via utility scripts and browser testing.
-
-## Git Workflow
-
-- Main branch: `main`
-- Always create feature branches (git flow)
-- Run code review before committing
-- **Run a security analysis before creating a PR** — mandatory. Check: API key exposure, XSS vectors, unsanitized external data, dependency vulnerabilities (`npm audit`), CSP/security headers, build config (source maps, secrets in bundle)
-
-## Additional Docs
-
-- [docs/architectural_patterns.md](docs/architectural_patterns.md) — recurring patterns (container/presenter split, caching, marker lifecycle)
-- [research/](research/) — 7-part design documentation covering APIs, GTFS-RT format, tech stack, implementation plan, and multi-operator expansion
-
-## Data Attribution
-
-- Trafiklab.se — GTFS-RT data (CC-BY 4.0)
-- OpenStreetMap — map tiles
-- SL Transport API — line metadata
+Trafiklab.se (GTFS-RT, CC-BY 4.0) · OpenStreetMap · CARTO (dark tiles)

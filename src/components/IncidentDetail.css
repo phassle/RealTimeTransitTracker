@@ -1,0 +1,336 @@
+.incident-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  padding: 0.75rem 1rem;
+  overflow-y: auto;
+}
+
+.incident-detail--empty {
+  padding: 1.5rem 1rem;
+  color: var(--text-muted, #888);
+  font-style: italic;
+}
+
+.incident-detail__heading {
+  margin: 0 0 0.5rem;
+  font-size: 0.95rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.why-flagged,
+.incident-timeline {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.why-flagged__claim {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: var(--surface, #f4f4f5);
+  border: 1px solid var(--border, #d4d4d8);
+  border-radius: 6px;
+  padding: 0.6rem 0.75rem;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+
+.why-flagged__claim:hover,
+.why-flagged__claim:focus-visible {
+  border-color: var(--accent, #2563eb);
+}
+
+.why-flagged__rule {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 0.4rem;
+}
+
+.why-flagged__evidence {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.15rem 0.75rem;
+  margin: 0;
+}
+
+.why-flagged__evidence > div {
+  display: contents;
+}
+
+.why-flagged__evidence dt {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-muted, #888);
+}
+
+.why-flagged__evidence dd {
+  margin: 0;
+}
+
+.incident-timeline__item {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.1rem 0.6rem;
+  padding: 0.5rem 0.6rem;
+  border-left: 3px solid var(--border, #d4d4d8);
+  border-radius: 0 4px 4px 0;
+  background: var(--surface, #f4f4f5);
+}
+
+.incident-timeline__item--highlighted {
+  border-left-color: var(--accent, #2563eb);
+  background: var(--accent-soft, #dbeafe);
+}
+
+.incident-timeline__time {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.incident-timeline__rule {
+  font-weight: 600;
+}
+
+.incident-timeline__measured,
+.incident-timeline__vehicle {
+  grid-column: 2;
+  font-size: 0.85rem;
+  color: var(--text-muted, #888);
+}
+
+/* Operator-subject (feed outage) header — a data problem, no ground geometry. */
+.incident-detail__subject--operator {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+  margin-bottom: 8px;
+  border-left: 3px solid #c77dff;
+  background: rgba(199, 125, 255, 0.08);
+}
+
+.incident-detail__subject-title {
+  font-weight: 700;
+}
+
+.incident-detail__subject-note {
+  font-size: 0.8rem;
+  color: var(--text-muted, #888);
+}
+
+/* Stale banner — source feed blind, frozen as of last observation. */
+.incident-detail__stale {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+  margin-bottom: 8px;
+  border-left: 3px solid #f6a609;
+  background: rgba(246, 166, 9, 0.1);
+}
+
+.incident-detail__stale-title {
+  font-weight: 700;
+  color: #f6a609;
+}
+
+.incident-detail__stale-note {
+  font-size: 0.8rem;
+  color: var(--text-muted, #888);
+}
+
+.incident-timeline__item--verification {
+  border-left-color: var(--success, #16a34a);
+  background: var(--success-soft, #dcfce7);
+}
+
+/* Nearby webcams */
+.incident-webcams {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.incident-webcams__empty {
+  margin: 0;
+  color: var(--text-muted, #888);
+  font-style: italic;
+  font-size: 0.85rem;
+}
+
+.incident-webcams__item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.5rem 0.6rem;
+  border: 1px solid var(--border, #d4d4d8);
+  border-radius: 6px;
+  background: var(--surface, #f4f4f5);
+}
+
+.incident-webcams__still {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 160px;
+  object-fit: cover;
+  border-radius: 4px;
+  background: #e5e5e5;
+}
+
+.incident-webcams__meta {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.incident-webcams__name {
+  font-weight: 600;
+}
+
+.incident-webcams__source {
+  font-size: 0.8rem;
+  color: var(--accent, #2563eb);
+  white-space: nowrap;
+}
+
+.incident-webcams__verify {
+  align-self: flex-start;
+  font: inherit;
+  font-size: 0.8rem;
+  padding: 0.3rem 0.6rem;
+  cursor: pointer;
+  border: 1px solid var(--border, #d4d4d8);
+  border-radius: 4px;
+  background: var(--surface-raised, #fff);
+  color: inherit;
+}
+
+.incident-webcams__verify:hover,
+.incident-webcams__verify:focus-visible {
+  border-color: var(--success, #16a34a);
+}
+
+/* Injected (demo) incident labelling — a banner on the panel and a tag on the
+   timeline so demo content is unmistakable everywhere (PRD #84 stories 26–28). */
+.incident-detail__demo {
+  padding: 8px 14px;
+  background: #ffd60a;
+  color: #1b1f24;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.incident-detail__demo-tag {
+  color: #b58900;
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: 11px;
+  letter-spacing: 0.05em;
+}
+
+/* Expected impact — a Projection, deliberately styled UNLIKE the observed
+   "Why flagged?" evidence: a dashed accent border and a "forecast" voice so a
+   prediction is never mistaken for an observation (PRD #136 story 10). */
+.incident-detail__projection {
+  padding: 0.5rem 0.75rem;
+  border: 1px dashed var(--projection-accent, #8a6dff);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--projection-accent, #8a6dff) 8%, transparent);
+}
+
+.incident-detail__projection-tag {
+  color: var(--projection-accent, #8a6dff);
+  font-weight: 600;
+  text-transform: lowercase;
+  font-size: 11px;
+  letter-spacing: 0.03em;
+}
+
+.incident-projection__hedge {
+  margin: 0 0 0.5rem;
+  font-style: italic;
+  font-size: 0.8rem;
+  color: var(--text-muted, #888);
+}
+
+.incident-projection,
+.incident-projection__vehicles {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.incident-projection__line {
+  display: block;
+  font-weight: 600;
+}
+
+.incident-projection__downstream {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--text-muted, #888);
+}
+
+.incident-projection__vehicles {
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin-top: 0.25rem;
+}
+
+.incident-projection__vehicle {
+  font-size: 0.75rem;
+  font-family: var(--mono, monospace);
+  padding: 0.05rem 0.35rem;
+  border: 1px dashed var(--projection-accent, #8a6dff);
+  border-radius: 4px;
+}
+
+.incident-projection__magnitude {
+  display: block;
+  font-size: 0.85rem;
+  margin-top: 0.15rem;
+}
+
+.incident-projection__confidence {
+  display: block;
+  font-size: 0.78rem;
+  margin-top: 0.15rem;
+  color: var(--text-muted, #888);
+  text-transform: capitalize;
+}
+
+.incident-projection__inputs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  margin: 0.4rem 0 0;
+  font-size: 0.72rem;
+  color: var(--text-muted, #888);
+}
+
+.incident-projection__inputs dt {
+  font-weight: 600;
+}
+
+.incident-projection__inputs dd {
+  margin: 0;
+}
