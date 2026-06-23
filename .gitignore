@@ -6,3 +6,4 @@ dist/
 .claude/worktrees/
 .aspire/
 .claude/settings.local.json
+.agents/reinforcement-loop/.local/
