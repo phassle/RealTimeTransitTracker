@@ -56,10 +56,8 @@ function App() {
     [cameras, enabledCameraTypes],
   );
 
-  const visibleOperators = useMemo(() => {
-    if (!viewportBounds) return ['sl'];
-    return getVisibleOperators(viewportBounds);
-  }, [viewportBounds]);
+  // ponytail: trivial derivation, no memo needed
+  const visibleOperators = viewportBounds ? getVisibleOperators(viewportBounds) : ['sl'];
 
   const { vehicles: allVehicles, feedOutcomes, error, loading, lastUpdate, refresh, activeOperators, effectiveInterval } =
     useRealtimeVehicles(visibleOperators, 2000, isOnline);
@@ -77,10 +75,6 @@ function App() {
     availableLines,
     filteredVehicles,
   } = useFilterSelection(allVehicles);
-
-  const handleBoundsChange = (bounds) => {
-    setViewportBounds(bounds);
-  };
 
   const handleCameraTypeToggle = (typeId) => {
     setEnabledCameraTypes(prev =>
@@ -136,7 +130,7 @@ function App() {
         cameras={webcamsEnabled ? filteredCameras : []}
         center={mapCenter}
         zoom={mapZoom}
-        onBoundsChange={handleBoundsChange}
+        onBoundsChange={setViewportBounds}
         theme={theme}
         userLocation={userLocation}
       />
