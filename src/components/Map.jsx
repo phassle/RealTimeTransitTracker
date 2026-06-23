@@ -28,9 +28,13 @@ function createHighlightState(highlightedVehicleIds) {
   };
 }
 
-export function Map({ vehicles = [], cameras = [], center = [59.3293, 18.0686], zoom = 11, onBoundsChange = null, theme = 'light', highlightedVehicleIds = EMPTY_HIGHLIGHTED_VEHICLE_IDS }) {
+export function Map({ vehicles = [], cameras = [], center = [59.3293, 18.0686], zoom = 11, onBoundsChange = null, theme = 'light', highlightedVehicleIds = EMPTY_HIGHLIGHTED_VEHICLE_IDS, userLocation = null }) {
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
+  // Singleton User location marker (PRD #111). A single circle marker managed
+  // directly here — deliberately NOT routed through the keyed marker-collection,
+  // which exists for id-diffed collections. Re-locating moves this one marker.
+  const userMarkerRef = useRef(null);
   const vehicleCollectionRef = useRef(null);
   // Highlight set is read live by the adapter so selection changes are reflected.
   const [initialHighlightState] = useState(() => createHighlightState(highlightedVehicleIds));
@@ -170,6 +174,32 @@ export function Map({ vehicles = [], cameras = [], center = [59.3293, 18.0686], 
   useEffect(() => {
     webcamCollectionRef.current?.update(cameras, webcamAdapterRef.current);
   }, [cameras]);
+
+  // User location singleton: place once, then move on subsequent fixes. Styled
+  // as a distinct "you are here" blue accent — never a transport-mode colour —
+  // so it is never mistaken for a Vehicle. The accent is theme-aware (issue
+  // #115, story 15): a deeper blue on light tiles, a brighter blue on dark tiles
+  // (matching the locate button), so it stays legible against either basemap
+  // while keeping its distinct white-ringed accent. Restyled on theme change.
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map || !userLocation) return;
+    const latlng = [userLocation.latitude, userLocation.longitude];
+    const style = {
+      radius: 8,
+      color: '#ffffff',
+      weight: 2,
+      fillColor: theme === 'dark' ? '#5b9dff' : '#1d6fe0',
+      fillOpacity: 1,
+    };
+    if (userMarkerRef.current) {
+      userMarkerRef.current.setLatLng(latlng);
+      userMarkerRef.current.setStyle(style);
+    } else {
+      userMarkerRef.current = L.circleMarker(latlng, style).addTo(map);
+      userMarkerRef.current.bindTooltip('You are here');
+    }
+  }, [userLocation, theme]);
 
   return (
     <div
