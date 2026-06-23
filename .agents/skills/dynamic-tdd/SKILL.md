@@ -1,15 +1,17 @@
 ---
 name: dynamic-tdd
-description: Build every open issue under a PRD automatically using a dynamic Workflow — plan (dependency graph) → parallel TDD implement in isolated worktrees → merge each issue branch into one feature branch → open a single PR into develop. Use when the user runs /dynamic-tdd <PRD#>, wants to auto-build a PRD's child issues, or asks to orchestrate issues with the Workflow tool / sandcastle-style flow.
+description: Build every open issue under a PRD automatically — a dynamic Workflow plans (dependency graph) → implements each issue with TDD in isolated worktrees → merges each into one feature branch (deleting each merged worktree) → then simplify → verify in Aspire (web logs) → local Codex PR review → open one PR into develop. Use when the user runs /dynamic-tdd <PRD#>, wants to auto-build a PRD's child issues, or asks to orchestrate issues with the Workflow tool / sandcastle-style flow.
 ---
 
 # dynamic-tdd
 
 Replaces the `.sandcastle` plan→implement→merge loop with the **Workflow tool**, integrating into a feature branch instead of pushing to trunk.
 
-**Branch model:** `develop` → `feature/<prd-slug>` → per-issue worktrees (`dynamic-tdd/issue-<id>`) → merge each back into the feature branch → **one PR** `feature/<prd-slug>` → `develop`. Never push to `develop`/`main` directly (see CLAUDE.md).
+**Branch model:** `develop` → `feature/<prd-slug>` → per-issue worktrees (`dynamic-tdd/issue-<id>`) → merge each back into the feature branch (then delete that worktree) → **one PR** `feature/<prd-slug>` → `develop`. Never push to `develop`/`main` directly (see CLAUDE.md).
 
-Phase prompts live in [reference/](reference/) (`plan-prompt.md`, `implement-prompt.md`, `merge-prompt.md`) and are adapted from `.sandcastle/*-prompt.md`. The Workflow agents read and follow them.
+**Pipeline:** plan → implement (parallel TDD, isolated worktrees) → merge + delete merged worktree → **simplify** → **verify in Aspire** (check web/browser logs) → **local Codex PR review** → **create PR**. The Workflow tool runs the first three (the fan-out); the orchestrator runs the tail (steps 5–8 below), each delegating to an existing skill.
+
+Phase prompts live in [reference/](reference/) (`plan-prompt.md`, `implement-prompt.md`, `merge-prompt.md`, `simplify-prompt.md`, `verify-prompt.md`) and are adapted from `.sandcastle/*-prompt.md`. The agents read and follow them.
 
 ## Run
 
@@ -30,20 +32,30 @@ Phase prompts live in [reference/](reference/) (`plan-prompt.md`, `implement-pro
    ```
    If the branch already exists, `git switch feature/<prd-slug>` and reuse it (the run is resumable — branch names are deterministic).
 
-4. **Run the Workflow** (it loops plan→implement→merge until nothing is unblocked):
+4. **Run the Workflow** (it loops plan→implement→merge until nothing is unblocked; the merge phase deletes each worktree once its branch is merged — see `merge-prompt.md`):
    ```
    Workflow({
      scriptPath: ".agents/skills/dynamic-tdd/scripts/dynamic-tdd.workflow.mjs",
      args: { prd: "<PRD#>", featureBranch: "feature/<prd-slug>", base: "develop", maxIterations: 10, maxParallel: 6 }
    })
    ```
-   Wait for the `<task-notification>`; watch live with `/workflows`.
+   Wait for the `<task-notification>`; watch live with `/workflows`. It returns `{ mergedIssues, ... }`. Confirm `git worktree list` shows only the main worktree afterwards (prune any stragglers: `git worktree prune` + `git worktree remove`).
 
-5. **Review, then open ONE PR.** Inspect the feature branch (`git log --oneline origin/develop..`, run `npm run build`). Then open the PR via the [create-pr](../create-pr/SKILL.md) skill with base `develop`. The PR body should list the issues built (and `Closes #<id>` for each so they close on merge).
+   The remaining steps run **only if `mergedIssues` is non-empty**, in order. Stop and report if any step fails — do not open the PR.
+
+5. **Simplify.** Run the [simplify](../../../.claude/skills/simplify/SKILL.md) skill (`/simplify`) over the feature branch's changed files (`git diff --name-only origin/develop...`). Follow [reference/simplify-prompt.md](reference/simplify-prompt.md). Keep tests green; commit `RALPH: simplify pass (PRD #<PRD#>)` (or nothing if there was nothing to do).
+
+6. **Verify in Aspire.** Run the [observe-running-app](../observe-running-app/SKILL.md) skill (or `/verify`) per [reference/verify-prompt.md](reference/verify-prompt.md): `npm run build`, launch the SPA via **Aspire**, and **verify the browser/web logs are clean** (no new errors/warnings) while exercising each merged slice. **If any merged issue specifies tests that must run in the browser, run them now** against the Aspire app (use `playwright-cli` for scripted steps). If the web logs show a regression or a browser test fails, fix it on the feature branch (tests green) before continuing.
+
+7. **Local Codex PR review.** Ensure Codex is ready (`/codex:setup`), then run a local review of the diff (`git diff origin/develop...`) via the [codex:rescue](../../../.claude/skills/codex/SKILL.md) skill — ask it to review the changes like a PR. Address any blocking findings on the feature branch (commit fixes, keep tests green) and re-run the relevant checks.
+
+8. **Create the PR — only when everything above is OK.** Open ONE PR via the [create-pr](../create-pr/SKILL.md) skill with base `develop`. The body lists the issues built and `Closes #<id>` for each so they close on merge.
 
 ## Notes
 
 - **Isolation:** each implementer runs with `isolation: 'worktree'` so parallel agents never collide; they share the git object store, so the `dynamic-tdd/issue-<id>` branches are visible to the merger. The merger runs with **no** isolation (in the main worktree, on the feature branch).
+- **Worktree cleanup:** the merge phase removes each issue worktree and deletes its branch right after merging it (the Workflow keeps committed worktrees otherwise). After the run, only the main worktree should remain.
+- **Gated tail:** simplify → verify → Codex review → PR run in sequence and each must pass; a failed verify (dirty web logs or a failing browser test) or an unresolved Codex blocker stops the run before the PR.
 - **Per-iteration incrementality:** later iterations branch off the feature branch's *current* HEAD, so issues unblocked by earlier merges build on top of them.
 - **Issues are not closed mid-run** — completion happens when the single feature PR merges.
 - **Cost:** one Opus planner + N Opus implementers (full TDD) + one merger per iteration. Scale `maxParallel`/`maxIterations` to the backlog; warn the user for large PRDs.
