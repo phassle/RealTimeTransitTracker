@@ -26,6 +26,9 @@ export function useAircraft(query, { enabled = true, intervalMs = 2000 } = {}) {
   const [fetchedAt, setFetchedAt] = useState(null);
   const intervalRef = useRef(null);
   const aliveRef = useRef(true);
+  // The query key whose result is currently shown — so keep-last-good applies
+  // only within the SAME viewport, never across a pan/zoom to a new one.
+  const lastGoodQueryKeyRef = useRef(null);
 
   useEffect(() => {
     aliveRef.current = true;
@@ -53,12 +56,18 @@ export function useAircraft(query, { enabled = true, intervalMs = 2000 } = {}) {
       try {
         const next = await fetchAircraft(query); // null on failure, [] / [...] on success
         if (cancelled || !aliveRef.current) return;
-        // null = transient failure: keep the last-good list AND its fetchedAt, so
-        // dead-reckoning keeps extrapolating instead of the planes blanking out.
         if (next != null) {
           setAircraft(next);
           setFetchedAt(Date.now());
+          lastGoodQueryKeyRef.current = queryKey;
+        } else if (lastGoodQueryKeyRef.current !== queryKey) {
+          // First poll for a NEW viewport failed — clear, so we never show (and
+          // dead-reckon) the previous viewport's aircraft over the new area.
+          setAircraft([]);
+          setFetchedAt(null);
         }
+        // else: same-viewport transient failure → keep the last-good list AND its
+        // fetchedAt, so dead-reckoning keeps extrapolating instead of blanking.
       } catch {
         // Defensive: fetchAircraft is total (returns null on failure), but a poll
         // must never throw — keep the last-good list on any unexpected error.

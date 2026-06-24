@@ -107,7 +107,12 @@ export async function fetchAircraft({ lat, lon, radius }, { fetchImpl = fetch } 
     const response = await fetchImpl(url);
     if (!response.ok) return null;
     const data = await response.json();
-    return mapAircraft(data?.ac);
+    // Only a well-formed `{ ac: [...] }` is real data — `{ ac: [] }` is a genuine
+    // "no aircraft here" and clears the list. Anything without an ac[] array is a
+    // malformed/error payload; treat it as failure (null) so the last-good list
+    // is kept rather than blanked.
+    if (!Array.isArray(data?.ac)) return null;
+    return mapAircraft(data.ac);
   } catch {
     return null;
   }

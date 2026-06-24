@@ -87,7 +87,6 @@ export function createVehicleAdapter({ isHighlighted = () => false, isPredicted 
     // Highlighted, predicted, and followed vehicles all stay full-size so the
     // accent is legible even when the surrounding field is clustered/compact.
     const compact = !highlighted && !predicted && !followed && getZoom() < FULL_MARKER_MIN_ZOOM;
-    const label = vehicle.line?.length <= 3 ? ['line', String(vehicle.line ?? '')] : ['icon', icon];
 
     return {
       color,
@@ -96,7 +95,10 @@ export function createVehicleAdapter({ isHighlighted = () => false, isPredicted 
       predicted,
       followed,
       compact,
-      key: JSON.stringify([compact, color, highlighted, predicted, followed, label]),
+      // The marker renders the type pictogram (state.icon), so the icon — not the
+      // line number — is what visibly changes; keying on it avoids a needless
+      // setIcon when only a vehicle's line label changes.
+      key: JSON.stringify([compact, color, highlighted, predicted, followed, icon]),
     };
   }
 
@@ -255,6 +257,10 @@ export function createVehicleAdapter({ isHighlighted = () => false, isPredicted 
     // setLatLng keeps open popups alive.
     shouldReadd(marker, vehicle) {
       if (getZoom() >= FULL_MARKER_MIN_ZOOM) return false;
+      // Never re-add a marker whose popup is open — re-adding it to the cluster
+      // layer closes the popup, which under 1s dead-reckoning ticks would make
+      // the Follow control un-clickable at low zoom. It still moves via setLatLng.
+      if (typeof marker.isPopupOpen === 'function' && marker.isPopupOpen()) return false;
       if (typeof marker.getLatLng !== 'function') return false;
       const current = marker.getLatLng();
       return current.lat !== vehicle.latitude || current.lng !== vehicle.longitude;

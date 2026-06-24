@@ -103,6 +103,22 @@ describe('useAircraft', () => {
     expect(result.current.aircraft).toEqual(SAMPLE);          // not blanked
     expect(result.current.fetchedAt).toBe(firstFetchedAt);    // fix time unchanged → prediction keeps extrapolating
   });
+
+  it('clears stale aircraft when the viewport changes and the new query fails', async () => {
+    service.fetchAircraft
+      .mockResolvedValueOnce(SAMPLE) // query A succeeds
+      .mockResolvedValue(null);      // query B (new viewport) fails
+    const { result, rerender } = renderHook(
+      ({ q }) => useAircraft(q, { enabled: true }),
+      { initialProps: { q: { lat: 59.3, lon: 18.0, radius: 100 } } },
+    );
+    await waitFor(() => expect(result.current.aircraft).toEqual(SAMPLE));
+
+    rerender({ q: { lat: 55.6, lon: 13.0, radius: 100 } }); // pan to a new viewport (query B)
+    // B's first poll fails → the old viewport's aircraft must NOT linger.
+    await waitFor(() => expect(result.current.aircraft).toEqual([]));
+    expect(result.current.fetchedAt).toBeNull();
+  });
 });
 
 // Zoom gate + viewport-radius derivation (PRD #165, Slice 2). These drive the

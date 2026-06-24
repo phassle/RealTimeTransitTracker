@@ -133,12 +133,20 @@ describe('fetchAircraft', () => {
     await expect(fetchAircraft({ lat: 59, lon: 18, radius: 100 })).resolves.toBeNull();
   });
 
-  it('returns [] (not null) on a successful response with no aircraft (genuine empty)', async () => {
+  it('returns [] (not null) on a successful response with a genuinely empty ac[]', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({ ac: [] }),
+    });
+    await expect(fetchAircraft({ lat: 59, lon: 18, radius: 100 })).resolves.toEqual([]);
+  });
+
+  it('returns null on an ok-but-malformed payload (no ac[] array) — keep last good', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue({
       ok: true,
       json: async () => ({ unexpected: true }),
     });
-    await expect(fetchAircraft({ lat: 59, lon: 18, radius: 100 })).resolves.toEqual([]);
+    await expect(fetchAircraft({ lat: 59, lon: 18, radius: 100 })).resolves.toBeNull();
   });
 });
 

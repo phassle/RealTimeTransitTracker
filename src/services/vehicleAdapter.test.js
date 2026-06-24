@@ -72,6 +72,14 @@ describe('createVehicleAdapter zoom-adaptive icons', () => {
     expect(adapter.shouldReadd(movedMarker, makeVehicle())).toBe(false);
   });
 
+  it('does not re-add a moved marker whose popup is open (so prediction ticks do not close it)', () => {
+    const adapter = createVehicleAdapter({ getZoom: () => FULL_MARKER_MIN_ZOOM - 2 });
+    const movedOpen = { getLatLng: () => ({ lat: 59.0, lng: 18.0 }), isPopupOpen: () => true };
+    const movedClosed = { getLatLng: () => ({ lat: 59.0, lng: 18.0 }), isPopupOpen: () => false };
+    expect(adapter.shouldReadd(movedOpen, makeVehicle())).toBe(false);  // open popup → keep in place
+    expect(adapter.shouldReadd(movedClosed, makeVehicle())).toBe(true); // closed → re-add to re-bucket
+  });
+
   it('onUpdate swaps an existing marker icon when zoom crosses the threshold', () => {
     let zoom = FULL_MARKER_MIN_ZOOM;
     const adapter = createVehicleAdapter({ getZoom: () => zoom });
@@ -331,6 +339,32 @@ describe('createVehicleAdapter follow popup control', () => {
     adapter.onUpdate(marker, makeVehicle({ speed: 12 }));  // swaps to button B; fix re-wires it
     currentButton.click();                                 // click the post-update button (B)
 
+    expect(onFollowToggle).toHaveBeenCalledWith('v1');
+  });
+
+  it('skips the popup rebuild on a position-only tick and keeps the Follow button wired', () => {
+    const onFollowToggle = vi.fn();
+    const adapter = createVehicleAdapter({ onFollowToggle });
+    const handlers = {};
+    const button = { addEventListener: (ev, fn) => { handlers[ev] = fn; } };
+    const popup = {
+      getElement: () => ({ querySelector: (sel) => (sel.includes('follow') ? button : null) }),
+    };
+    const setPopupContent = vi.fn().mockReturnThis();
+    const marker = {
+      on: (ev, fn) => { if (ev === 'popupopen') fn({ popup }); },
+      isPopupOpen: () => true,
+      setLatLng: vi.fn().mockReturnThis(),
+      setIcon: vi.fn().mockReturnThis(),
+      setPopupContent,
+      getPopup: () => popup,
+    };
+
+    adapter.onMarkerCreated(marker, makeVehicle());                          // wires button, seeds signature
+    adapter.onUpdate(marker, makeVehicle({ latitude: 59.4, longitude: 18.1 })); // position-only tick
+
+    expect(setPopupContent).not.toHaveBeenCalled(); // displayed data unchanged → no rebuild
+    handlers.click({ preventDefault() {} });        // original listener still live
     expect(onFollowToggle).toHaveBeenCalledWith('v1');
   });
 });
