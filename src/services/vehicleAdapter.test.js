@@ -227,6 +227,33 @@ describe('createVehicleAdapter lazy popups', () => {
     expect(popupContent(marker)).toContain('bus 18');
   });
 
+  it('renders an aircraft popup with callsign, type, reg, altitude, speed and bearing — no operator', () => {
+    const adapter = createVehicleAdapter();
+    const marker = { isPopupOpen: () => false };
+    const aircraft = makeVehicle({
+      mode: 'aircraft',
+      line: 'SAS123',
+      operator: undefined,
+      bearing: 180,
+      speed: 200,
+      type: 'Boeing 737-800',
+      reg: 'SE-ABC',
+      altitude: 35000,
+    });
+
+    const popupContent = adapter.toPopup(aircraft);
+    adapter.onMarkerCreated(marker, aircraft);
+    const html = popupContent(marker);
+
+    expect(html).toContain('aircraft SAS123'); // callsign
+    expect(html).toContain('Type: Boeing 737-800');
+    expect(html).toContain('Reg: SE-ABC');
+    expect(html).toContain('Altitude: 35000 ft');
+    expect(html).toContain('Bearing: 180');
+    expect(html).toContain('km/h'); // speed
+    expect(html).not.toContain('<em'); // no operator line
+  });
+
   it('refreshes popup content only when the popup is open', () => {
     const adapter = createVehicleAdapter();
     let open = false;
