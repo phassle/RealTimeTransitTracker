@@ -2,9 +2,13 @@ import L from 'leaflet';
 import { MODE_COLORS, MODE_ICONS } from './modes';
 import { escapeHtml } from './markerCollection';
 
-export function vehiclePopupContent(vehicle) {
+export function vehiclePopupContent(vehicle, { followed = false } = {}) {
   const time = new Date((vehicle.timestamp ?? 0) * 1000).toLocaleTimeString('sv-SE');
   const speedKmh = ((vehicle.speed ?? 0) * 3.6).toFixed(1);
+  // Follow control: a single toggle button. Label flips to "Stop following" for
+  // the currently-followed Vehicle (issue #167, stories 12 & 15). The click is
+  // wired in onMarkerCreated via the [data-vehicle-follow] hook.
+  const followLabel = followed ? 'Stop following' : 'Follow';
 
   return `
     <div style="font-family: sans-serif; min-width: 150px;">
@@ -14,6 +18,11 @@ export function vehiclePopupContent(vehicle) {
       Speed: ${speedKmh} km/h<br/>
       Bearing: ${escapeHtml(vehicle.bearing)}°<br/>
       Updated: ${time}
+      <hr style="margin: 5px 0; border: none; border-top: 1px solid #eee;"/>
+      <button type="button" data-vehicle-follow style="
+        width: 100%; padding: 4px 8px; cursor: pointer;
+        border: 1px solid #ccc; border-radius: 4px; background: #f5f5f5;
+      ">${followLabel}</button>
     </div>
   `;
 }
@@ -23,13 +32,18 @@ export function vehiclePopupContent(vehicle) {
 export const FULL_MARKER_MIN_ZOOM = 12;
 
 /**
- * @param {{ isHighlighted?: (vehicleId: string) => boolean, getZoom?: () => number }} [opts]
+ * @param {{ isHighlighted?: (vehicleId: string) => boolean, isFollowed?: (vehicleId: string) => boolean, onFollowToggle?: (vehicleId: string) => void, getZoom?: () => number }} [opts]
  *   isHighlighted lets the command-center view highlight vehicles involved in a
  *   selected Incident. Default: nothing highlighted (existing map view behaviour).
+ *   isFollowed marks the single Followed vehicle (issue #167). Its accent is a
+ *   distinct third visual state that COMPOSES with the highlight (both can be on
+ *   at once — follow and highlight are orthogonal) rather than replacing it.
+ *   onFollowToggle is invoked with the vehicle id when the popup Follow/Stop
+ *   control is activated, so App can flip session follow state.
  *   getZoom supplies the current map zoom; below FULL_MARKER_MIN_ZOOM markers
  *   render compact. Default: always full-size.
  */
-export function createVehicleAdapter({ isHighlighted = () => false, getZoom = () => FULL_MARKER_MIN_ZOOM } = {}) {
+export function createVehicleAdapter({ isHighlighted = () => false, isFollowed = () => false, onFollowToggle = () => {}, getZoom = () => FULL_MARKER_MIN_ZOOM } = {}) {
   const markerVehicles = new WeakMap();
   const markerVisualStateKeys = new WeakMap();
 
@@ -37,20 +51,40 @@ export function createVehicleAdapter({ isHighlighted = () => false, getZoom = ()
     const color = MODE_COLORS[vehicle.mode] || MODE_COLORS.unknown;
     const icon = MODE_ICONS[vehicle.mode] || MODE_ICONS.unknown;
     const highlighted = isHighlighted(vehicle.id);
-    const compact = !highlighted && getZoom() < FULL_MARKER_MIN_ZOOM;
+    const followed = isFollowed(vehicle.id);
+    // Followed (like highlighted) stays full-size so its accent is legible even
+    // when the surrounding field is clustered/compact.
+    const compact = !highlighted && !followed && getZoom() < FULL_MARKER_MIN_ZOOM;
     const label = vehicle.line?.length <= 3 ? ['line', String(vehicle.line ?? '')] : ['icon', icon];
 
     return {
       color,
       icon,
       highlighted,
+      followed,
       compact,
-      key: JSON.stringify([compact, color, highlighted, label]),
+      key: JSON.stringify([compact, color, highlighted, followed, label]),
     };
   }
 
   function lazyPopupContent(vehicle) {
-    return (source) => vehiclePopupContent(markerVehicles.get(source) ?? vehicle);
+    return (source) => {
+      const v = markerVehicles.get(source) ?? vehicle;
+      return vehiclePopupContent(v, { followed: isFollowed(v.id) });
+    };
+  }
+
+  // Wire the Follow/Stop control once the popup is in the DOM. The control
+  // toggles follow for this Vehicle via onFollowToggle.
+  function wireFollowControl(popup, vehicle) {
+    const root = typeof popup.getElement === 'function' ? popup.getElement() : null;
+    if (!root) return;
+    const btn = root.querySelector('[data-vehicle-follow]');
+    if (!btn) return;
+    btn.addEventListener('click', (e) => {
+      if (typeof e.preventDefault === 'function') e.preventDefault();
+      onFollowToggle(vehicle.id);
+    });
   }
 
   function updateOpenPopup(marker, vehicle) {
@@ -82,11 +116,20 @@ export function createVehicleAdapter({ isHighlighted = () => false, getZoom = ()
       return buildCompactIcon(state.color);
     }
     const border = state.highlighted ? '3px solid #ffd400' : '2px solid white';
-    const shadow = state.highlighted
+    // Follow accent: a distinct cyan ring/glow, deliberately unlike the gold
+    // highlight. It COMPOSES with the highlight — a followed+highlighted vehicle
+    // keeps the gold border and gains the cyan glow, so the two never fight.
+    let shadow = state.highlighted
       ? '0 0 0 3px rgba(255,212,0,0.5), 0 2px 4px rgba(0,0,0,0.3)'
       : '0 2px 4px rgba(0,0,0,0.3)';
+    if (state.followed) {
+      shadow = `0 0 0 4px rgba(0,200,255,0.85), ${shadow}`;
+    }
+    const classNames = ['vehicle-marker'];
+    if (state.highlighted) classNames.push('vehicle-marker--highlighted');
+    if (state.followed) classNames.push('vehicle-marker--followed');
     return L.divIcon({
-      className: state.highlighted ? 'vehicle-marker vehicle-marker--highlighted' : 'vehicle-marker',
+      className: classNames.join(' '),
       html: `
           <div style="
             background: ${state.color};
@@ -128,6 +171,11 @@ export function createVehicleAdapter({ isHighlighted = () => false, getZoom = ()
     onMarkerCreated(marker, vehicle) {
       markerVehicles.set(marker, vehicle);
       markerVisualStateKeys.set(marker, visualStateFor(vehicle).key);
+      if (typeof marker.on === 'function') {
+        marker.on('popupopen', (event) =>
+          wireFollowControl(event.popup, markerVehicles.get(marker) ?? vehicle),
+        );
+      }
     },
 
     onUpdate(marker, vehicle) {
