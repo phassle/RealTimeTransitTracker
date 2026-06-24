@@ -5,6 +5,7 @@ import {
   MODE_ICONS,
   MODE_LABELS,
   ALL_MODE_IDS,
+  AIRCRAFT_MODE_IDS,
   GTFS_ROUTE_TYPE_TO_MODE,
   routeTypeToMode,
 } from './modes';
@@ -59,6 +60,25 @@ describe('MODES canonical list', () => {
 
   it('all mode ids are distinct', () => {
     expect(new Set(ALL_MODE_IDS).size).toBe(ALL_MODE_IDS.length);
+  });
+});
+
+describe('AIRCRAFT_MODE_IDS — the non-transit modes', () => {
+  it('contains exactly the aircraft and helicopter modes', () => {
+    expect([...AIRCRAFT_MODE_IDS].sort()).toEqual(['aircraft', 'helicopter']);
+  });
+
+  it('every aircraft mode is a real mode', () => {
+    for (const id of AIRCRAFT_MODE_IDS) {
+      expect(ALL_MODE_IDS).toContain(id);
+    }
+  });
+
+  it('no GTFS-emittable mode is an aircraft mode (aircraft are non-transit)', () => {
+    const emittable = new Set(Object.values(GTFS_ROUTE_TYPE_TO_MODE));
+    for (const id of emittable) {
+      expect(AIRCRAFT_MODE_IDS.has(id)).toBe(false);
+    }
   });
 });
 

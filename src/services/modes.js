@@ -15,6 +15,13 @@ export const MODE_ICONS  = Object.fromEntries(MODES.map(m => [m.id, m.icon]));
 export const MODE_LABELS = Object.fromEntries(MODES.map(m => [m.id, m.label]));
 export const ALL_MODE_IDS = MODES.map(m => m.id);
 
+// The non-transit modes: aircraft come from airplanes.live, not a GTFS feed, and
+// a callsign is not a Line (CONTEXT.md). Single source of truth for "this Vehicle
+// is an Aircraft" — used to keep aircraft out of transit-only surfaces (the line
+// selector lists transit lines only; PRD #165, issue #169). Aircraft stay
+// filterable by mode.
+export const AIRCRAFT_MODE_IDS = new Set(['aircraft', 'helicopter']);
+
 export const GTFS_ROUTE_TYPE_TO_MODE = {
   '0':    'tram',
   '1':    'metro',

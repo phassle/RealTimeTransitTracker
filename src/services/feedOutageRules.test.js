@@ -32,6 +32,26 @@ describe('detectFeedOutageAnomalies', () => {
     expect(detectFeedOutageAnomalies([], 0)).toEqual([]);
   });
 
+  // Issue #169 — airplanes.live is never a Watched operator or Feed-outage
+  // subject. Aircraft come from a separate hook whose outcomes never enter the
+  // transit feed series, so airplanes.live never appears in snapshot.feeds and
+  // can never be the subject of an outage Anomaly — even with aircraft Vehicles
+  // present in the snapshot's vehicle list (which this rule ignores entirely).
+  it('never raises an airplanes.live-subject outage even with aircraft on the map', () => {
+    const aircraftVehicle = { id: 'air:4ca7b2', mode: 'helicopter', line: 'POL01' };
+    const snaps = [
+      { time: 0, vehicles: [aircraftVehicle], feeds: [feed({ ok: true })] },
+      { time: 1 * MIN, vehicles: [aircraftVehicle], feeds: [feed({ ok: false, vehicleCount: 0, dataTimestamp: null })] },
+      { time: 2 * MIN, vehicles: [aircraftVehicle], feeds: [feed({ ok: false, vehicleCount: 0, dataTimestamp: null })] },
+      { time: 3 * MIN, vehicles: [aircraftVehicle], feeds: [feed({ ok: false, vehicleCount: 0, dataTimestamp: null })] },
+    ];
+    const anomalies = detectFeedOutageAnomalies(snaps, 3 * MIN);
+
+    // The transit operator may flag (it failed), but airplanes.live never does.
+    expect(anomalies.every((a) => a.operator !== 'airplanes.live')).toBe(true);
+    expect(anomalies.map((a) => a.operator)).not.toContain('air');
+  });
+
   describe('signal: repeated fetch failures', () => {
     it('raises a feed-fetch-failure anomaly after a streak of failed fetches', () => {
       const snaps = [

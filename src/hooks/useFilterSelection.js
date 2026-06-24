@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { ALL_MODE_IDS } from '../services/modes';
+import { ALL_MODE_IDS, AIRCRAFT_MODE_IDS } from '../services/modes';
 
 // Favourites are Essential storage (ADR 0001) — a record of the user's own UI
 // choice, like theme. Versioned key lets a future shape change re-initialise
@@ -124,6 +124,9 @@ export function useFilterSelection(allVehicles) {
   const availableLines = useMemo(() => {
     const groups = {};
     for (const vehicle of vehicles) {
+      // Aircraft callsigns are not Lines (CONTEXT.md, PRD #165): keep aircraft
+      // modes out of the line selector entirely. They stay filterable by mode.
+      if (AIRCRAFT_MODE_IDS.has(vehicle.mode)) continue;
       if (!enabledModeSet.has(vehicle.mode) || !vehicle.line) continue;
       if (!groups[vehicle.mode]) groups[vehicle.mode] = {};
       groups[vehicle.mode][vehicle.line] = (groups[vehicle.mode][vehicle.line] || 0) + 1;
