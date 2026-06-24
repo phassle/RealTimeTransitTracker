@@ -6,6 +6,12 @@ export const TRAFIKLAB_FEED_BASE = 'https://opendata.samtrafiken.se/gtfs-rt-swed
 
 export const TRIP_MAPPING_URL = '/data/trip-mapping.json';
 
+// Aircraft data: airplanes.live — unauthenticated and CORS-open, fetched
+// directly from the browser with no proxy, under Non-Commercial Use / no SLA.
+// Disclosed in the Privacy Notice; chosen and licence-framed in ADR 0007
+// (docs/adr/0007-aircraft-airplanes-live-client-side.md). The point-endpoint
+// constant is declared by the aircraft-fetch slice.
+
 export const LIGHT_TILES = {
   urlTemplate: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
   attribution:

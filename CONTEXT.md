@@ -129,6 +129,8 @@ A one-way, informational disclosure to the user about what data the app handles 
 
 A Privacy Notice is appropriate when there is nothing being processed conditionally on the user's answer — i.e. when the app has no non-essential storage and no non-essential processing to gate. It discharges transparency and attribution obligations without manufacturing a fake choice.
 
+The notice names every active third-party data source: Trafiklab, OpenStreetMap, the webcam sources, and — for the aircraft layer — **airplanes.live** (linked, annotated that it is fetched only while zoomed in, under Non-Commercial Use with no SLA). airplanes.live is the **same trust category** as the existing third-party fetches, so it needs **no Consent surface** and leaves ADR 0001's cookieless posture intact ([ADR 0007](docs/adr/0007-aircraft-airplanes-live-client-side.md)). Adding it bumped the notice's storage version so every returning user is re-disclosed once.
+
 ### Essential storage
 
 Client-side storage that is **strictly necessary to provide a service the user has explicitly requested**, including the record of the user's own UI choices (such as having acknowledged a Privacy Notice, or having chosen a display theme). Essential storage does not require Consent under EU GDPR / ePrivacy because there is no processing for the user to permit or refuse — the storage *is* the user's own action being remembered.
