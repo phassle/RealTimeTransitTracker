@@ -211,6 +211,32 @@ describe('createVehicleAdapter follow accent', () => {
     expect(icon.className).toContain('vehicle-marker--followed');
   });
 
+  // Slice #171: following an already-highlighted Vehicle must layer the follow
+  // accent on without erasing the gold highlight — the live transition, not just
+  // the static composition above.
+  it('adds the follow accent to an already-highlighted vehicle without dropping the highlight', () => {
+    let followed = false;
+    const adapter = createVehicleAdapter({
+      getZoom: () => FULL_MARKER_MIN_ZOOM,
+      isHighlighted: (id) => id === 'v1',
+      isFollowed: () => followed,
+    });
+    const marker = {
+      setLatLng: vi.fn().mockReturnThis(),
+      setIcon: vi.fn().mockReturnThis(),
+      isPopupOpen: () => false,
+    };
+
+    adapter.onMarkerCreated(marker, makeVehicle());
+    followed = true;
+    adapter.onUpdate(marker, makeVehicle());
+
+    expect(marker.setIcon).toHaveBeenCalledOnce();
+    const className = marker.setIcon.mock.calls[0][0].className;
+    expect(className).toContain('vehicle-marker--highlighted');
+    expect(className).toContain('vehicle-marker--followed');
+  });
+
   it('replaces the icon when follow state changes', () => {
     let followed = false;
     const adapter = createVehicleAdapter({
