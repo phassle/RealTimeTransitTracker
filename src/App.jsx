@@ -16,6 +16,7 @@ import { useConnectivity } from './hooks/useConnectivity';
 import { useGeolocation } from './hooks/useGeolocation';
 import { useUpdatePrompt } from './hooks/useUpdatePrompt';
 import { useWebcams } from './hooks/useWebcams';
+import { useAircraft } from './hooks/useAircraft';
 import {
   CAMERA_TYPE_DEFINITIONS,
   cameraCountsByType,
@@ -62,6 +63,20 @@ function App() {
   const { vehicles: allVehicles, feedOutcomes, error, loading, lastUpdate, refresh, activeOperators, effectiveInterval } =
     useRealtimeVehicles(visibleOperators, 2000, isOnline);
 
+  // Live aircraft overlay (PRD #165). Fetched on a fixed ~2 s cadence around the
+  // current viewport centre with a sane default radius (the zoom gate and
+  // viewport-radius derivation are a follow-up slice). Merged into the map's
+  // Vehicle list below — but deliberately kept OUT of the Command Center, which
+  // only ever sees transit Vehicles.
+  const aircraftQuery = useMemo(
+    () => ({ lat: mapCenter[0], lon: mapCenter[1], radius: 100 }),
+    [mapCenter],
+  );
+  const { aircraft } = useAircraft(aircraftQuery, { enabled: isOnline });
+
+  // Map Vehicle list = transit Vehicles ⧺ aircraft Vehicles.
+  const mapVehicles = useMemo(() => [...allVehicles, ...aircraft], [allVehicles, aircraft]);
+
   const {
     enabledModes,
     toggleMode,
@@ -74,7 +89,7 @@ function App() {
     clearFavourites,
     availableLines,
     filteredVehicles,
-  } = useFilterSelection(allVehicles);
+  } = useFilterSelection(mapVehicles);
 
   const handleCameraTypeToggle = (typeId) => {
     setEnabledCameraTypes(prev =>

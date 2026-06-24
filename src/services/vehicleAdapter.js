@@ -6,12 +6,20 @@ export function vehiclePopupContent(vehicle) {
   const time = new Date((vehicle.timestamp ?? 0) * 1000).toLocaleTimeString('sv-SE');
   const speedKmh = ((vehicle.speed ?? 0) * 3.6).toFixed(1);
 
+  // Aircraft (a Vehicle with no operator) carry identifying extras for the
+  // popup; transit vehicles have none, so each line renders only when present.
+  const extras = [
+    vehicle.type != null ? `Type: ${escapeHtml(vehicle.type)}<br/>` : '',
+    vehicle.reg != null ? `Reg: ${escapeHtml(vehicle.reg)}<br/>` : '',
+    vehicle.altitude != null ? `Altitude: ${escapeHtml(vehicle.altitude)} ft<br/>` : '',
+  ].join('');
+
   return `
     <div style="font-family: sans-serif; min-width: 150px;">
       <strong style="font-size: 14px; text-transform: capitalize;">${escapeHtml(vehicle.mode)} ${escapeHtml(vehicle.line)}</strong><br/>
       ${vehicle.operator ? `<em style="color: #666; font-size: 12px;">${escapeHtml(vehicle.operator.toUpperCase())}</em><br/>` : ''}
       <hr style="margin: 5px 0; border: none; border-top: 1px solid #eee;"/>
-      Speed: ${speedKmh} km/h<br/>
+      ${extras}Speed: ${speedKmh} km/h<br/>
       Bearing: ${escapeHtml(vehicle.bearing)}°<br/>
       Updated: ${time}
     </div>

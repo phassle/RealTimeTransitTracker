@@ -4,6 +4,11 @@ export const MODES = [
   { id: 'train',   label: 'Train', color: '#95E1D3', icon: 'T' },
   { id: 'tram',    label: 'Tram',  color: '#F38181', icon: 'S' },
   { id: 'ferry',   label: 'Ferry', color: '#FCBAD3', icon: '⛴' },
+  // Aircraft modes come from the airplanes.live mapping, not GTFS — a mode no
+  // longer implies a GTFS origin (PRD #165). They get mode filter buttons for
+  // free and deliberately carry no GTFS route_type entry below.
+  { id: 'aircraft',   label: 'Aircraft',   color: '#6EC1E4', icon: '✈' },
+  { id: 'helicopter', label: 'Helicopter', color: '#B388FF', icon: '🚁' },
   { id: 'unknown', label: 'Other', color: '#888888', icon: '?' },
 ];
 

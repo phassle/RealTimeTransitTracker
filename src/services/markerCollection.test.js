@@ -275,6 +275,47 @@ describe('vehiclePopupContent — HTML escaping', () => {
     expect(html).not.toContain('<B>');
     expect(html).toMatch(/&lt;[Bb]&gt;/);
   });
+
+  describe('aircraft popup (no operator; identifying fields)', () => {
+    const aircraft = {
+      id: 'air:abc', mode: 'aircraft', line: 'SAS123',
+      type: 'Boeing 737-800', reg: 'SE-ABC', altitude: 35000,
+      bearing: 180, speed: 120, timestamp: 1700000000,
+    };
+
+    it('shows callsign, type, registration, altitude, speed and bearing', () => {
+      const html = vehiclePopupContent(aircraft);
+      expect(html).toContain('SAS123');
+      expect(html).toContain('Boeing 737-800');
+      expect(html).toContain('SE-ABC');
+      expect(html).toContain('35000');
+      expect(html).toMatch(/Bearing/i);
+      expect(html).toMatch(/Speed/i);
+    });
+
+    it('shows no operator for an aircraft', () => {
+      const html = vehiclePopupContent(aircraft);
+      expect(html).not.toMatch(/<em[^>]*>/); // operator line is the only <em>
+    });
+
+    it('escapes HTML in the aircraft type/reg fields', () => {
+      const html = vehiclePopupContent({
+        ...aircraft, type: '<b>x</b>', reg: '<i>y</i>',
+      });
+      expect(html).not.toContain('<b>x</b>');
+      expect(html).not.toContain('<i>y</i>');
+    });
+
+    it('omits the extra fields when absent (a transit vehicle popup is unchanged)', () => {
+      const html = vehiclePopupContent({
+        id: 'sl:1', mode: 'bus', line: '17', operator: 'sl',
+        bearing: 0, speed: 0, timestamp: 1700000000,
+      });
+      expect(html).not.toMatch(/Type:/i);
+      expect(html).not.toMatch(/Reg:/i);
+      expect(html).not.toMatch(/Altitude:/i);
+    });
+  });
 });
 
 // ─── Scenario 3: Vehicle without coordinates is skipped ──────────────────────

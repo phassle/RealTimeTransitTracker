@@ -180,6 +180,20 @@ describe('createVehicleAdapter downstream prediction accent', () => {
   });
 });
 
+describe('createVehicleAdapter aircraft glyphs', () => {
+  it('renders the ✈ glyph for an aircraft with a long callsign', () => {
+    const adapter = createVehicleAdapter({ getZoom: () => FULL_MARKER_MIN_ZOOM });
+    const icon = adapter.toIcon(makeVehicle({ mode: 'aircraft', line: 'SAS123', operator: undefined }));
+    expect(icon.html).toContain('✈');
+  });
+
+  it('renders the 🚁 glyph for a helicopter', () => {
+    const adapter = createVehicleAdapter({ getZoom: () => FULL_MARKER_MIN_ZOOM });
+    const icon = adapter.toIcon(makeVehicle({ mode: 'helicopter', line: 'POL01H', operator: undefined }));
+    expect(icon.html).toContain('🚁');
+  });
+});
+
 describe('createVehicleAdapter lazy popups', () => {
   it('defers vehicle popup formatting until Leaflet resolves popup content', () => {
     const adapter = createVehicleAdapter();
