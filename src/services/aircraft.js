@@ -3,10 +3,10 @@ import { AIRPLANES_LIVE_BASE } from '../config/endpoints.js';
 // airplanes.live caps the point-query radius at 250 nautical miles.
 const MAX_RADIUS_NM = 250;
 
-// Aircraft are gated on zoom: below this level no aircraft are fetched or shown,
-// so the country-level view isn't flooded with planes and the 1 req/s budget is
-// spent only when aircraft are useful (PRD #165, user stories 5 & 7).
-export const AIRCRAFT_MIN_ZOOM = 8;
+// Aircraft are gated on zoom only to avoid continental/world-scale fetches; they
+// stay visible even when zoomed well out (down to a country-wide Sweden view).
+// The slow 10 s poll + 250 nm radius cap keep this within the 1 req/s budget.
+export const AIRCRAFT_MIN_ZOOM = 4;
 
 // 1 nautical mile = 1.852 km; 1° latitude ≈ 111.32 km.
 export const KM_PER_DEGREE_LAT = 111.32;
