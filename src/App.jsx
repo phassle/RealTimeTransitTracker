@@ -16,6 +16,7 @@ import { useConnectivity } from './hooks/useConnectivity';
 import { useGeolocation } from './hooks/useGeolocation';
 import { useUpdatePrompt } from './hooks/useUpdatePrompt';
 import { useWebcams } from './hooks/useWebcams';
+import { useAircraft } from './hooks/useAircraft';
 import {
   CAMERA_TYPE_DEFINITIONS,
   cameraCountsByType,
@@ -62,6 +63,20 @@ function App() {
   const { vehicles: allVehicles, feedOutcomes, error, loading, lastUpdate, refresh, activeOperators, effectiveInterval } =
     useRealtimeVehicles(visibleOperators, 2000, isOnline);
 
+  // Aircraft come from airplanes.live, polled around the current viewport centre.
+  // They are merged into the map's Vehicle list ONLY — the Command Center keeps
+  // receiving transit Vehicles, so aircraft never enter its anomaly/feed pipeline.
+  const aircraftCenter = useMemo(
+    () => ({ lat: mapCenter[0], lon: mapCenter[1] }),
+    [mapCenter],
+  );
+  const { aircraft } = useAircraft(aircraftCenter, isOnline);
+
+  const mapVehicles = useMemo(
+    () => [...allVehicles, ...aircraft],
+    [allVehicles, aircraft],
+  );
+
   const {
     enabledModes,
     toggleMode,
@@ -74,7 +89,7 @@ function App() {
     clearFavourites,
     availableLines,
     filteredVehicles,
-  } = useFilterSelection(allVehicles);
+  } = useFilterSelection(mapVehicles);
 
   const handleCameraTypeToggle = (typeId) => {
     setEnabledCameraTypes(prev =>

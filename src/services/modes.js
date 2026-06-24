@@ -4,6 +4,9 @@ export const MODES = [
   { id: 'train',   label: 'Train', color: '#95E1D3', icon: 'T' },
   { id: 'tram',    label: 'Tram',  color: '#F38181', icon: 'S' },
   { id: 'ferry',   label: 'Ferry', color: '#FCBAD3', icon: '⛴' },
+  // Non-GTFS modes — aircraft come from airplanes.live, not a GTFS route_type.
+  { id: 'aircraft',   label: 'Aircraft',   color: '#A29BFE', icon: '✈' },
+  { id: 'helicopter', label: 'Helicopter', color: '#74B9FF', icon: '🚁' },
   { id: 'unknown', label: 'Other', color: '#888888', icon: '?' },
 ];
 

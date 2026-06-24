@@ -36,12 +36,25 @@ describe('MODES canonical list', () => {
     }
   });
 
-  it('every mode in the list is emittable (no permanently-empty filter)', () => {
+  it('every mode is either GTFS-emittable or a known non-GTFS mode', () => {
+    // A mode no longer implies a GTFS origin: aircraft/helicopter come from
+    // airplanes.live, not the GTFS route_type table.
     const emittable = new Set(Object.values(GTFS_ROUTE_TYPE_TO_MODE));
     emittable.add('unknown');
+    const NON_GTFS_MODES = new Set(['aircraft', 'helicopter']);
     for (const id of ALL_MODE_IDS) {
-      expect(emittable).toContain(id);
+      expect(emittable.has(id) || NON_GTFS_MODES.has(id)).toBe(true);
     }
+  });
+
+  it('includes aircraft and helicopter modes', () => {
+    expect(ALL_MODE_IDS).toContain('aircraft');
+    expect(ALL_MODE_IDS).toContain('helicopter');
+  });
+
+  it('does NOT extend the GTFS route_type table with aircraft modes', () => {
+    expect(Object.values(GTFS_ROUTE_TYPE_TO_MODE)).not.toContain('aircraft');
+    expect(Object.values(GTFS_ROUTE_TYPE_TO_MODE)).not.toContain('helicopter');
   });
 
   it('all mode ids are distinct', () => {

@@ -213,6 +213,54 @@ describe('createVehicleAdapter lazy popups', () => {
     expect(popupContent(marker)).toContain('bus 18');
   });
 
+  it('renders an aircraft popup with callsign, type, reg, altitude, speed, bearing and no operator', () => {
+    const adapter = createVehicleAdapter();
+    const aircraft = {
+      id: 'air:4ca7b1',
+      mode: 'aircraft',
+      line: 'SAS123',
+      type: 'BOEING 737-800',
+      reg: 'SE-ABC',
+      altitude: 35000,
+      latitude: 59.33,
+      longitude: 18.07,
+      bearing: 270,
+      speed: 216,
+      timestamp: 1700000000,
+    };
+    const marker = {};
+    const popupContent = adapter.toPopup(aircraft);
+    adapter.onMarkerCreated(marker, aircraft);
+    const html = popupContent(marker);
+
+    expect(html).toContain('SAS123');
+    expect(html).toContain('BOEING 737-800');
+    expect(html).toContain('SE-ABC');
+    expect(html).toContain('35000');
+    expect(html).toContain('Bearing: 270');
+    // No operator line for an aircraft.
+    expect(html).not.toContain('<em');
+  });
+
+  it('renders the helicopter glyph (🚁) on the marker icon for a helicopter Vehicle', () => {
+    const adapter = createVehicleAdapter();
+    const icon = adapter.toIcon({
+      id: 'air:1', mode: 'helicopter', line: 'POL01', latitude: 59, longitude: 18,
+    });
+    expect(icon.html).toContain('🚁');
+  });
+
+  it('omits type/reg/altitude lines when the Vehicle has none (transit Vehicle)', () => {
+    const adapter = createVehicleAdapter();
+    const marker = {};
+    const popupContent = adapter.toPopup(makeVehicle());
+    adapter.onMarkerCreated(marker, makeVehicle());
+    const html = popupContent(marker);
+    expect(html).not.toContain('Type:');
+    expect(html).not.toContain('Reg:');
+    expect(html).not.toContain('Altitude:');
+  });
+
   it('refreshes popup content only when the popup is open', () => {
     const adapter = createVehicleAdapter();
     let open = false;
