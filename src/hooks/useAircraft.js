@@ -1,58 +1,56 @@
-import { useEffect, useRef, useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { fetchAircraft } from '../services/aircraft';
 
-// Aircraft are non-essential overlay data fetched on a fixed ~2 s cadence,
-// separate from the transit poll: the transit interval scales with the number
-// of watched operators (up to ~30 s) and would leave aircraft stale, and an
-// airplanes.live failure must never enter the transit feedOutcomes.
-const AIRCRAFT_POLL_INTERVAL = 2000;
-
-// This slice fetches the viewport centre with a fixed default radius; the zoom
-// gate and viewport-derived radius are deferred to the follow-up slice.
-const DEFAULT_RADIUS_NM = 100;
-
 /**
- * Poll airplanes.live for aircraft around a centre point.
+ * Poll live aircraft around a viewport point and expose them as Vehicles.
  *
- * @param {{ lat: number, lon: number } | null} center
- * @param {boolean} enabled
+ * Separate from the transit polling hook because the transit poll interval
+ * scales with the number of watched operators (and would leave aircraft stale)
+ * and because an airplanes.live failure must never enter the transit
+ * feedOutcomes. The hook polls on a fixed ~2 s cadence, pauses on tab-hidden
+ * (same discipline as the transit hook), and tolerates fetch/parse failure
+ * silently — aircraft are non-essential overlay data, so they simply don't
+ * appear and no error is surfaced (PRD #165).
+ *
+ * The zoom gate and viewport-radius derivation are a follow-up slice; here the
+ * caller passes the query (or null to fetch nothing).
+ *
+ * @param {{ lat: number, lon: number, radius: number } | null} query
+ * @param {{ enabled?: boolean, intervalMs?: number }} [opts]
  * @returns {{ aircraft: object[] }}
  */
-export function useAircraft(center, enabled = true) {
+export function useAircraft(query, { enabled = true, intervalMs = 2000 } = {}) {
   const [aircraft, setAircraft] = useState([]);
-  const aliveRef = useRef(true);
   const intervalRef = useRef(null);
-  // Hold the latest centre in a ref so a centre change does not restart the
-  // poll loop; each tick reads the current value.
-  const centerRef = useRef(center);
-  centerRef.current = center;
+  const aliveRef = useRef(true);
 
   useEffect(() => {
     aliveRef.current = true;
     return () => { aliveRef.current = false; };
   }, []);
 
+  // Serialise the query so the polling effect only re-subscribes when the
+  // viewport actually moves, not on every render.
+  const queryKey = query ? `${query.lat},${query.lon},${query.radius}` : null;
+
   useEffect(() => {
-    if (!enabled) {
+    if (!enabled || !query) {
       setAircraft([]);
-      return undefined;
+      return;
     }
 
-    const poll = async () => {
-      const c = centerRef.current;
-      if (!c) return;
+    const fetchData = async () => {
       try {
-        const next = await fetchAircraft({ lat: c.lat, lon: c.lon, radius: DEFAULT_RADIUS_NM });
+        const next = await fetchAircraft(query);
         if (aliveRef.current) setAircraft(next);
       } catch {
-        // Silent: aircraft are non-essential overlay data. They simply don't
-        // show; transit Vehicles are unaffected and no error is surfaced.
+        // Non-essential overlay: swallow failures, keep the last good list.
       }
     };
 
     const startPolling = () => {
       if (!intervalRef.current) {
-        intervalRef.current = setInterval(poll, AIRCRAFT_POLL_INTERVAL);
+        intervalRef.current = setInterval(fetchData, intervalMs);
       }
     };
 
@@ -67,12 +65,12 @@ export function useAircraft(center, enabled = true) {
       if (document.hidden) {
         stopPolling();
       } else {
-        poll();
+        fetchData();
         startPolling();
       }
     };
 
-    poll();
+    fetchData();
     startPolling();
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
@@ -80,7 +78,8 @@ export function useAircraft(center, enabled = true) {
       stopPolling();
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [enabled]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enabled, queryKey, intervalMs]);
 
   return { aircraft };
 }

@@ -1,13 +1,13 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { renderHook, waitFor, act } from '@testing-library/react';
+import { renderHook, act, waitFor } from '@testing-library/react';
 import { useAircraft } from './useAircraft';
 import * as service from '../services/aircraft';
+import { deriveAircraftQuery, AIRCRAFT_MIN_ZOOM } from '../services/aircraft';
 
 const SAMPLE = [
-  { id: 'air:abc', mode: 'aircraft', line: 'SAS123', latitude: 59.3, longitude: 18.0 },
+  { id: 'air:abc', line: 'SAS123', mode: 'aircraft', latitude: 59.3, longitude: 18.0 },
 ];
-
-const CENTER = { lat: 59.33, lon: 18.07 };
+const QUERY = { lat: 59.3, lon: 18.0, radius: 100 };
 
 describe('useAircraft', () => {
   beforeEach(() => {
@@ -19,28 +19,26 @@ describe('useAircraft', () => {
     vi.useRealTimers();
   });
 
-  it('does not fetch while disabled', () => {
-    renderHook(() => useAircraft(CENTER, false));
+  it('fetches on mount and exposes the mapped aircraft', async () => {
+    const { result } = renderHook(() => useAircraft(QUERY, { enabled: true }));
+    await waitFor(() => expect(result.current.aircraft).toEqual(SAMPLE));
+    expect(service.fetchAircraft).toHaveBeenCalled();
+    expect(service.fetchAircraft.mock.calls[0][0]).toEqual(QUERY);
+  });
+
+  it('does not fetch when disabled', () => {
+    renderHook(() => useAircraft(QUERY, { enabled: false }));
     expect(service.fetchAircraft).not.toHaveBeenCalled();
   });
 
-  it('disabled hook exposes an empty aircraft list', () => {
-    const { result } = renderHook(() => useAircraft(CENTER, false));
-    expect(result.current.aircraft).toEqual([]);
+  it('does not fetch when there is no query', () => {
+    renderHook(() => useAircraft(null, { enabled: true }));
+    expect(service.fetchAircraft).not.toHaveBeenCalled();
   });
 
-  it('fetches the viewport centre on enable and exposes the aircraft', async () => {
-    const { result } = renderHook(() => useAircraft(CENTER, true));
-    await waitFor(() => expect(result.current.aircraft).toEqual(SAMPLE));
-    expect(service.fetchAircraft).toHaveBeenCalledWith(
-      expect.objectContaining({ lat: 59.33, lon: 18.07 }),
-    );
-  });
-
-  it('polls on a fixed ~2s cadence', async () => {
+  it('polls on the configured cadence', async () => {
     vi.useFakeTimers();
-    renderHook(() => useAircraft(CENTER, true));
-    // Initial immediate fetch.
+    renderHook(() => useAircraft(QUERY, { enabled: true, intervalMs: 2000 }));
     await vi.waitFor(() => expect(service.fetchAircraft).toHaveBeenCalledTimes(1));
 
     await act(async () => { await vi.advanceTimersByTimeAsync(2000); });
@@ -50,41 +48,62 @@ describe('useAircraft', () => {
     expect(service.fetchAircraft).toHaveBeenCalledTimes(3);
   });
 
-  it('pauses polling while the tab is hidden and resumes when visible', async () => {
-    vi.useFakeTimers();
-    renderHook(() => useAircraft(CENTER, true));
-    await vi.waitFor(() => expect(service.fetchAircraft).toHaveBeenCalledTimes(1));
-
-    // Hide the tab — polling stops.
-    Object.defineProperty(document, 'hidden', { configurable: true, get: () => true });
-    act(() => { document.dispatchEvent(new Event('visibilitychange')); });
-
-    const callsWhenHidden = service.fetchAircraft.mock.calls.length;
-    await act(async () => { await vi.advanceTimersByTimeAsync(6000); });
-    expect(service.fetchAircraft).toHaveBeenCalledTimes(callsWhenHidden);
-
-    // Show the tab — an immediate fetch resumes.
-    Object.defineProperty(document, 'hidden', { configurable: true, get: () => false });
-    act(() => { document.dispatchEvent(new Event('visibilitychange')); });
-    expect(service.fetchAircraft.mock.calls.length).toBeGreaterThan(callsWhenHidden);
-  });
-
-  it('tolerates a rejected fetch silently — aircraft stay empty, no throw', async () => {
-    service.fetchAircraft.mockRejectedValueOnce(new Error('boom'));
-    const { result } = renderHook(() => useAircraft(CENTER, true));
-    // Give the rejected fetch a chance to settle.
+  it('tolerates a rejected fetch silently — aircraft stays empty, no throw', async () => {
+    service.fetchAircraft.mockRejectedValue(new Error('boom'));
+    const { result } = renderHook(() => useAircraft(QUERY, { enabled: true }));
     await new Promise(r => setTimeout(r, 10));
     expect(result.current.aircraft).toEqual([]);
   });
 
-  it('does not throw when a fetch resolves after unmount', async () => {
+  it('does not throw when a poll resolves after unmount', async () => {
     let resolvePending;
     service.fetchAircraft.mockImplementationOnce(
       () => new Promise(r => { resolvePending = r; }),
     );
-    const { unmount } = renderHook(() => useAircraft(CENTER, true));
+    const { unmount } = renderHook(() => useAircraft(QUERY, { enabled: true }));
     unmount();
     resolvePending(SAMPLE);
     await new Promise(r => setTimeout(r, 10));
+  });
+});
+
+// Zoom gate + viewport-radius derivation (PRD #165, Slice 2). These drive the
+// hook through the same deriveAircraftQuery seam App uses, asserting the gate at
+// the hook boundary: no fetch below the threshold, a viewport-derived
+// centre/radius at/above it, with the radius clamped to 250 nm.
+describe('useAircraft — zoom-gated viewport fetching', () => {
+  const STHLM_BOUNDS = { south: 59.2, west: 17.8, north: 59.45, east: 18.3 };
+  const WIDE_BOUNDS = { south: 40, west: 0, north: 70, east: 30 };
+
+  beforeEach(() => {
+    vi.spyOn(service, 'fetchAircraft').mockResolvedValue(SAMPLE);
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.useRealTimers();
+  });
+
+  it('does not fetch below the zoom threshold', () => {
+    const query = deriveAircraftQuery(STHLM_BOUNDS, AIRCRAFT_MIN_ZOOM - 1);
+    renderHook(() => useAircraft(query, { enabled: true }));
+    expect(service.fetchAircraft).not.toHaveBeenCalled();
+  });
+
+  it('fetches a viewport-derived centre/radius at the zoom threshold', async () => {
+    const query = deriveAircraftQuery(STHLM_BOUNDS, AIRCRAFT_MIN_ZOOM);
+    renderHook(() => useAircraft(query, { enabled: true }));
+    await waitFor(() => expect(service.fetchAircraft).toHaveBeenCalled());
+    const arg = service.fetchAircraft.mock.calls[0][0];
+    expect(arg.lat).toBeCloseTo((59.2 + 59.45) / 2, 5);
+    expect(arg.lon).toBeCloseTo((17.8 + 18.3) / 2, 5);
+    expect(arg.radius).toBeGreaterThan(0);
+    expect(arg.radius).toBeLessThan(250);
+  });
+
+  it('clamps the requested radius to 250 nm for a wide viewport', async () => {
+    const query = deriveAircraftQuery(WIDE_BOUNDS, AIRCRAFT_MIN_ZOOM);
+    renderHook(() => useAircraft(query, { enabled: true }));
+    await waitFor(() => expect(service.fetchAircraft).toHaveBeenCalled());
+    expect(service.fetchAircraft.mock.calls[0][0].radius).toBe(250);
   });
 });

@@ -18,6 +18,7 @@ import { useUpdatePrompt } from './hooks/useUpdatePrompt';
 import { useWebcams } from './hooks/useWebcams';
 import { useAircraft } from './hooks/useAircraft';
 import { useFollowVehicle } from './hooks/useFollowVehicle';
+import { deriveAircraftQuery } from './services/aircraft';
 import {
   CAMERA_TYPE_DEFINITIONS,
   cameraCountsByType,
@@ -84,19 +85,21 @@ function App() {
   const { vehicles: allVehicles, feedOutcomes, error, loading, lastUpdate, refresh, activeOperators, effectiveInterval } =
     useRealtimeVehicles(visibleOperators, 2000, isOnline);
 
-  // Aircraft come from airplanes.live, polled around the current viewport centre.
-  // They are merged into the map's Vehicle list ONLY — the Command Center keeps
-  // receiving transit Vehicles, so aircraft never enter its anomaly/feed pipeline.
-  const aircraftCenter = useMemo(
-    () => ({ lat: mapCenter[0], lon: mapCenter[1] }),
-    [mapCenter],
+  // Live aircraft overlay (PRD #165). Zoom-gated and viewport-bounded: below
+  // AIRCRAFT_MIN_ZOOM the query is null, so the hook issues no request at all and
+  // shows no aircraft (protecting the 1 req/s budget at country view). At/above
+  // it, the query centre/radius derive from the current viewport bounds, capped
+  // at 250 nm. Polled on a fixed ~2 s cadence; merged into the map's Vehicle list
+  // below — but deliberately kept OUT of the Command Center, which only ever sees
+  // transit Vehicles.
+  const aircraftQuery = useMemo(
+    () => deriveAircraftQuery(viewportBounds, mapZoom),
+    [viewportBounds, mapZoom],
   );
-  const { aircraft } = useAircraft(aircraftCenter, isOnline);
+  const { aircraft } = useAircraft(aircraftQuery, { enabled: isOnline });
 
-  const mapVehicles = useMemo(
-    () => [...allVehicles, ...aircraft],
-    [allVehicles, aircraft],
-  );
+  // Map Vehicle list = transit Vehicles ⧺ aircraft Vehicles.
+  const mapVehicles = useMemo(() => [...allVehicles, ...aircraft], [allVehicles, aircraft]);
 
   const {
     enabledModes,
