@@ -36,6 +36,15 @@ function createHighlightState(highlightedVehicleIds) {
   };
 }
 
+// Refresh a keyed id-set state in place when the ordered ids changed; returns
+// whether it changed so the caller can gate marker churn.
+function updateIdSet(state, nextIds) {
+  if (haveSameOrderedIds(state.ids, nextIds)) return false;
+  state.ids = nextIds.slice();
+  state.idSet = new Set(nextIds);
+  return true;
+}
+
 export function Map({ vehicles = [], cameras = [], center = [59.3293, 18.0686], zoom = 11, onBoundsChange = null, theme = 'light', highlightedVehicleIds = EMPTY_VEHICLE_IDS, predictedVehicleIds = EMPTY_VEHICLE_IDS, userLocation = null, followedVehicleIds = EMPTY_FOLLOWED_VEHICLE_IDS, onFollowToggle = NOOP, followPosition = null, onMapClick = NOOP }) {
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
@@ -56,7 +65,7 @@ export function Map({ vehicles = [], cameras = [], center = [59.3293, 18.0686], 
   // Follow set (the single Followed vehicle, issue #167), read live by the
   // adapter parallel to the highlight set. Follow composes with highlight, so
   // it is a separate set rather than sharing the highlight one.
-  const [initialFollowState] = useState(() => createHighlightState(followedVehicleIds));
+  const [initialFollowState] = useState(() => createIdSetState(followedVehicleIds));
   const followStateRef = useRef(initialFollowState);
   // onFollowToggle is read live by the adapter via this ref so a popup Follow
   // click always reaches the current handler without rebuilding the adapter.
@@ -200,25 +209,9 @@ export function Map({ vehicles = [], cameras = [], center = [59.3293, 18.0686], 
   // (Downstream) set, or zoom actually changed.
   useEffect(() => {
     const highlightState = highlightStateRef.current;
-    const highlightsChanged = !haveSameOrderedIds(highlightState.ids, highlightedVehicleIds);
-    if (highlightsChanged) {
-      highlightState.ids = highlightedVehicleIds.slice();
-      highlightState.idSet = new Set(highlightedVehicleIds);
-    }
-
-    const predictedState = predictedStateRef.current;
-    const predictedChanged = !haveSameOrderedIds(predictedState.ids, predictedVehicleIds);
-    if (predictedChanged) {
-      predictedState.ids = predictedVehicleIds.slice();
-      predictedState.idSet = new Set(predictedVehicleIds);
-    }
-
-    const followState = followStateRef.current;
-    const followChanged = !haveSameOrderedIds(followState.ids, followedVehicleIds);
-    if (followChanged) {
-      followState.ids = followedVehicleIds.slice();
-      followState.idSet = new Set(followedVehicleIds);
-    }
+    const highlightsChanged = updateIdSet(highlightState, highlightedVehicleIds);
+    const predictedChanged = updateIdSet(predictedStateRef.current, predictedVehicleIds);
+    const followChanged = updateIdSet(followStateRef.current, followedVehicleIds);
 
     const vehiclesChanged = highlightState.vehicles !== vehicles;
     const zoomChanged = highlightState.mapZoom !== mapZoom;
