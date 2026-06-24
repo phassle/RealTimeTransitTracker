@@ -6,12 +6,20 @@ export function vehiclePopupContent(vehicle) {
   const time = new Date((vehicle.timestamp ?? 0) * 1000).toLocaleTimeString('sv-SE');
   const speedKmh = ((vehicle.speed ?? 0) * 3.6).toFixed(1);
 
+  // Aircraft extras (type / registration / altitude) — present only on
+  // aircraft Vehicles; absent for transit Vehicles, so the lines are omitted.
+  const typeLine = vehicle.type ? `Type: ${escapeHtml(vehicle.type)}<br/>` : '';
+  const regLine = vehicle.reg ? `Reg: ${escapeHtml(vehicle.reg)}<br/>` : '';
+  const altitudeLine = vehicle.altitude != null
+    ? `Altitude: ${escapeHtml(vehicle.altitude)} ft<br/>`
+    : '';
+
   return `
     <div style="font-family: sans-serif; min-width: 150px;">
       <strong style="font-size: 14px; text-transform: capitalize;">${escapeHtml(vehicle.mode)} ${escapeHtml(vehicle.line)}</strong><br/>
       ${vehicle.operator ? `<em style="color: #666; font-size: 12px;">${escapeHtml(vehicle.operator.toUpperCase())}</em><br/>` : ''}
       <hr style="margin: 5px 0; border: none; border-top: 1px solid #eee;"/>
-      Speed: ${speedKmh} km/h<br/>
+      ${typeLine}${regLine}${altitudeLine}Speed: ${speedKmh} km/h<br/>
       Bearing: ${escapeHtml(vehicle.bearing)}°<br/>
       Updated: ${time}
     </div>
