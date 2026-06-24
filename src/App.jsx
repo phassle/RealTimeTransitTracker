@@ -17,6 +17,7 @@ import { useGeolocation } from './hooks/useGeolocation';
 import { useUpdatePrompt } from './hooks/useUpdatePrompt';
 import { useWebcams } from './hooks/useWebcams';
 import { useAircraft } from './hooks/useAircraft';
+import { deriveAircraftQuery } from './services/aircraft';
 import {
   CAMERA_TYPE_DEFINITIONS,
   cameraCountsByType,
@@ -63,14 +64,16 @@ function App() {
   const { vehicles: allVehicles, feedOutcomes, error, loading, lastUpdate, refresh, activeOperators, effectiveInterval } =
     useRealtimeVehicles(visibleOperators, 2000, isOnline);
 
-  // Live aircraft overlay (PRD #165). Fetched on a fixed ~2 s cadence around the
-  // current viewport centre with a sane default radius (the zoom gate and
-  // viewport-radius derivation are a follow-up slice). Merged into the map's
-  // Vehicle list below — but deliberately kept OUT of the Command Center, which
-  // only ever sees transit Vehicles.
+  // Live aircraft overlay (PRD #165). Zoom-gated and viewport-bounded: below
+  // AIRCRAFT_MIN_ZOOM the query is null, so the hook issues no request at all and
+  // shows no aircraft (protecting the 1 req/s budget at country view). At/above
+  // it, the query centre/radius derive from the current viewport bounds, capped
+  // at 250 nm. Polled on a fixed ~2 s cadence; merged into the map's Vehicle list
+  // below — but deliberately kept OUT of the Command Center, which only ever sees
+  // transit Vehicles.
   const aircraftQuery = useMemo(
-    () => ({ lat: mapCenter[0], lon: mapCenter[1], radius: 100 }),
-    [mapCenter],
+    () => deriveAircraftQuery(viewportBounds, mapZoom),
+    [viewportBounds, mapZoom],
   );
   const { aircraft } = useAircraft(aircraftQuery, { enabled: isOnline });
 

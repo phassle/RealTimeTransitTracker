@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { mapAircraft, fetchAircraft } from './aircraft';
+import { mapAircraft, fetchAircraft, deriveAircraftQuery, AIRCRAFT_MIN_ZOOM } from './aircraft';
 
 function makeAc(overrides = {}) {
   return {
@@ -118,5 +118,41 @@ describe('fetchAircraft', () => {
       json: async () => ({ unexpected: true }),
     });
     await expect(fetchAircraft({ lat: 59, lon: 18, radius: 100 })).resolves.toEqual([]);
+  });
+});
+
+describe('deriveAircraftQuery — zoom gate + viewport-derived centre/radius', () => {
+  // A tight Stockholm-area viewport, well under 250 nm across.
+  const STHLM_BOUNDS = { south: 59.2, west: 17.8, north: 59.45, east: 18.3 };
+
+  it('returns null below the zoom threshold (no fetch issued)', () => {
+    expect(deriveAircraftQuery(STHLM_BOUNDS, AIRCRAFT_MIN_ZOOM - 1)).toBeNull();
+  });
+
+  it('returns null when there are no bounds yet', () => {
+    expect(deriveAircraftQuery(null, AIRCRAFT_MIN_ZOOM + 2)).toBeNull();
+  });
+
+  it('returns a query at the zoom threshold', () => {
+    expect(deriveAircraftQuery(STHLM_BOUNDS, AIRCRAFT_MIN_ZOOM)).not.toBeNull();
+  });
+
+  it('derives the centre as the viewport midpoint', () => {
+    const q = deriveAircraftQuery(STHLM_BOUNDS, AIRCRAFT_MIN_ZOOM);
+    expect(q.lat).toBeCloseTo((59.2 + 59.45) / 2, 5);
+    expect(q.lon).toBeCloseTo((17.8 + 18.3) / 2, 5);
+  });
+
+  it('derives a radius covering the viewport corner (positive, comfortably under the cap here)', () => {
+    const q = deriveAircraftQuery(STHLM_BOUNDS, AIRCRAFT_MIN_ZOOM);
+    expect(q.radius).toBeGreaterThan(0);
+    expect(q.radius).toBeLessThan(250);
+  });
+
+  it('clamps the radius to 250 nm for a viewport wider than 250 nm', () => {
+    // A continent-spanning viewport: half-diagonal far exceeds 250 nm.
+    const wide = { south: 40, west: 0, north: 70, east: 30 };
+    const q = deriveAircraftQuery(wide, AIRCRAFT_MIN_ZOOM);
+    expect(q.radius).toBe(250);
   });
 });
