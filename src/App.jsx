@@ -92,9 +92,14 @@ function App() {
   // at 250 nm. Polled on a fixed ~2 s cadence; merged into the map's Vehicle list
   // below — but deliberately kept OUT of the Command Center, which only ever sees
   // transit Vehicles.
+  // Gate on the LIVE viewport zoom (reported with the bounds on zoomend), not
+  // the programmatic flyTo target (mapZoom): mapZoom only changes on geolocation
+  // / region-select, so gating on it left aircraft fetching at country view
+  // after a user zoomed out via the map controls — defeating the zoom gate and
+  // the 1 req/s budget (PRD #165, slice 2).
   const aircraftQuery = useMemo(
-    () => deriveAircraftQuery(viewportBounds, mapZoom),
-    [viewportBounds, mapZoom],
+    () => deriveAircraftQuery(viewportBounds, viewportBounds?.zoom),
+    [viewportBounds],
   );
   const { aircraft } = useAircraft(aircraftQuery, { enabled: isOnline });
 

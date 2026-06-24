@@ -147,6 +147,7 @@ export function Map({ vehicles = [], cameras = [], center = [59.3293, 18.0686], 
             onBoundsChangeRef.current({
               south: b.getSouth(), west: b.getWest(),
               north: b.getNorth(), east: b.getEast(),
+              zoom: map.getZoom(),
             });
           }
         }, 300);
