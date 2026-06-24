@@ -14,9 +14,23 @@ The **vehicle adapter** (`src/services/vehicleAdapter.js`) is the first adapter 
 
 The canonical set of vehicle transport modes, owned entirely by **`src/services/modes.js`**. That module is the single source of truth for the mode list, display label, marker/swatch color, marker icon, and the GTFS `route_type` → mode mapping. All consumers (map renderer, control panel, app state) import from it; none declare their own mode list or color table.
 
-The current canonical modes are: `metro | bus | train | tram | ferry | unknown`.
+A mode is a **vehicle category for marker styling and filtering** — it is *not* defined by GTFS. Most modes derive from a GTFS `route_type` (the `GTFS_ROUTE_TYPE_TO_MODE` table), but a mode may also come from a non-GTFS source: `aircraft` and `helicopter` originate from the airplanes.live feed and have no `route_type`. So `modes.js` owns the full mode list while `GTFS_ROUTE_TYPE_TO_MODE` deliberately covers only the GTFS-sourced subset.
 
-`ship` is not a mode: no GTFS `route_type` in the Swedish feeds maps to it. Route type 1000 (Water Transport) maps to `ferry`.
+The current canonical modes are: `metro | bus | train | tram | ferry | aircraft | helicopter | unknown`.
+
+`ship` is not a mode: no source produces it. GTFS route type 1000 (Water Transport) maps to `ferry`.
+
+## Vehicle
+
+A moving object on the map carrying position, `bearing`, `speed`, a `mode`, and a `line`, managed through the keyed marker-collection. Transit Vehicles come from GTFS-RT and carry an `operator`; an **Aircraft** (mode `aircraft` or `helicopter`, from airplanes.live) is a Vehicle with **no operator**. A User location is not a Vehicle (see above).
+
+A **Line** is a public-transport line designator (a route number such as `4` or `Pendeltåg 41`). An aircraft callsign is **not** a Line: it is carried in the Vehicle's `line` field only to label the marker, and is deliberately excluded from the line filter (Available lines lists transit lines only). Aircraft are filterable by mode, not by callsign.
+
+Aircraft are **not transit observations**: they never enter the command-center pipeline (observation buffer, Anomaly rules, Dwell spots, Feed outage, Projection). A hovering helicopter is not a stationary-vehicle Anomaly, and airplanes.live is not a Watched operator.
+
+## Followed vehicle
+
+A single Vehicle the user has chosen to keep centred: clicking a vehicle's **Follow** control pans the map to it on every position update while keeping the current zoom. It is a **session-only singleton** (forgotten on reload) and orthogonal to the command-center selection/highlight — a vehicle can be both followed and highlighted, and the follow accent composes with the highlight ring rather than replacing it. Following ends when the user stops it, clicks the map background, or the followed Vehicle leaves the feed (exited silently, never an error). Any Vehicle is followable, Aircraft included.
 
 ## User location
 
@@ -128,6 +142,8 @@ These three terms are deliberately kept distinct. They are commonly conflated in
 A one-way, informational disclosure to the user about what data the app handles and where it comes from. A Privacy Notice **informs**; it does not ask for permission. The user's only interaction is acknowledgement.
 
 A Privacy Notice is appropriate when there is nothing being processed conditionally on the user's answer — i.e. when the app has no non-essential storage and no non-essential processing to gate. It discharges transparency and attribution obligations without manufacturing a fake choice.
+
+The notice names every active third-party data source: Trafiklab, OpenStreetMap, the webcam sources, and — for the aircraft layer — **airplanes.live** (linked, annotated that it is fetched only while zoomed in, under Non-Commercial Use with no SLA). airplanes.live is the **same trust category** as the existing third-party fetches, so it needs **no Consent surface** and leaves ADR 0001's cookieless posture intact ([ADR 0007](docs/adr/0007-aircraft-airplanes-live-client-side.md)). Adding it bumped the notice's storage version so every returning user is re-disclosed once.
 
 ### Essential storage
 

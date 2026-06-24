@@ -10,6 +10,8 @@ import { createVehicleAdapter, FULL_MARKER_MIN_ZOOM } from '../services/vehicleA
 import { createWebcamAdapter } from '../services/webcamAdapter';
 
 const EMPTY_VEHICLE_IDS = [];
+const EMPTY_FOLLOWED_VEHICLE_IDS = [];
+const NOOP = () => {};
 
 function haveSameOrderedIds(previousIds, nextIds) {
   if (previousIds.length !== nextIds.length) return false;
@@ -34,7 +36,16 @@ function createHighlightState(highlightedVehicleIds) {
   };
 }
 
-export function Map({ vehicles = [], cameras = [], center = [59.3293, 18.0686], zoom = 11, onBoundsChange = null, theme = 'light', highlightedVehicleIds = EMPTY_VEHICLE_IDS, predictedVehicleIds = EMPTY_VEHICLE_IDS, userLocation = null }) {
+// Refresh a keyed id-set state in place when the ordered ids changed; returns
+// whether it changed so the caller can gate marker churn.
+function updateIdSet(state, nextIds) {
+  if (haveSameOrderedIds(state.ids, nextIds)) return false;
+  state.ids = nextIds.slice();
+  state.idSet = new Set(nextIds);
+  return true;
+}
+
+export function Map({ vehicles = [], cameras = [], center = [59.3293, 18.0686], zoom = 11, onBoundsChange = null, theme = 'light', highlightedVehicleIds = EMPTY_VEHICLE_IDS, predictedVehicleIds = EMPTY_VEHICLE_IDS, userLocation = null, followedVehicleIds = EMPTY_FOLLOWED_VEHICLE_IDS, onFollowToggle = NOOP, followPosition = null, onMapClick = NOOP }) {
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
   // Singleton User location marker (PRD #111). A single circle marker managed
@@ -51,6 +62,15 @@ export function Map({ vehicles = [], cameras = [], center = [59.3293, 18.0686], 
   // map view and whenever the projection is null/retracted.
   const [initialPredictedState] = useState(() => createIdSetState(predictedVehicleIds));
   const predictedStateRef = useRef(initialPredictedState);
+  // Follow set (the single Followed vehicle, issue #167), read live by the
+  // adapter parallel to the highlight set. Follow composes with highlight, so
+  // it is a separate set rather than sharing the highlight one.
+  const [initialFollowState] = useState(() => createIdSetState(followedVehicleIds));
+  const followStateRef = useRef(initialFollowState);
+  // onFollowToggle is read live by the adapter via this ref so a popup Follow
+  // click always reaches the current handler without rebuilding the adapter.
+  const onFollowToggleRef = useRef(onFollowToggle);
+  onFollowToggleRef.current = onFollowToggle;
   // Current zoom, read live by the adapter; mapZoom state re-triggers the
   // marker-update effect so existing markers swap compact/full icons on zoom.
   const zoomRef = useRef(zoom);
@@ -59,9 +79,15 @@ export function Map({ vehicles = [], cameras = [], center = [59.3293, 18.0686], 
     createVehicleAdapter({
       isHighlighted: (id) => highlightStateRef.current.idSet.has(id),
       isPredicted: (id) => predictedStateRef.current.idSet.has(id),
+      isFollowed: (id) => followStateRef.current.idSet.has(id),
+      onFollowToggle: (id) => onFollowToggleRef.current(id),
       getZoom: () => zoomRef.current,
     }),
   );
+  // onMapClick (stop-following on empty-map click) read live so the handler
+  // bound once on the map always calls the current prop.
+  const onMapClickRef = useRef(onMapClick);
+  onMapClickRef.current = onMapClick;
   const webcamCollectionRef = useRef(null);
   const webcamAdapterRef = useRef(createWebcamAdapter());
   const markerLayerRef = useRef(null);
@@ -121,10 +147,16 @@ export function Map({ vehicles = [], cameras = [], center = [59.3293, 18.0686], 
             onBoundsChangeRef.current({
               south: b.getSouth(), west: b.getWest(),
               north: b.getNorth(), east: b.getEast(),
+              zoom: map.getZoom(),
             });
           }
         }, 300);
       };
+
+      // Clicking the empty map background (not a marker) stops following
+      // (issue #167, story 16). Leaflet's map 'click' only fires for the base
+      // map, not for marker clicks, so this never fires when opening a popup.
+      map.on('click', () => onMapClickRef.current());
 
       map.on('moveend', reportBounds);
       map.on('zoomend', reportBounds);
@@ -163,28 +195,28 @@ export function Map({ vehicles = [], cameras = [], center = [59.3293, 18.0686], 
     }
   }, [center, zoom]);
 
+  // Follow pan (issue #167): while following, pan to the followed Vehicle's
+  // latest position on every update — a smooth panTo that KEEPS the user's
+  // current zoom, deliberately not the 1s re-zooming flyTo used for jumps.
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map || !followPosition) return;
+    map.panTo(followPosition);
+  }, [followPosition]);
+
   // Update vehicle markers via the marker-collection module. Runs after render
   // so highlight/predicted bookkeeping stays out of render; the equality gate
   // prevents marker churn unless vehicles, ordered highlights, the predicted
   // (Downstream) set, or zoom actually changed.
   useEffect(() => {
     const highlightState = highlightStateRef.current;
-    const highlightsChanged = !haveSameOrderedIds(highlightState.ids, highlightedVehicleIds);
-    if (highlightsChanged) {
-      highlightState.ids = highlightedVehicleIds.slice();
-      highlightState.idSet = new Set(highlightedVehicleIds);
-    }
-
-    const predictedState = predictedStateRef.current;
-    const predictedChanged = !haveSameOrderedIds(predictedState.ids, predictedVehicleIds);
-    if (predictedChanged) {
-      predictedState.ids = predictedVehicleIds.slice();
-      predictedState.idSet = new Set(predictedVehicleIds);
-    }
+    const highlightsChanged = updateIdSet(highlightState, highlightedVehicleIds);
+    const predictedChanged = updateIdSet(predictedStateRef.current, predictedVehicleIds);
+    const followChanged = updateIdSet(followStateRef.current, followedVehicleIds);
 
     const vehiclesChanged = highlightState.vehicles !== vehicles;
     const zoomChanged = highlightState.mapZoom !== mapZoom;
-    if (!vehiclesChanged && !highlightsChanged && !predictedChanged && !zoomChanged) return;
+    if (!vehiclesChanged && !highlightsChanged && !predictedChanged && !followChanged && !zoomChanged) return;
 
     highlightState.vehicles = vehicles;
     highlightState.mapZoom = mapZoom;

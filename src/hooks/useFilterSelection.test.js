@@ -118,6 +118,58 @@ describe('useFilterSelection — Scenario Outline: Available lines grouped and n
   });
 });
 
+describe('useFilterSelection — Scenario: Line selector lists transit lines only, never callsigns (issue #169)', () => {
+  // A callsign is not a Line (CONTEXT.md). Aircraft/helicopter Vehicles carry a
+  // callsign in `line`, but they must never appear in the line selector — only
+  // transit lines do. Aircraft stay filterable by MODE.
+  it('aircraft and helicopter modes never appear in availableLines, even when present', () => {
+    const vehicles = [
+      v('v1', 'bus', '4'),
+      v('v2', 'train', '41'),
+      v('air:abc', 'aircraft', 'SAS123'),
+      v('air:def', 'helicopter', 'POL01'),
+    ];
+    const { result } = renderHook(() => useFilterSelection(vehicles));
+
+    expect(result.current.availableLines).toHaveProperty('bus');
+    expect(result.current.availableLines).toHaveProperty('train');
+    expect(result.current.availableLines).not.toHaveProperty('aircraft');
+    expect(result.current.availableLines).not.toHaveProperty('helicopter');
+  });
+
+  it('no aircraft callsign is listed as a selectable line', () => {
+    const vehicles = [
+      v('v1', 'bus', '4'),
+      v('air:abc', 'aircraft', 'SAS123'),
+    ];
+    const { result } = renderHook(() => useFilterSelection(vehicles));
+
+    const allListedLines = Object.values(result.current.availableLines)
+      .flat()
+      .map(l => l.line);
+    expect(allListedLines).not.toContain('SAS123');
+  });
+
+  it('aircraft and helicopter remain listed as mode toggles', () => {
+    const vehicles = [v('air:abc', 'aircraft', 'SAS123')];
+    const { result } = renderHook(() => useFilterSelection(vehicles));
+
+    expect(result.current.enabledModes).toContain('aircraft');
+    expect(result.current.enabledModes).toContain('helicopter');
+  });
+
+  it('toggling the aircraft mode still hides aircraft Vehicles', () => {
+    const vehicles = [v('v1', 'bus', '4'), v('air:abc', 'aircraft', 'SAS123')];
+    const { result } = renderHook(() => useFilterSelection(vehicles));
+
+    expect(result.current.filteredVehicles).toHaveLength(2);
+
+    act(() => result.current.toggleMode('aircraft'));
+
+    expect(result.current.filteredVehicles.map(x => x.id)).toEqual(['v1']);
+  });
+});
+
 describe('useFilterSelection — Scenario: Disabling a mode clears its selected lines', () => {
   it('selected line disappears from selectedLines when its mode is disabled', () => {
     const vehicles = [v('v1', 'bus', '4')];

@@ -16,6 +16,9 @@ import { useConnectivity } from './hooks/useConnectivity';
 import { useGeolocation } from './hooks/useGeolocation';
 import { useUpdatePrompt } from './hooks/useUpdatePrompt';
 import { useWebcams } from './hooks/useWebcams';
+import { useAircraft } from './hooks/useAircraft';
+import { useFollowVehicle } from './hooks/useFollowVehicle';
+import { deriveAircraftQuery } from './services/aircraft';
 import {
   CAMERA_TYPE_DEFINITIONS,
   cameraCountsByType,
@@ -36,6 +39,26 @@ function App() {
   const [enabledCameraTypes, setEnabledCameraTypes] = useState(
     CAMERA_TYPE_DEFINITIONS.map(t => t.id),
   );
+  // Followed vehicle (PRD #165, issue #167): a session-only singleton — a single
+  // selected id + follow flag, held in memory only and forgotten on reload. It
+  // is orthogonal to the Command-Center selection/highlight.
+  const [selectedVehicleId, setSelectedVehicleId] = useState(null);
+  const [followMode, setFollowMode] = useState(false);
+
+  const stopFollowing = () => {
+    setFollowMode(false);
+    setSelectedVehicleId(null);
+  };
+
+  // Popup Follow/Stop toggle: follow the clicked Vehicle, or stop if it is the
+  // one already being followed.
+  const handleFollowToggle = (vehicleId) => {
+    setSelectedVehicleId((currentId) => {
+      const alreadyFollowing = followMode && currentId === vehicleId;
+      setFollowMode(!alreadyFollowing);
+      return alreadyFollowing ? null : vehicleId;
+    });
+  };
 
   // Fly to the User location when a fix arrives, at city-level zoom (~12).
   // This reuses the existing center/zoom → Map flyTo seam; moving the viewport
@@ -62,6 +85,27 @@ function App() {
   const { vehicles: allVehicles, feedOutcomes, error, loading, lastUpdate, refresh, activeOperators, effectiveInterval } =
     useRealtimeVehicles(visibleOperators, 2000, isOnline);
 
+  // Live aircraft overlay (PRD #165). Zoom-gated and viewport-bounded: below
+  // AIRCRAFT_MIN_ZOOM the query is null, so the hook issues no request at all and
+  // shows no aircraft (protecting the 1 req/s budget at country view). At/above
+  // it, the query centre/radius derive from the current viewport bounds, capped
+  // at 250 nm. Polled on a fixed ~2 s cadence; merged into the map's Vehicle list
+  // below — but deliberately kept OUT of the Command Center, which only ever sees
+  // transit Vehicles.
+  // Gate on the LIVE viewport zoom (reported with the bounds on zoomend), not
+  // the programmatic flyTo target (mapZoom): mapZoom only changes on geolocation
+  // / region-select, so gating on it left aircraft fetching at country view
+  // after a user zoomed out via the map controls — defeating the zoom gate and
+  // the 1 req/s budget (PRD #165, slice 2).
+  const aircraftQuery = useMemo(
+    () => deriveAircraftQuery(viewportBounds, viewportBounds?.zoom),
+    [viewportBounds],
+  );
+  const { aircraft } = useAircraft(aircraftQuery, { enabled: isOnline });
+
+  // Map Vehicle list = transit Vehicles ⧺ aircraft Vehicles.
+  const mapVehicles = useMemo(() => [...allVehicles, ...aircraft], [allVehicles, aircraft]);
+
   const {
     enabledModes,
     toggleMode,
@@ -74,7 +118,26 @@ function App() {
     clearFavourites,
     availableLines,
     filteredVehicles,
-  } = useFilterSelection(allVehicles);
+  } = useFilterSelection(mapVehicles);
+
+  // Resolve the followed Vehicle's live position (for the map's panTo seam) and
+  // detect feed-exit. Tracks the full UNFILTERED merged list (mapVehicles =
+  // transit ⧺ aircraft), not the mode/line-filtered list — so a deliberately
+  // followed Vehicle is not lost to a filter, AND a followed Aircraft (which
+  // lives only in mapVehicles, not allVehicles) actually pans and exits (story
+  // 18). onExit fires once when the followed Vehicle leaves the feed — follow
+  // ends silently (selection cleared, no error surfaced; story 17).
+  const { followedPosition } = useFollowVehicle({
+    vehicles: mapVehicles,
+    selectedVehicleId,
+    followMode,
+    onExit: stopFollowing,
+  });
+
+  const followedVehicleIds = useMemo(
+    () => (followMode && selectedVehicleId ? [selectedVehicleId] : []),
+    [followMode, selectedVehicleId],
+  );
 
   const handleCameraTypeToggle = (typeId) => {
     setEnabledCameraTypes(prev =>
@@ -133,6 +196,10 @@ function App() {
         onBoundsChange={setViewportBounds}
         theme={theme}
         userLocation={userLocation}
+        followedVehicleIds={followedVehicleIds}
+        onFollowToggle={handleFollowToggle}
+        followPosition={followedPosition}
+        onMapClick={stopFollowing}
       />
       <PanelComponent
         vehicles={filteredVehicles}

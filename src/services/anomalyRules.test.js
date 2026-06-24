@@ -82,6 +82,25 @@ describe('detectStationaryAnomalies — stationary on active trip', () => {
     expect(detectStationaryAnomalies([], 0)).toEqual([]);
   });
 
+  // Issue #169 — a hovering helicopter is an Aircraft, not transit, and must
+  // never raise a stationary-vehicle Anomaly. Aircraft Vehicles (mapAircraft
+  // shape: `air:`+hex id, helicopter mode, no operator, no tripId) carry no
+  // active trip, so even if one reached this rule it raises nothing.
+  it('does not flag a hovering helicopter (no active trip, aircraft Vehicle)', () => {
+    const helicopter = (overrides = {}) => ({
+      id: 'air:4ca7b2',
+      mode: 'helicopter',
+      line: 'POL01',
+      latitude: 59.3293,
+      longitude: 18.0686,
+      ...overrides,
+    });
+    // Perfectly stationary over well past the threshold — would flag if it were
+    // a transit vehicle on an active trip, but a helicopter has no tripId.
+    const snaps = track([0, 3 * MIN, 6 * MIN], () => helicopter());
+    expect(detectStationaryAnomalies(snaps, 6 * MIN)).toHaveLength(0);
+  });
+
   it('ignores tiny jitter below the displacement threshold', () => {
     // ~10 m of GPS jitter, under the 30 m threshold → still counts as stationary.
     const snaps = track([0, 3 * MIN, 6 * MIN], (time) => {
