@@ -4,7 +4,9 @@ import { useCallback, useState } from 'react';
 // Trafikverket was added as a third-party webcam image source (ADR 0001).
 // Bumped v2 → v3 when Windy and the curated webcam catalogue were added
 // as webcam data sources — the notice must name every active source.
-const STORAGE_KEY = 'rtt-privacy-notice-v3';
+// Bumped v3 → v4 when airplanes.live was added as the aircraft data source
+// (ADR 0007) — the notice must name every active source.
+const STORAGE_KEY = 'rtt-privacy-notice-v4';
 
 function readAcknowledged() {
   try {

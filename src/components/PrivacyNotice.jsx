@@ -47,7 +47,16 @@ export function PrivacyNotice() {
             Windy
           </a>{' '}
           and a curated webcam catalogue (camera listings and links only — no
-          media is fetched from them). This site stores no tracking cookies.
+          media is fetched from them). Aircraft data:{' '}
+          <a
+            href="https://airplanes.live/"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            airplanes.live
+          </a>{' '}
+          (Non-Commercial Use, no SLA; fetched only while zoomed in). This site
+          stores no tracking cookies.
         </p>
         <button
           type="button"

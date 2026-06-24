@@ -41,7 +41,7 @@ Real-time Leaflet map of Swedish public-transport vehicles, polled ~2s from Traf
 | [docs/architectural_patterns.md](docs/architectural_patterns.md) | 15 recurring patterns with file:line anchors |
 | [docs/environment.md](docs/environment.md) | env vars, API keys, rate limit, debug scripts |
 | [docs/security-review.md](docs/security-review.md) | mandatory pre-PR security checklist |
-| [docs/adr/](docs/adr/) | ADRs 0001–0006: cookieless, dark tiles, client-side incidents, webcam embeds, transient projections, ephemeral geolocation |
+| [docs/adr/](docs/adr/) | ADRs 0001–0007: cookieless, dark tiles, client-side incidents, webcam embeds, transient projections, ephemeral geolocation, airplanes.live aircraft source |
 | [docs/agents/domain.md](docs/agents/domain.md) | how agents consume CONTEXT.md + ADRs |
 | [docs/agents/issue-tracker.md](docs/agents/issue-tracker.md) | GitHub issue conventions via `gh` |
 | [docs/agents/triage-labels.md](docs/agents/triage-labels.md) | triage label vocabulary |

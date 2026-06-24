@@ -7,7 +7,9 @@ export const TRAFIKLAB_FEED_BASE = 'https://opendata.samtrafiken.se/gtfs-rt-swed
 export const TRIP_MAPPING_URL = '/data/trip-mapping.json';
 
 // airplanes.live — unauthenticated, CORS-open (access-control-allow-origin: *),
-// so it is fetched directly from the browser with no proxy (ADR 0001 intact).
+// so it is fetched directly from the browser with no proxy (ADR 0001 intact),
+// under Non-Commercial Use / no SLA. Disclosed in the Privacy Notice; chosen and
+// licence-framed in ADR 0007 (docs/adr/0007-aircraft-airplanes-live-client-side.md).
 // Point endpoint: `${base}/point/{lat}/{lon}/{radius_nm}` (radius ≤ 250 nm).
 export const AIRPLANES_LIVE_BASE = 'https://api.airplanes.live/v2';
 
