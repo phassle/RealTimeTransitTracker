@@ -61,7 +61,14 @@ export function mapAircraft(ac) {
 
   const vehicles = [];
   for (const entry of ac) {
-    if (!entry || entry.lat == null || entry.lon == null) continue;
+    if (!entry) continue;
+    // Untrusted external source: require a finite position (a non-finite lat/lon
+    // would throw inside Leaflet) and a non-empty hex (the marker key is
+    // `air:<hex>`; missing hex would collapse distinct aircraft onto one
+    // `air:undefined` key). Entries failing either are dropped, mirroring the
+    // GTFS-RT fetcher's drop-on-missing-position discipline.
+    if (!Number.isFinite(entry.lat) || !Number.isFinite(entry.lon)) continue;
+    if (typeof entry.hex !== 'string' || entry.hex === '') continue;
     vehicles.push({
       id: `air:${entry.hex}`,
       line: (entry.flight ?? '').trim(),

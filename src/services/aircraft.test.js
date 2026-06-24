@@ -56,6 +56,27 @@ describe('mapAircraft — pure aircraft → Vehicle mapping', () => {
     expect(result[0].id).toBe('air:4ac9b2');
   });
 
+  it('drops entries with a non-finite position (untrusted source hardening)', () => {
+    const result = mapAircraft([
+      makeAc({ hex: 'nan', lat: NaN, lon: 18 }),
+      makeAc({ hex: 'str', lat: '59.3', lon: 18 }),
+      makeAc({ hex: 'inf', lat: 59.3, lon: Infinity }),
+      makeAc({ hex: 'good', lat: 59.3, lon: 18 }),
+    ]);
+    expect(result).toHaveLength(1);
+    expect(result[0].id).toBe('air:good');
+  });
+
+  it('drops entries with a missing or empty hex (would collapse onto air:undefined)', () => {
+    const result = mapAircraft([
+      makeAc({ hex: undefined }),
+      makeAc({ hex: '' }),
+      makeAc({ hex: 'ok' }),
+    ]);
+    expect(result).toHaveLength(1);
+    expect(result[0].id).toBe('air:ok');
+  });
+
   it('tolerates missing optional fields', () => {
     const [v] = mapAircraft([
       { hex: 'abc', lat: 60, lon: 17 },

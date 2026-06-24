@@ -3,8 +3,12 @@ import { MODE_COLORS, MODE_ICONS } from './modes';
 import { escapeHtml } from './markerCollection';
 
 export function vehiclePopupContent(vehicle, { followed = false } = {}) {
-  const time = new Date((vehicle.timestamp ?? 0) * 1000).toLocaleTimeString('sv-SE');
   const speedKmh = ((vehicle.speed ?? 0) * 3.6).toFixed(1);
+  // "Updated" only for Vehicles that carry a feed timestamp (transit). Aircraft
+  // have none, so the line is omitted rather than showing the 1970 epoch.
+  const updatedLine = vehicle.timestamp != null
+    ? `Updated: ${new Date(vehicle.timestamp * 1000).toLocaleTimeString('sv-SE')}`
+    : '';
   // Follow control: a single toggle button. Label flips to "Stop following" for
   // the currently-followed Vehicle (issue #167, stories 12 & 15). The click is
   // wired in onMarkerCreated via the [data-vehicle-follow] hook.
@@ -24,8 +28,7 @@ export function vehiclePopupContent(vehicle, { followed = false } = {}) {
       ${vehicle.operator ? `<em style="color: #666; font-size: 12px;">${escapeHtml(vehicle.operator.toUpperCase())}</em><br/>` : ''}
       <hr style="margin: 5px 0; border: none; border-top: 1px solid #eee;"/>
       ${typeLine}${regLine}${altitudeLine}Speed: ${speedKmh} km/h<br/>
-      Bearing: ${escapeHtml(vehicle.bearing)}°<br/>
-      Updated: ${time}
+      Bearing: ${escapeHtml(vehicle.bearing)}°${updatedLine ? `<br/>\n      ${updatedLine}` : ''}
       <hr style="margin: 5px 0; border: none; border-top: 1px solid #eee;"/>
       <button type="button" data-vehicle-follow style="
         width: 100%; padding: 4px 8px; cursor: pointer;
@@ -108,7 +111,14 @@ export function createVehicleAdapter({ isHighlighted = () => false, isPredicted 
 
   function updateOpenPopup(marker, vehicle) {
     if (typeof marker.isPopupOpen !== 'function' || !marker.isPopupOpen()) return;
-    if (typeof marker.setPopupContent === 'function') marker.setPopupContent(lazyPopupContent(vehicle));
+    if (typeof marker.setPopupContent !== 'function') return;
+    marker.setPopupContent(lazyPopupContent(vehicle));
+    // setPopupContent replaces the popup DOM, discarding the Follow listener
+    // wired on popupopen — re-wire it against the fresh content so the control
+    // keeps working across poll updates (otherwise it goes inert after ~2 s).
+    if (typeof marker.getPopup === 'function') {
+      wireFollowControl(marker.getPopup(), markerVehicles.get(marker) ?? vehicle);
+    }
   }
 
   function buildCompactIcon(color) {

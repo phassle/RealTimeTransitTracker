@@ -298,6 +298,39 @@ describe('createVehicleAdapter follow popup control', () => {
 
     expect(onFollowToggle).toHaveBeenCalledWith('v1');
   });
+
+  it('re-wires the follow control after a poll update replaces the open popup content', () => {
+    const onFollowToggle = vi.fn();
+    const adapter = createVehicleAdapter({ onFollowToggle });
+    const makeButton = () => {
+      const handlers = {};
+      return {
+        addEventListener: (ev, fn) => { handlers[ev] = fn; },
+        click: () => handlers.click?.({ preventDefault() {} }),
+      };
+    };
+    // setPopupContent replaces the button DOM node (new node, no listener),
+    // mirroring real Leaflet — so without re-wiring the post-update button is
+    // inert. getElement().querySelector always returns the CURRENT button.
+    let currentButton = makeButton();
+    const popup = {
+      getElement: () => ({ querySelector: (sel) => (sel.includes('follow') ? currentButton : null) }),
+    };
+    const marker = {
+      on: (ev, fn) => { if (ev === 'popupopen') fn({ popup }); },
+      isPopupOpen: () => true,
+      setLatLng: vi.fn().mockReturnThis(),
+      setIcon: vi.fn().mockReturnThis(),
+      setPopupContent: () => { currentButton = makeButton(); return marker; },
+      getPopup: () => popup,
+    };
+
+    adapter.onMarkerCreated(marker, makeVehicle());       // popupopen wires button A
+    adapter.onUpdate(marker, makeVehicle({ speed: 12 }));  // swaps to button B; fix re-wires it
+    currentButton.click();                                 // click the post-update button (B)
+
+    expect(onFollowToggle).toHaveBeenCalledWith('v1');
+  });
 });
 
 describe('createVehicleAdapter lazy popups', () => {
@@ -360,6 +393,24 @@ describe('createVehicleAdapter lazy popups', () => {
     expect(html).toContain('Bearing: 270');
     // No operator line for an aircraft.
     expect(html).not.toContain('<em');
+  });
+
+  it('omits the Updated line for an aircraft (no feed timestamp) but keeps it for transit', () => {
+    const adapter = createVehicleAdapter();
+    const aircraftMarker = {};
+    const aircraft = {
+      id: 'air:4ca7b1', mode: 'aircraft', line: 'SAS123',
+      latitude: 59.33, longitude: 18.07, bearing: 270, speed: 216,
+      // no timestamp — aircraft carry none
+    };
+    const aircraftPopup = adapter.toPopup(aircraft);
+    adapter.onMarkerCreated(aircraftMarker, aircraft);
+    expect(aircraftPopup(aircraftMarker)).not.toContain('Updated:');
+
+    const transitMarker = {};
+    const transitPopup = adapter.toPopup(makeVehicle());
+    adapter.onMarkerCreated(transitMarker, makeVehicle());
+    expect(transitPopup(transitMarker)).toContain('Updated:');
   });
 
   it('renders the helicopter glyph (🚁) on the marker icon for a helicopter Vehicle', () => {

@@ -65,6 +65,29 @@ describe('useAircraft', () => {
     resolvePending(SAMPLE);
     await new Promise(r => setTimeout(r, 10));
   });
+
+  it('ignores a fetch that resolves after the query changed (no stale viewport aircraft)', async () => {
+    const FRESH = [{ id: 'air:fresh', mode: 'aircraft', latitude: 2, longitude: 2 }];
+    const STALE = [{ id: 'air:stale', mode: 'aircraft', latitude: 1, longitude: 1 }];
+    let resolveStale;
+    // Query A's fetch hangs; once the query changes, B resolves FRESH.
+    service.fetchAircraft.mockImplementationOnce(
+      () => new Promise(r => { resolveStale = r; }),
+    );
+    service.fetchAircraft.mockResolvedValue(FRESH);
+
+    const { result, rerender } = renderHook(
+      ({ q }) => useAircraft(q, { enabled: true }),
+      { initialProps: { q: { lat: 1, lon: 1, radius: 10 } } },
+    );
+    rerender({ q: { lat: 2, lon: 2, radius: 10 } }); // supersedes query A
+    await waitFor(() => expect(result.current.aircraft).toEqual(FRESH));
+
+    // Query A's late result must not clobber the current viewport's aircraft.
+    await act(async () => { resolveStale(STALE); });
+    await new Promise(r => setTimeout(r, 10));
+    expect(result.current.aircraft).toEqual(FRESH);
+  });
 });
 
 // Zoom gate + viewport-radius derivation (PRD #165, Slice 2). These drive the

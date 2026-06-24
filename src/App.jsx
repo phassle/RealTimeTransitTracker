@@ -121,12 +121,14 @@ function App() {
   } = useFilterSelection(mapVehicles);
 
   // Resolve the followed Vehicle's live position (for the map's panTo seam) and
-  // detect feed-exit. Tracks the full feed (allVehicles), not the mode/line
-  // filtered list, so a deliberately-followed Vehicle is not lost to a filter.
-  // onExit fires once when the followed Vehicle leaves the feed — follow ends
-  // silently (selection cleared, no error surfaced; story 17).
+  // detect feed-exit. Tracks the full UNFILTERED merged list (mapVehicles =
+  // transit ⧺ aircraft), not the mode/line-filtered list — so a deliberately
+  // followed Vehicle is not lost to a filter, AND a followed Aircraft (which
+  // lives only in mapVehicles, not allVehicles) actually pans and exits (story
+  // 18). onExit fires once when the followed Vehicle leaves the feed — follow
+  // ends silently (selection cleared, no error surfaced; story 17).
   const { followedPosition } = useFollowVehicle({
-    vehicles: allVehicles,
+    vehicles: mapVehicles,
     selectedVehicleId,
     followMode,
     onExit: stopFollowing,

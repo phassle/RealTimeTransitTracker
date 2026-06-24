@@ -39,10 +39,16 @@ export function useAircraft(query, { enabled = true, intervalMs = 2000 } = {}) {
       return;
     }
 
+    // Per-effect guard: a fetch in flight when the query changes (pan/zoom) or
+    // the hook unmounts must not apply its now-stale result over the fresh
+    // viewport's aircraft. Set in this effect's cleanup, so each query owns its
+    // own flag (aliveRef alone only covers unmount, not query changes).
+    let cancelled = false;
+
     const fetchData = async () => {
       try {
         const next = await fetchAircraft(query);
-        if (aliveRef.current) setAircraft(next);
+        if (!cancelled && aliveRef.current) setAircraft(next);
       } catch {
         // Non-essential overlay: swallow failures, keep the last good list.
       }
@@ -75,6 +81,7 @@ export function useAircraft(query, { enabled = true, intervalMs = 2000 } = {}) {
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
+      cancelled = true;
       stopPolling();
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
