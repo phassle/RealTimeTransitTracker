@@ -17,6 +17,7 @@ import { useGeolocation } from './hooks/useGeolocation';
 import { useUpdatePrompt } from './hooks/useUpdatePrompt';
 import { useWebcams } from './hooks/useWebcams';
 import { useAircraft } from './hooks/useAircraft';
+import { useDeadReckoning } from './hooks/useDeadReckoning';
 import { useFollowVehicle } from './hooks/useFollowVehicle';
 import { deriveAircraftQuery } from './services/aircraft';
 import {
@@ -101,10 +102,15 @@ function App() {
     () => deriveAircraftQuery(viewportBounds, viewportBounds?.zoom),
     [viewportBounds],
   );
-  const { aircraft } = useAircraft(aircraftQuery, { enabled: isOnline });
+  // Poll airplanes.live slowly (10 s) to sip the 1 req/s budget, then dead-reckon
+  // each aircraft forward along its track between polls so markers glide instead
+  // of jumping/flickering (idea #51). A throttled poll keeps the last-good list,
+  // so prediction simply keeps extrapolating from the last real fix.
+  const { aircraft, fetchedAt } = useAircraft(aircraftQuery, { enabled: isOnline, intervalMs: 10000 });
+  const predictedAircraft = useDeadReckoning(aircraft, fetchedAt);
 
-  // Map Vehicle list = transit Vehicles ⧺ aircraft Vehicles.
-  const mapVehicles = useMemo(() => [...allVehicles, ...aircraft], [allVehicles, aircraft]);
+  // Map Vehicle list = transit Vehicles ⧺ (predicted) aircraft Vehicles.
+  const mapVehicles = useMemo(() => [...allVehicles, ...predictedAircraft], [allVehicles, predictedAircraft]);
 
   const {
     enabledModes,

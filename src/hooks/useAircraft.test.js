@@ -88,6 +88,21 @@ describe('useAircraft', () => {
     await new Promise(r => setTimeout(r, 10));
     expect(result.current.aircraft).toEqual(FRESH);
   });
+
+  it('keeps the last-good list and fetchedAt when a later poll fails (no flicker-out)', async () => {
+    vi.useFakeTimers();
+    service.fetchAircraft
+      .mockResolvedValueOnce(SAMPLE) // first poll succeeds
+      .mockResolvedValue(null);      // every later poll fails (throttled)
+    const { result } = renderHook(() => useAircraft(QUERY, { enabled: true, intervalMs: 2000 }));
+    await vi.waitFor(() => expect(result.current.aircraft).toEqual(SAMPLE));
+    const firstFetchedAt = result.current.fetchedAt;
+    expect(firstFetchedAt).toEqual(expect.any(Number));
+
+    await act(async () => { await vi.advanceTimersByTimeAsync(2000); }); // a failed poll elapses
+    expect(result.current.aircraft).toEqual(SAMPLE);          // not blanked
+    expect(result.current.fetchedAt).toBe(firstFetchedAt);    // fix time unchanged → prediction keeps extrapolating
+  });
 });
 
 // Zoom gate + viewport-radius derivation (PRD #165, Slice 2). These drive the
