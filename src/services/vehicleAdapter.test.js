@@ -180,6 +180,100 @@ describe('createVehicleAdapter downstream prediction accent', () => {
   });
 });
 
+describe('createVehicleAdapter follow accent', () => {
+  it('gives a followed vehicle a distinct follow visual-state key', () => {
+    const adapter = createVehicleAdapter({
+      getZoom: () => FULL_MARKER_MIN_ZOOM,
+      isFollowed: (id) => id === 'v1',
+    });
+    const icon = adapter.toIcon(makeVehicle());
+    expect(icon.className).toContain('vehicle-marker--followed');
+  });
+
+  it('keeps followed vehicles full-size even below the zoom threshold', () => {
+    const adapter = createVehicleAdapter({
+      getZoom: () => FULL_MARKER_MIN_ZOOM - 3,
+      isFollowed: (id) => id === 'v1',
+    });
+    const icon = adapter.toIcon(makeVehicle());
+    expect(icon.iconSize).toEqual([24, 24]);
+  });
+
+  it('composes the follow accent with the highlight rather than replacing it', () => {
+    const adapter = createVehicleAdapter({
+      getZoom: () => FULL_MARKER_MIN_ZOOM,
+      isHighlighted: (id) => id === 'v1',
+      isFollowed: (id) => id === 'v1',
+    });
+    const icon = adapter.toIcon(makeVehicle());
+    // Follow and highlight are orthogonal — both accents present at once.
+    expect(icon.className).toContain('vehicle-marker--highlighted');
+    expect(icon.className).toContain('vehicle-marker--followed');
+  });
+
+  it('replaces the icon when follow state changes', () => {
+    let followed = false;
+    const adapter = createVehicleAdapter({
+      getZoom: () => FULL_MARKER_MIN_ZOOM,
+      isFollowed: () => followed,
+    });
+    const marker = {
+      setLatLng: vi.fn().mockReturnThis(),
+      setIcon: vi.fn().mockReturnThis(),
+      isPopupOpen: () => false,
+    };
+
+    adapter.onMarkerCreated(marker, makeVehicle());
+    followed = true;
+    adapter.onUpdate(marker, makeVehicle());
+
+    expect(marker.setIcon).toHaveBeenCalledOnce();
+    expect(marker.setIcon.mock.calls[0][0].className).toContain('vehicle-marker--followed');
+  });
+
+  it('defaults to nothing followed (existing map view behaviour)', () => {
+    const adapter = createVehicleAdapter();
+    const icon = adapter.toIcon(makeVehicle());
+    expect(icon.className).not.toContain('vehicle-marker--followed');
+  });
+});
+
+describe('createVehicleAdapter follow popup control', () => {
+  it('offers a Follow control in the popup for a not-yet-followed vehicle', () => {
+    const adapter = createVehicleAdapter();
+    const popupContent = adapter.toPopup(makeVehicle());
+    const marker = {};
+    adapter.onMarkerCreated(marker, makeVehicle());
+    expect(popupContent(marker)).toContain('Follow');
+  });
+
+  it('shows Stop following in the popup for the followed vehicle', () => {
+    const adapter = createVehicleAdapter({ isFollowed: (id) => id === 'v1' });
+    const popupContent = adapter.toPopup(makeVehicle());
+    const marker = {};
+    adapter.onMarkerCreated(marker, makeVehicle());
+    expect(popupContent(marker)).toContain('Stop following');
+  });
+
+  it('invokes the follow toggle when the popup control is activated', () => {
+    const onFollowToggle = vi.fn();
+    const adapter = createVehicleAdapter({ onFollowToggle });
+    const handlers = {};
+    const button = { addEventListener: (ev, fn) => { handlers[ev] = fn; } };
+    const popup = {
+      getElement: () => ({ querySelector: (sel) => (sel.includes('follow') ? button : null) }),
+    };
+    const marker = {
+      on: (ev, fn) => { if (ev === 'popupopen') fn({ popup }); },
+    };
+
+    adapter.onMarkerCreated(marker, makeVehicle());
+    handlers.click({ preventDefault() {} });
+
+    expect(onFollowToggle).toHaveBeenCalledWith('v1');
+  });
+});
+
 describe('createVehicleAdapter lazy popups', () => {
   it('defers vehicle popup formatting until Leaflet resolves popup content', () => {
     const adapter = createVehicleAdapter();
