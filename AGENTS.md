@@ -12,6 +12,7 @@ Real-time Leaflet map of Swedish public-transport vehicles, polled ~2s from Traf
 
 ## Response style
 
+- **Always respond in English**, regardless of the language the user writes in.
 - Be extremely concise. Sacrifice grammar for concision.
 - End each plan with a list of unresolved questions.
 
