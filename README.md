@@ -38,9 +38,9 @@ Client-only React app for viewing real-time public-transport vehicles across Swe
 
 ### 1. Install
 
-```bash
-npm install
-```
+- Node.js ≥ 20.19 (≥ 22.13 to run the Aspire AppHost — the default below)
+- The [Aspire CLI](https://aspire.dev) and the .NET SDK (provides the `aspire` command)
+- Trafiklab API keys (see below)
 
 ### 2. Configure environment
 
@@ -60,9 +60,19 @@ Fill in the keys you need from:
 npm run dev
 ```
 
-Open http://localhost:3000
+4. Start the site (via Aspire — the default):
+   ```bash
+   npm run aspire:start
+   ```
+   This launches the app through the Aspire AppHost and opens the Aspire
+   dashboard (it also streams the browser console/network). Open the app from
+   the URL shown on the dashboard.
 
-## Scripts
+   Or run the Vite dev server directly, without Aspire:
+   ```bash
+   npm run dev
+   ```
+   then open http://localhost:3000/ in your browser.
 
 ```bash
 npm run dev         # Vite dev server
@@ -75,7 +85,11 @@ npm run aspire:build
 npm run aspire:dev
 ```
 
-Debug / data scripts:
+- `npm run aspire:start` - **Default.** Start the site via the Aspire AppHost (dashboard + browser-log capture)
+- `npm run dev` - Start the Vite dev server only (http://localhost:3000/)
+- `npm run build` - Build for production
+- `npm run preview` - Preview production build
+- `npm test` - Run the test suite
 
 ```bash
 node test-api.js

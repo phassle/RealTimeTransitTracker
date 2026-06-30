@@ -1,8 +1,11 @@
+// `icon` is a vehicle-TYPE pictogram, shown on the marker so each Vehicle reads
+// as its type at a glance (a plane looks like a plane, a bus like a bus) rather
+// than as a coloured dot. Colour still encodes the mode for quick scanning.
 export const MODES = [
-  { id: 'metro',   label: 'Metro', color: '#FF6B35', icon: 'M' },
-  { id: 'bus',     label: 'Bus',   color: '#4ECDC4', icon: 'B' },
-  { id: 'train',   label: 'Train', color: '#95E1D3', icon: 'T' },
-  { id: 'tram',    label: 'Tram',  color: '#F38181', icon: 'S' },
+  { id: 'metro',   label: 'Metro', color: '#FF6B35', icon: '🚇' },
+  { id: 'bus',     label: 'Bus',   color: '#4ECDC4', icon: '🚌' },
+  { id: 'train',   label: 'Train', color: '#95E1D3', icon: '🚆' },
+  { id: 'tram',    label: 'Tram',  color: '#F38181', icon: '🚊' },
   { id: 'ferry',   label: 'Ferry', color: '#FCBAD3', icon: '⛴' },
   // Non-GTFS modes — aircraft come from airplanes.live, not a GTFS route_type.
   { id: 'aircraft',   label: 'Aircraft',   color: '#A29BFE', icon: '✈' },

@@ -63,6 +63,17 @@ export const FULL_MARKER_MIN_ZOOM = 12;
 export function createVehicleAdapter({ isHighlighted = () => false, isPredicted = () => false, isFollowed = () => false, onFollowToggle = () => {}, getZoom = () => FULL_MARKER_MIN_ZOOM } = {}) {
   const markerVehicles = new WeakMap();
   const markerVisualStateKeys = new WeakMap();
+  const markerPopupKeys = new WeakMap();
+
+  // Everything the popup actually displays. A predicted-position tick (idea #51)
+  // moves the marker every ~1s but changes none of this, so we can skip the
+  // popup rebuild and keep the live Follow button (and its listener) intact.
+  function popupSignature(vehicle, followed) {
+    return JSON.stringify([
+      vehicle.mode, vehicle.line, vehicle.operator, vehicle.type, vehicle.reg,
+      vehicle.altitude, vehicle.speed, vehicle.bearing, vehicle.timestamp, followed,
+    ]);
+  }
 
   function visualStateFor(vehicle) {
     const color = MODE_COLORS[vehicle.mode] || MODE_COLORS.unknown;
@@ -76,7 +87,6 @@ export function createVehicleAdapter({ isHighlighted = () => false, isPredicted 
     // Highlighted, predicted, and followed vehicles all stay full-size so the
     // accent is legible even when the surrounding field is clustered/compact.
     const compact = !highlighted && !predicted && !followed && getZoom() < FULL_MARKER_MIN_ZOOM;
-    const label = vehicle.line?.length <= 3 ? ['line', String(vehicle.line ?? '')] : ['icon', icon];
 
     return {
       color,
@@ -85,7 +95,10 @@ export function createVehicleAdapter({ isHighlighted = () => false, isPredicted 
       predicted,
       followed,
       compact,
-      key: JSON.stringify([compact, color, highlighted, predicted, followed, label]),
+      // The marker renders the type pictogram (state.icon), so the icon — not the
+      // line number — is what visibly changes; keying on it avoids a needless
+      // setIcon when only a vehicle's line label changes.
+      key: JSON.stringify([compact, color, highlighted, predicted, followed, icon]),
     };
   }
 
@@ -112,37 +125,42 @@ export function createVehicleAdapter({ isHighlighted = () => false, isPredicted 
   function updateOpenPopup(marker, vehicle) {
     if (typeof marker.isPopupOpen !== 'function' || !marker.isPopupOpen()) return;
     if (typeof marker.setPopupContent !== 'function') return;
+    // Only rebuild when the DISPLAYED content changes. Skipping a no-op rebuild
+    // (e.g. a predicted-position tick) keeps the live Follow button — rebuilding
+    // every ~1s would destroy/recreate it faster than it can be clicked.
+    const signature = popupSignature(vehicle, isFollowed(vehicle.id));
+    if (markerPopupKeys.get(marker) === signature) return;
+    markerPopupKeys.set(marker, signature);
     marker.setPopupContent(lazyPopupContent(vehicle));
     // setPopupContent replaces the popup DOM, discarding the Follow listener
-    // wired on popupopen — re-wire it against the fresh content so the control
-    // keeps working across poll updates (otherwise it goes inert after ~2 s).
+    // wired on popupopen — re-wire it against the fresh content.
     if (typeof marker.getPopup === 'function') {
       wireFollowControl(marker.getPopup(), markerVehicles.get(marker) ?? vehicle);
     }
   }
 
-  function buildCompactIcon(color) {
+  function buildCompactIcon(icon) {
+    // Low-zoom marker: the type pictogram (a plane reads as a plane even when
+    // zoomed right out), with a dark halo so it stays legible on dark tiles.
     return L.divIcon({
       className: 'vehicle-marker vehicle-marker--compact',
       html: `
           <div style="
-            background: ${color};
-            border: 1px solid white;
-            border-radius: 50%;
-            width: 8px;
-            height: 8px;
-            box-shadow: 0 1px 2px rgba(0,0,0,0.3);
+            font-size: 14px;
+            line-height: 14px;
+            text-align: center;
+            text-shadow: 0 0 2px #000, 0 0 3px #000;
             cursor: pointer;
-          "></div>
+          ">${icon}</div>
         `,
-      iconSize: [10, 10],
-      iconAnchor: [5, 5],
+      iconSize: [16, 16],
+      iconAnchor: [8, 8],
     });
   }
 
   function buildIcon(vehicle, state = visualStateFor(vehicle)) {
     if (state.compact) {
-      return buildCompactIcon(state.color);
+      return buildCompactIcon(state.icon);
     }
     // Base border/shadow from the observed-selection vs forecast states, which
     // are mutually exclusive (predicted only when not highlighted). Follow then
@@ -180,13 +198,13 @@ export function createVehicleAdapter({ isHighlighted = () => false, isPredicted 
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 10px;
-            font-weight: bold;
+            font-size: 13px;
+            line-height: 1;
             color: white;
             box-shadow: ${shadow};
             cursor: pointer;
           ">
-            ${vehicle.line?.length <= 3 ? escapeHtml(vehicle.line) : state.icon}
+            ${state.icon}
           </div>
         `,
       iconSize: [24, 24],
@@ -212,9 +230,13 @@ export function createVehicleAdapter({ isHighlighted = () => false, isPredicted 
       markerVehicles.set(marker, vehicle);
       markerVisualStateKeys.set(marker, visualStateFor(vehicle).key);
       if (typeof marker.on === 'function') {
-        marker.on('popupopen', (event) =>
-          wireFollowControl(event.popup, markerVehicles.get(marker) ?? vehicle),
-        );
+        marker.on('popupopen', (event) => {
+          const v = markerVehicles.get(marker) ?? vehicle;
+          wireFollowControl(event.popup, v);
+          // Seed the popup signature so the prediction ticks that follow don't
+          // needlessly rebuild the popup and break the just-wired Follow button.
+          markerPopupKeys.set(marker, popupSignature(v, isFollowed(v.id)));
+        });
       }
     },
 
@@ -235,6 +257,10 @@ export function createVehicleAdapter({ isHighlighted = () => false, isPredicted 
     // setLatLng keeps open popups alive.
     shouldReadd(marker, vehicle) {
       if (getZoom() >= FULL_MARKER_MIN_ZOOM) return false;
+      // Never re-add a marker whose popup is open — re-adding it to the cluster
+      // layer closes the popup, which under 1s dead-reckoning ticks would make
+      // the Follow control un-clickable at low zoom. It still moves via setLatLng.
+      if (typeof marker.isPopupOpen === 'function' && marker.isPopupOpen()) return false;
       if (typeof marker.getLatLng !== 'function') return false;
       const current = marker.getLatLng();
       return current.lat !== vehicle.latitude || current.lng !== vehicle.longitude;

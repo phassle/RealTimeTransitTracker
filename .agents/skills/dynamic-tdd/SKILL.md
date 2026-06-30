@@ -9,9 +9,9 @@ Replaces the `.sandcastle` plan→implement→merge loop with the **Workflow too
 
 **Branch model:** `develop` → `feature/<prd-slug>` → per-issue worktrees (`dynamic-tdd/issue-<id>`) → merge each back into the feature branch (then delete that worktree) → **one PR** `feature/<prd-slug>` → `develop`. Never push to `develop`/`main` directly (see CLAUDE.md).
 
-**Pipeline:** plan → implement (parallel TDD, isolated worktrees) → merge + delete merged worktree → **simplify** → **verify in Aspire** (check web/browser logs) → **local Codex PR review** → **create PR**. The Workflow tool runs the first three (the fan-out); the orchestrator runs the tail (steps 5–8 below), each delegating to an existing skill.
+**Pipeline:** plan → implement (parallel TDD, isolated worktrees) → merge + delete merged worktree → **[dynamic-pr-prep](../dynamic-pr-prep/SKILL.md)** (simplify → verify in Aspire → local Codex PR review → create PR). The **Workflow tool** runs the first three (the fan-out, step 4); the **dynamic-pr-prep skill** runs the whole gated tail (step 5).
 
-Phase prompts live in [reference/](reference/) (`plan-prompt.md`, `implement-prompt.md`, `merge-prompt.md`, `simplify-prompt.md`, `verify-prompt.md`) and are adapted from `.sandcastle/*-prompt.md`. The agents read and follow them.
+Fan-out phase prompts live in [reference/](reference/) (`plan-prompt.md`, `implement-prompt.md`, `merge-prompt.md`), adapted from `.sandcastle/*-prompt.md`. The tail's prompts (`simplify-prompt.md`, `verify-prompt.md`) live with the [dynamic-pr-prep](../dynamic-pr-prep/SKILL.md) skill that owns those steps. The agents read and follow them.
 
 ## Run
 
@@ -41,21 +41,18 @@ Phase prompts live in [reference/](reference/) (`plan-prompt.md`, `implement-pro
    ```
    Wait for the `<task-notification>`; watch live with `/workflows`. It returns `{ mergedIssues, ... }`. Confirm `git worktree list` shows only the main worktree afterwards (prune any stragglers: `git worktree prune` + `git worktree remove`).
 
-   The remaining steps run **only if `mergedIssues` is non-empty**, in order. Stop and report if any step fails — do not open the PR.
+   The tail runs **only if `mergedIssues` is non-empty**. Stop and report if it fails — do not open the PR.
 
-5. **Simplify.** Run the [simplify](../../../.claude/skills/simplify/SKILL.md) skill (`/simplify`) over the feature branch's changed files (`git diff --name-only origin/develop...`). Follow [reference/simplify-prompt.md](reference/simplify-prompt.md). Keep tests green; commit `RALPH: simplify pass (PRD #<PRD#>)` (or nothing if there was nothing to do).
+5. **Run the [dynamic-pr-prep](../dynamic-pr-prep/SKILL.md) skill** for the gated tail. Invoke it (via the Skill tool) with the workflow result:
+   - `branch: feature/<prd-slug>`, `base: develop`, `closes: <mergedIssues>`, `label: PRD #<PRD#>`.
 
-6. **Verify in Aspire.** Run the [observe-running-app](../observe-running-app/SKILL.md) skill (or `/verify`) per [reference/verify-prompt.md](reference/verify-prompt.md): `npm run build`, launch the SPA via **Aspire**, and **verify the browser/web logs are clean** (no new errors/warnings) while exercising each merged slice. **If any merged issue specifies tests that must run in the browser, run them now** against the Aspire app (use `playwright-cli` for scripted steps). If the web logs show a regression or a browser test fails, fix it on the feature branch (tests green) before continuing.
-
-7. **Local Codex PR review.** Ensure Codex is ready (`/codex:setup`), then run a local review of the diff (`git diff origin/develop...`) via the [codex:rescue](../../../.claude/skills/codex/SKILL.md) skill — ask it to review the changes like a PR. Address any blocking findings on the feature branch (commit fixes, keep tests green) and re-run the relevant checks.
-
-8. **Create the PR — only when everything above is OK.** Open ONE PR via the [create-pr](../create-pr/SKILL.md) skill with base `develop`. The body lists the issues built and `Closes #<id>` for each so they close on merge.
+   It runs **simplify → verify in Aspire (web logs) → local Codex PR review → open one PR into `develop`** (with `Closes #<id>` for each merged issue), each step gated — a failed verify or unresolved Codex blocker stops it before the PR. See that skill for the step detail and its `reference/` prompts.
 
 ## Notes
 
 - **Isolation:** each implementer runs with `isolation: 'worktree'` so parallel agents never collide; they share the git object store, so the `dynamic-tdd/issue-<id>` branches are visible to the merger. The merger runs with **no** isolation (in the main worktree, on the feature branch).
 - **Worktree cleanup:** the merge phase removes each issue worktree and deletes its branch right after merging it (the Workflow keeps committed worktrees otherwise). After the run, only the main worktree should remain.
-- **Gated tail:** simplify → verify → Codex review → PR run in sequence and each must pass; a failed verify (dirty web logs or a failing browser test) or an unresolved Codex blocker stops the run before the PR.
+- **Gated tail:** the [dynamic-pr-prep](../dynamic-pr-prep/SKILL.md) skill runs simplify → verify → Codex review → PR in sequence, each gated; a failed verify (dirty web logs or a failing browser test) or an unresolved Codex blocker stops it before the PR. That skill is also runnable standalone on any feature branch (`/dynamic-pr-prep`).
 - **Per-iteration incrementality:** later iterations branch off the feature branch's *current* HEAD, so issues unblocked by earlier merges build on top of them.
 - **Issues are not closed mid-run** — completion happens when the single feature PR merges.
 - **Cost:** one Opus planner + N Opus implementers (full TDD) + one merger per iteration. Scale `maxParallel`/`maxIterations` to the backlog; warn the user for large PRDs.

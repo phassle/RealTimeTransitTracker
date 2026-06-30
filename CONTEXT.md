@@ -133,6 +133,18 @@ A forward-looking derivation for a geographic Incident: a forecast of who is *ab
 
 The vehicles a Projection flags as likely to degrade: vehicles on the same `(operator, line, direction)` as the disruption that have **not yet passed** the stall point (they are still behind it). Same line but opposite direction is not downstream; a vehicle already past the stall point is not downstream. With no GTFS static stops or route polyline available, "behind" is a deliberately coarse geometric heuristic rather than a stop-sequence fact.
 
+### Baseline
+
+A **learned per-operator session normal** for a scalar service metric (vehicle count, mean speed, stationary share, feed latency), accumulated in rolling 5-minute slots from the session's observation history. It is **session-only** ([ADR 0003](docs/adr/0003-client-side-incident-derivation.md)/[ADR 0001](docs/adr/0001-cookieless-no-consent-popup.md)): no persistence, re-learned from scratch each session, gone on reload. It is held as running aggregates, so it can span the whole session even though the raw observation buffer is trimmed to a shorter window.
+
+A Baseline is **warm** only after a minimum number of slots have accumulated; until then deviation rules stay silent for that operator, and wherever a Baseline is shown its **age** is stated, never implied (cf. #84 story 23, "never imply history it doesn't have").
+
+A Baseline is **not** a fixed threshold and **not** a Projection: a fixed threshold asks "did a value cross a line?", a Projection predicts something that has not happened, and a Baseline answers "is this value unusual for *this* operator *right now*?". Because nothing persists across days, a Baseline **cannot learn time-of-day patterns** (rush hour vs night) — it learns this session's recent normal only. Aircraft have no operator and never have a Baseline.
+
+### Deviation
+
+An **Anomaly** raised when a current operator metric falls outside its Baseline's **tolerance band** (the normal ± an allowed spread). A Deviation is still an Anomaly: it flows through clustering, the Incident Inbox, and the Why-flagged panel with no change to those seams. Its evidence carries the **baseline value, the measured value, the tolerance band, and the Baseline's age**, so the Why-flagged panel renders "operator X mean speed dropped to 40 % of session normal" entirely from structured fields — never free text. A Deviation differs from a fixed-threshold Anomaly only in *where the line comes from* (learned, not a named constant).
+
 ## Privacy & disclosure
 
 These three terms are deliberately kept distinct. They are commonly conflated in web product language; this project does not conflate them.

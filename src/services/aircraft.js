@@ -3,14 +3,14 @@ import { AIRPLANES_LIVE_BASE } from '../config/endpoints.js';
 // airplanes.live caps the point-query radius at 250 nautical miles.
 const MAX_RADIUS_NM = 250;
 
-// Aircraft are gated on zoom: below this level no aircraft are fetched or shown,
-// so the country-level view isn't flooded with planes and the 1 req/s budget is
-// spent only when aircraft are useful (PRD #165, user stories 5 & 7).
-export const AIRCRAFT_MIN_ZOOM = 8;
+// Aircraft are gated on zoom only to avoid continental/world-scale fetches; they
+// stay visible even when zoomed well out (down to a country-wide Sweden view).
+// The slow 10 s poll + 250 nm radius cap keep this within the 1 req/s budget.
+export const AIRCRAFT_MIN_ZOOM = 4;
 
 // 1 nautical mile = 1.852 km; 1° latitude ≈ 111.32 km.
-const KM_PER_DEGREE_LAT = 111.32;
-const KM_PER_NM = 1.852;
+export const KM_PER_DEGREE_LAT = 111.32;
+export const KM_PER_NM = 1.852;
 
 /**
  * Derive an airplanes.live point query from the current viewport, gated on zoom.
@@ -91,22 +91,29 @@ export function mapAircraft(ac) {
  * Fetch live aircraft around a point and map them into Vehicles.
  *
  * Aircraft are non-essential overlay data: a failed or malformed fetch is
- * tolerated silently (resolves to []), so transit Vehicles are unaffected and
- * no error is surfaced (PRD #165). Radius is capped at {@link MAX_RADIUS_NM}.
+ * tolerated silently. It resolves to **`null`** (a "no fresh data" signal — the
+ * caller keeps its last-good list rather than blanking the map) and only to a
+ * `[]` for a *successful* response that genuinely contains no aircraft. Radius
+ * is capped at {@link MAX_RADIUS_NM} (PRD #165; keep-last-good for idea #51).
  *
  * @param {{ lat: number, lon: number, radius: number }} params
  * @param {{ fetchImpl?: typeof fetch }} [opts]
- * @returns {Promise<object[]>}
+ * @returns {Promise<object[] | null>}
  */
 export async function fetchAircraft({ lat, lon, radius }, { fetchImpl = fetch } = {}) {
   const cappedRadius = Math.min(radius, MAX_RADIUS_NM);
   const url = `${AIRPLANES_LIVE_BASE}/point/${lat}/${lon}/${cappedRadius}`;
   try {
     const response = await fetchImpl(url);
-    if (!response.ok) return [];
+    if (!response.ok) return null;
     const data = await response.json();
-    return mapAircraft(data?.ac);
+    // Only a well-formed `{ ac: [...] }` is real data — `{ ac: [] }` is a genuine
+    // "no aircraft here" and clears the list. Anything without an ac[] array is a
+    // malformed/error payload; treat it as failure (null) so the last-good list
+    // is kept rather than blanked.
+    if (!Array.isArray(data?.ac)) return null;
+    return mapAircraft(data.ac);
   } catch {
-    return [];
+    return null;
   }
 }

@@ -88,6 +88,37 @@ describe('useAircraft', () => {
     await new Promise(r => setTimeout(r, 10));
     expect(result.current.aircraft).toEqual(FRESH);
   });
+
+  it('keeps the last-good list and fetchedAt when a later poll fails (no flicker-out)', async () => {
+    vi.useFakeTimers();
+    service.fetchAircraft
+      .mockResolvedValueOnce(SAMPLE) // first poll succeeds
+      .mockResolvedValue(null);      // every later poll fails (throttled)
+    const { result } = renderHook(() => useAircraft(QUERY, { enabled: true, intervalMs: 2000 }));
+    await vi.waitFor(() => expect(result.current.aircraft).toEqual(SAMPLE));
+    const firstFetchedAt = result.current.fetchedAt;
+    expect(firstFetchedAt).toEqual(expect.any(Number));
+
+    await act(async () => { await vi.advanceTimersByTimeAsync(2000); }); // a failed poll elapses
+    expect(result.current.aircraft).toEqual(SAMPLE);          // not blanked
+    expect(result.current.fetchedAt).toBe(firstFetchedAt);    // fix time unchanged → prediction keeps extrapolating
+  });
+
+  it('clears stale aircraft when the viewport changes and the new query fails', async () => {
+    service.fetchAircraft
+      .mockResolvedValueOnce(SAMPLE) // query A succeeds
+      .mockResolvedValue(null);      // query B (new viewport) fails
+    const { result, rerender } = renderHook(
+      ({ q }) => useAircraft(q, { enabled: true }),
+      { initialProps: { q: { lat: 59.3, lon: 18.0, radius: 100 } } },
+    );
+    await waitFor(() => expect(result.current.aircraft).toEqual(SAMPLE));
+
+    rerender({ q: { lat: 55.6, lon: 13.0, radius: 100 } }); // pan to a new viewport (query B)
+    // B's first poll fails → the old viewport's aircraft must NOT linger.
+    await waitFor(() => expect(result.current.aircraft).toEqual([]));
+    expect(result.current.fetchedAt).toBeNull();
+  });
 });
 
 // Zoom gate + viewport-radius derivation (PRD #165, Slice 2). These drive the

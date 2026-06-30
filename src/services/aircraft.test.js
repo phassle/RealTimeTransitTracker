@@ -123,22 +123,30 @@ describe('fetchAircraft', () => {
     expect(fetchSpy.mock.calls[0][0]).not.toContain('9999');
   });
 
-  it('returns [] on a non-ok response (silent failure)', async () => {
+  it('returns null on a non-ok response (failure signal — keep last good)', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue({ ok: false, status: 503 });
-    await expect(fetchAircraft({ lat: 59, lon: 18, radius: 100 })).resolves.toEqual([]);
+    await expect(fetchAircraft({ lat: 59, lon: 18, radius: 100 })).resolves.toBeNull();
   });
 
-  it('returns [] when the fetch rejects (silent failure)', async () => {
+  it('returns null when the fetch rejects (failure signal — keep last good)', async () => {
     vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('network down'));
+    await expect(fetchAircraft({ lat: 59, lon: 18, radius: 100 })).resolves.toBeNull();
+  });
+
+  it('returns [] (not null) on a successful response with a genuinely empty ac[]', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({ ac: [] }),
+    });
     await expect(fetchAircraft({ lat: 59, lon: 18, radius: 100 })).resolves.toEqual([]);
   });
 
-  it('returns [] on a malformed response (no ac[])', async () => {
+  it('returns null on an ok-but-malformed payload (no ac[] array) — keep last good', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue({
       ok: true,
       json: async () => ({ unexpected: true }),
     });
-    await expect(fetchAircraft({ lat: 59, lon: 18, radius: 100 })).resolves.toEqual([]);
+    await expect(fetchAircraft({ lat: 59, lon: 18, radius: 100 })).resolves.toBeNull();
   });
 });
 
