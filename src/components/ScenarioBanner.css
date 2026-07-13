@@ -1,0 +1,45 @@
+/* Prominence mirrors ReplayControls' past-mode indicator — orange halo, top of
+   the map — so a non-live what-if mode is as unmistakable as viewing the past. */
+.scenario-banner {
+  position: absolute;
+  left: 50%;
+  top: 16px;
+  transform: translateX(-50%);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 14px;
+  border-radius: 10px;
+  background: rgba(27, 31, 36, 0.92);
+  color: #e8e8e8;
+  font-size: 12px;
+  outline: 2px solid #f5a623;
+  box-shadow: 0 0 0 4px rgba(245, 166, 35, 0.25), 0 4px 18px rgba(0, 0, 0, 0.45);
+}
+
+.scenario-banner__badge {
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #f5a623;
+}
+
+.scenario-banner__name {
+  text-transform: capitalize;
+  font-weight: 600;
+}
+
+.scenario-banner__exit {
+  border: 1px solid #f5a623;
+  background: #f5a623;
+  color: #0b0e11;
+  font-weight: 700;
+  border-radius: 6px;
+  padding: 3px 10px;
+  cursor: pointer;
+}
+
+.scenario-banner__exit:hover {
+  background: #e0951c;
+}

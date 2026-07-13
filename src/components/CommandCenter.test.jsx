@@ -258,6 +258,86 @@ describe('CommandCenter', () => {
     });
   });
 
+  describe('scenario mode (preset closure — PRD #143)', () => {
+    // Two SL vehicles inside the Slussen preset box, on lines 2 and 4.
+    const inSlussen = () => [
+      { id: 'sl:bus-2', operator: 'sl', line: '2', tripId: 'trip-2', latitude: 59.320, longitude: 18.071 },
+      { id: 'sl:bus-4', operator: 'sl', line: '4', tripId: 'trip-4', latitude: 59.319, longitude: 18.070 },
+    ];
+    const loadSlussen = () =>
+      fireEvent.click(screen.getByRole('button', { name: /close slussen/i }));
+
+    it('loads the preset closure and shows the blast radius', () => {
+      const { FakeMap, props } = makeFakeMap();
+      render(<CommandCenter vehicles={inSlussen()} MapComponent={FakeMap} now={() => 0} />);
+
+      loadSlussen();
+
+      // A scenario-active banner with a one-click exit.
+      const banner = screen.getByRole('status', { name: /scenario active/i });
+      expect(banner.textContent).toMatch(/scenario|what-if/i);
+      expect(screen.getByRole('button', { name: /exit scenario/i })).toBeDefined();
+
+      // The closed area is shaded on the map (passed as a scenarioArea overlay).
+      expect(props.last.scenarioArea).toEqual({ south: 59.317, west: 18.065, north: 59.323, east: 18.078 });
+
+      // The in-area vehicles are accented via the highlight channel.
+      expect(props.last.highlightedVehicleIds).toEqual(['sl:bus-2', 'sl:bus-4']);
+
+      // The ScenarioPanel lists lines 2 and 4, operator SL, and the count.
+      const panel = screen.getByLabelText(/scenario blast radius/i);
+      expect(within(panel).getByText(/Line 2/)).toBeDefined();
+      expect(within(panel).getByText(/Line 4/)).toBeDefined();
+      expect(within(panel).getAllByText(/SL/).length).toBeGreaterThan(0);
+
+      // Every scenario surface is worded as a hypothesis / labelled demo.
+      expect(panel.textContent).toMatch(/what-if|hypothesis|would/i);
+      expect(panel.textContent).toMatch(/demo/i);
+    });
+
+    it('exits the scenario and restores the live picture', () => {
+      const { FakeMap, props } = makeFakeMap();
+      render(<CommandCenter vehicles={inSlussen()} MapComponent={FakeMap} now={() => 0} />);
+
+      loadSlussen();
+      expect(screen.queryByRole('status', { name: /scenario active/i })).not.toBeNull();
+
+      fireEvent.click(screen.getByRole('button', { name: /exit scenario/i }));
+
+      // Shaded area, accents, banner, and panel are all gone.
+      expect(props.last.scenarioArea).toBeNull();
+      expect(props.last.highlightedVehicleIds).toEqual([]);
+      expect(screen.queryByLabelText(/scenario blast radius/i)).toBeNull();
+      expect(screen.queryByRole('button', { name: /exit scenario/i })).toBeNull();
+      // Live vehicles are shown exactly as before.
+      expect(props.last.vehicles).toEqual(inSlussen());
+    });
+
+    it('produces no Incident and leaves the Inbox count unchanged', () => {
+      const { FakeMap } = makeFakeMap();
+      render(<CommandCenter vehicles={inSlussen()} MapComponent={FakeMap} now={() => 0} />);
+
+      const inboxBefore = screen.getByLabelText(/incident inbox/i).textContent;
+      loadSlussen();
+      const inboxAfter = screen.getByLabelText(/incident inbox/i).textContent;
+      expect(inboxAfter).toBe(inboxBefore);
+    });
+
+    it('a closed area with no vehicles yields an empty impact without error', () => {
+      const { FakeMap } = makeFakeMap();
+      // A vehicle well outside the Slussen box.
+      const outside = [{ id: 'sl:bus-9', operator: 'sl', line: '9', tripId: 't9', latitude: 59.40, longitude: 18.20 }];
+      render(<CommandCenter vehicles={outside} MapComponent={FakeMap} now={() => 0} />);
+
+      loadSlussen();
+
+      const panel = screen.getByLabelText(/scenario blast radius/i);
+      expect(panel.textContent).toMatch(/no affected lines|0 vehicle|zero/i);
+      // Banner still shown.
+      expect(screen.getByRole('button', { name: /exit scenario/i })).toBeDefined();
+    });
+  });
+
   it('exposes recording export/import controls over the map', () => {
     const { FakeMap } = makeFakeMap();
     render(<CommandCenter vehicles={movingAt(18.0)} MapComponent={FakeMap} now={() => 0} />);

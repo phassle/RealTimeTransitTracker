@@ -45,7 +45,7 @@ function updateIdSet(state, nextIds) {
   return true;
 }
 
-export function Map({ vehicles = [], cameras = [], center = [59.3293, 18.0686], zoom = 11, onBoundsChange = null, theme = 'light', highlightedVehicleIds = EMPTY_VEHICLE_IDS, predictedVehicleIds = EMPTY_VEHICLE_IDS, userLocation = null, followedVehicleIds = EMPTY_FOLLOWED_VEHICLE_IDS, onFollowToggle = NOOP, followPosition = null, onMapClick = NOOP }) {
+export function Map({ vehicles = [], cameras = [], center = [59.3293, 18.0686], zoom = 11, onBoundsChange = null, theme = 'light', highlightedVehicleIds = EMPTY_VEHICLE_IDS, predictedVehicleIds = EMPTY_VEHICLE_IDS, userLocation = null, followedVehicleIds = EMPTY_FOLLOWED_VEHICLE_IDS, onFollowToggle = NOOP, followPosition = null, onMapClick = NOOP, scenarioArea = null }) {
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
   // Singleton User location marker (PRD #111). A single circle marker managed
@@ -90,6 +90,10 @@ export function Map({ vehicles = [], cameras = [], center = [59.3293, 18.0686], 
   onMapClickRef.current = onMapClick;
   const webcamCollectionRef = useRef(null);
   const webcamAdapterRef = useRef(createWebcamAdapter());
+  // Scenario closed-area overlay (PRD #143): a single shaded rectangle drawn
+  // while a what-if closure is active. The one new map primitive — managed
+  // directly here, not routed through the id-diffed marker collection.
+  const scenarioRectRef = useRef(null);
   const markerLayerRef = useRef(null);
   const tileLayerRef = useRef(null);
   const cameraClusterRef = useRef(null);
@@ -227,6 +231,32 @@ export function Map({ vehicles = [], cameras = [], center = [59.3293, 18.0686], 
   useEffect(() => {
     webcamCollectionRef.current?.update(cameras, webcamAdapterRef.current);
   }, [cameras]);
+
+  // Scenario closed-area overlay: draw the shaded box while a closure is active,
+  // remove it on exit. An amber, dashed, semi-transparent rectangle — clearly a
+  // declared/hypothetical area, never confused with observed traffic. Redrawn
+  // when the bounds change; cleared when scenarioArea goes null.
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map) return;
+    if (scenarioRectRef.current) {
+      scenarioRectRef.current.remove();
+      scenarioRectRef.current = null;
+    }
+    if (!scenarioArea) return;
+    const { south, west, north, east } = scenarioArea;
+    scenarioRectRef.current = L.rectangle(
+      [[south, west], [north, east]],
+      {
+        color: '#f5a623',
+        weight: 2,
+        dashArray: '6 4',
+        fillColor: '#f5a623',
+        fillOpacity: 0.18,
+        interactive: false,
+      },
+    ).addTo(map);
+  }, [scenarioArea]);
 
   // User location singleton: place once, then move on subsequent fixes. Styled
   // as a distinct "you are here" blue accent — never a transport-mode colour —

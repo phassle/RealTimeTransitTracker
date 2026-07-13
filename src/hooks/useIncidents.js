@@ -4,6 +4,7 @@ import { detectStationaryAnomalies, learnDwellSpots } from '../services/anomalyR
 import { detectFeedOutageAnomalies } from '../services/feedOutageRules';
 import { clusterIncidents } from '../services/incidentClustering';
 import { predictImpact } from '../services/etaProjection';
+import { computeScenarioImpact, buildPresetScenario } from '../services/scenarioImpact';
 import { buildInjectedAnomalies } from '../services/injectedIncident';
 import { operatorFeedStatuses } from '../services/feedStatus';
 import { OPERATORS, OPERATOR_MAP, SWEDEN_CENTER } from '../config/operators';
@@ -40,6 +41,16 @@ export function useIncidents(vehicles, { now = () => Date.now(), feeds = [] } = 
   // never imply history outside "since tab open, capped at the window".
   const [replayTime, setReplayTime] = useState(null);
   const [sessionRange, setSessionRange] = useState(null);
+
+  // Scenario state (PRD #143). A Scenario is the user-initiated sibling of a
+  // Projection (ADR 0005): a transient what-if premised on an invented area
+  // closure. It is owned here as a top-level field — NOT tied to any Incident,
+  // never part of `incidents`, never persisted. `activeScenario` is the premise
+  // (id/name/source/demo/area); the blast-radius impact is derived per poll from
+  // the live buffer and retracts on exit. A monotonic counter gives each loaded
+  // scenario a fresh transient id without a clock/random dependency.
+  const [activeScenario, setActiveScenario] = useState(null);
+  const scenarioSeqRef = useRef(0);
 
   // Each new poll (new vehicles reference) appends a snapshot and re-derives
   // incidents. Live polling keeps filling the buffer even while replaying.
@@ -149,6 +160,31 @@ export function useIncidents(vehicles, { now = () => Date.now(), feeds = [] } = 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }), []);
 
+  // Scenario blast radius: recomputed against the live buffer each poll (keyed
+  // on `incidents`, which is a fresh array every poll) for the active Scenario
+  // only, exactly like the Projection. Never enters `clusterIncidents`, produces
+  // no Anomaly, and lands on no Incident timeline — it is provably disjoint from
+  // the pipeline (PRD #143, ADR 0005). Null when no Scenario is active.
+  const scenarioImpact = useMemo(() => {
+    if (!activeScenario) return null;
+    const range = bufferRef.current.range();
+    return computeScenarioImpact(activeScenario, bufferRef.current, range?.end ?? now());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeScenario, incidents]);
+
+  const scenario = useMemo(() => ({
+    active: activeScenario,
+    impact: scenarioImpact,
+    // Load the "close Slussen" preset. A preset is demo content (demo: true),
+    // like an Injected Incident. Entered from the live view; retracts fully on
+    // exit, leaving the live operational picture untouched.
+    loadPreset: () => {
+      scenarioSeqRef.current += 1;
+      setActiveScenario(buildPresetScenario(`scenario:preset:${scenarioSeqRef.current}`));
+    },
+    exit: () => setActiveScenario(null),
+  }), [activeScenario, scenarioImpact]);
+
   const focus = useMemo(() => {
     if (!selectedIncident) return null;
     const subject = selectedIncident.subject;
@@ -178,6 +214,7 @@ export function useIncidents(vehicles, { now = () => Date.now(), feeds = [] } = 
     focus,
     replay,
     recording,
+    scenario,
     displayedVehicles,
     verifyWebcam,
     injectIncident,

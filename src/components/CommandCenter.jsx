@@ -2,6 +2,8 @@ import { useMemo } from 'react';
 import { Map } from './Map';
 import { IncidentInbox } from './IncidentInbox';
 import { IncidentDetail } from './IncidentDetail';
+import { ScenarioPanel } from './ScenarioPanel';
+import { ScenarioBanner } from './ScenarioBanner';
 import { ReplayControls } from './ReplayControls';
 import { FeedStatus } from './FeedStatus';
 import { RecordingControls } from './RecordingControls';
@@ -33,10 +35,18 @@ export function CommandCenter({ vehicles = [], feeds = [], theme = 'light', MapC
     focus,
     replay,
     recording,
+    scenario,
     displayedVehicles,
     verifyWebcam,
     injectIncident,
   } = useIncidents(vehicles, { ...(now ? { now } : {}), feeds });
+
+  // Scenario mode (PRD #143): a transient what-if closure. When active it takes
+  // over the map accent + right panel — the closed box is shaded, its in-area
+  // vehicles are accented (reusing the highlight channel), and the ScenarioPanel
+  // replaces the IncidentDetail. It never touches the Incident pipeline.
+  const scenarioActive = scenario.active != null;
+  const scenarioArea = scenarioActive ? scenario.active.area : null;
 
   // Fetch the webcam list once (only when not injected); no polling, no impact
   // on the feed budget. Nearby ranking is a pure derivation over the selection.
@@ -47,9 +57,18 @@ export function CommandCenter({ vehicles = [], feeds = [], theme = 'light', MapC
     [selectedIncident, cameras],
   );
 
-  const center = focus ? focus.center : SWEDEN_CENTER;
-  const zoom = focus ? INCIDENT_FOCUS_ZOOM : 6;
-  const highlightedVehicleIds = focus ? focus.vehicleIds : [];
+  // Scenario accent takes precedence: while a closure is active the highlight
+  // channel carries its in-area vehicles, and the map centres on the closed box.
+  const areaCenter = scenarioArea
+    ? [(scenarioArea.south + scenarioArea.north) / 2, (scenarioArea.west + scenarioArea.east) / 2]
+    : null;
+  const center = areaCenter ?? (focus ? focus.center : SWEDEN_CENTER);
+  const zoom = scenarioActive || focus ? INCIDENT_FOCUS_ZOOM : 6;
+  const highlightedVehicleIds = scenarioActive
+    ? scenario.impact?.inAreaVehicleIds ?? []
+    : focus
+      ? focus.vehicleIds
+      : [];
 
   // Downstream accent (PRD #136, stories 11/12): the deduped union of the
   // selected Incident projection's Downstream vehicles, surfaced through a
@@ -91,6 +110,13 @@ export function CommandCenter({ vehicles = [], feeds = [], theme = 'light', MapC
         >
           ⚠ Inject demo incident
         </button>
+        <button
+          type="button"
+          className="command-center__scenario"
+          onClick={scenario.loadPreset}
+        >
+          ◆ Close Slussen (what-if)
+        </button>
       </aside>
       <main className="command-center__map" aria-label="Map">
         <MapComponent
@@ -100,17 +126,23 @@ export function CommandCenter({ vehicles = [], feeds = [], theme = 'light', MapC
           theme={theme}
           highlightedVehicleIds={highlightedVehicleIds}
           predictedVehicleIds={predictedVehicleIds}
+          scenarioArea={scenarioArea}
         />
-        {selectedIncident?.demo && (
+        {selectedIncident?.demo && !scenarioActive && (
           <div className="command-center__demo-overlay" role="note">
             Demo incident — synthetic content
           </div>
         )}
+        <ScenarioBanner scenario={scenario.active} onExit={scenario.exit} />
         <ReplayControls replay={replay} />
         <RecordingControls recording={recording} />
       </main>
       <aside className="command-center__detail" aria-label="Incident detail">
-        <IncidentDetail incident={selectedIncident} webcams={nearby} onVerify={verifyWebcam} />
+        {scenarioActive ? (
+          <ScenarioPanel scenario={scenario.active} impact={scenario.impact} />
+        ) : (
+          <IncidentDetail incident={selectedIncident} webcams={nearby} onVerify={verifyWebcam} />
+        )}
       </aside>
     </div>
   );

@@ -32,6 +32,14 @@ The Expected impact forecast is a **Projection**, computed by a new pure service
 - **Walking skeleton first.** Slice 1 ships the simplest line+direction match; later slices add the behind heuristic, delay magnitude and confidence gating without changing this structural decision.
 - **Downstream code must not assume persistence.** Because a Projection is recomputed and may vanish each poll, no consumer may store it, key off it across polls, or treat it as a stable Incident field.
 
+## Amendment (2026-07-13) — Scenarios inherit this treatment
+
+PRD #143 adds **Scenario mode**: the operator declares an area closed ("close Slussen") and sees the computed blast radius. A Scenario is the **user-initiated sibling of a Projection** and is governed by exactly this decision — no new ADR is warranted, since it introduces no genuinely new, hard-to-reverse trade-off. Like a Projection it lives **outside** the Anomaly→Incident pipeline (new pure service `scenarioImpact`, `computeScenarioImpact(scenario, buffer, now) → impact`), produces no Anomaly, never touches `clusterIncidents`, creates no Incident / Inbox row / timeline entry, makes no new feed calls, is recomputed transiently against the live buffer, and is never persisted to a Recording. State is owned by `useIncidents` as a top-level `activeScenario` field (not tied to any Incident), parallel to `selectedIncident.projection`.
+
+The one sharpening: a Projection extrapolates from a **real detected** disruption, whereas a Scenario **invents its premise** (a closure that is not happening) — so it is *more* hypothetical, and the must-read-as-what-if requirement is stricter (persistent scenario-active banner with one-click exit, hedged wording, demo label on presets).
+
+The demo simplifications specific to Scenarios — **bounding box, not free polygon**, and **Replay/Scenario mutual exclusion** — are deliberately *not* elevated to architectural commitments here: they are v1 scope calls, revisited only if Scenarios ever need polygon geometry or persistence (a dedicated ADR at that point).
+
 ## Trade-offs
 
 - **Transient-derived vs persisted-auditable.** A persisted forecast would be trivially replayable and inspectable after the fact; a transient one is not. We accept this: a prediction that lingered after reality moved would be actively misleading, which is worse than not being able to replay it. Auditability is preserved through the structured evidence shown live, not through persistence.
@@ -44,5 +52,6 @@ Revisit if Projections ever need to be persisted, audited after the fact, or sho
 ## Related
 
 - [ADR 0001](0001-cookieless-no-consent-popup.md) / [ADR 0003](0003-client-side-incident-derivation.md) — everything is derived client-side, in-memory, with no new feed/network calls.
-- [CONTEXT.md](../../CONTEXT.md) — glossary: **Projection**, **Downstream vehicles** (and the Projection-is-not-an-Anomaly distinction).
+- [CONTEXT.md](../../CONTEXT.md) — glossary: **Projection**, **Downstream vehicles**, **Scenario** (and the Projection-is-not-an-Anomaly distinction).
 - PRD `#136` — Predictive ETA degradation; issue `#137` — Slice 1 walking skeleton.
+- PRD `#143` — Scenario mode; issue `#144` — Slice 1 preset-closure walking skeleton (in-area-now blast radius).

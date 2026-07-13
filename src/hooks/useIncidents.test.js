@@ -364,6 +364,90 @@ describe('useIncidents', () => {
     });
   });
 
+  describe('scenario mode (preset closure — transient what-if, PRD #143)', () => {
+    // A vehicle inside the "close Slussen" preset box, moving slightly each poll
+    // so it never trips the stationary rule (no real Incident of its own).
+    const movingInSlussen = (lng = 18.070) => [
+      { id: 'sl:bus-1', operator: 'sl', line: '2', tripId: 'trip-abc', latitude: 59.32, longitude: lng },
+    ];
+
+    it('is inactive by default — no active scenario, no impact', () => {
+      const { result } = renderHook(({ v }) => useIncidents(v, { now: () => 0 }), {
+        initialProps: { v: movingInSlussen() },
+      });
+      expect(result.current.scenario.active).toBeNull();
+      expect(result.current.scenario.impact).toBeNull();
+    });
+
+    it('loadPreset activates "close Slussen" and computes the in-area blast radius', () => {
+      let t = 0;
+      const now = () => t;
+      const { result, rerender } = renderHook(({ v }) => useIncidents(v, { now }), {
+        initialProps: { v: movingInSlussen(18.070) },
+      });
+      act(() => { t = 1 * MIN; });
+      rerender({ v: movingInSlussen(18.071) });
+
+      act(() => { result.current.scenario.loadPreset(); });
+
+      const s = result.current.scenario.active;
+      expect(s).not.toBeNull();
+      expect(s.name).toBe('close Slussen');
+      expect(s.source).toBe('preset');
+      expect(s.demo).toBe(true);
+      expect(result.current.scenario.impact.inAreaVehicleIds).toEqual(['sl:bus-1']);
+      expect(result.current.scenario.impact.lines).toEqual([{ line: '2', operator: 'sl' }]);
+      expect(result.current.scenario.impact.operators).toEqual(['sl']);
+    });
+
+    it('exit retracts the scenario completely — active and impact are null again', () => {
+      const { result } = renderHook(({ v }) => useIncidents(v, { now: () => 0 }), {
+        initialProps: { v: movingInSlussen() },
+      });
+      act(() => { result.current.scenario.loadPreset(); });
+      expect(result.current.scenario.active).not.toBeNull();
+
+      act(() => { result.current.scenario.exit(); });
+      expect(result.current.scenario.active).toBeNull();
+      expect(result.current.scenario.impact).toBeNull();
+    });
+
+    it('produces no Anomaly, Incident, Inbox row, or timeline entry (out of the pipeline)', () => {
+      let t = 0;
+      const now = () => t;
+      const { result, rerender } = renderHook(({ v }) => useIncidents(v, { now }), {
+        initialProps: { v: movingInSlussen(18.070) },
+      });
+      act(() => { t = 6 * MIN; });
+      rerender({ v: movingInSlussen(18.072) });
+      expect(result.current.incidents).toHaveLength(0);
+
+      act(() => { result.current.scenario.loadPreset(); });
+
+      // The scenario has a real blast radius...
+      expect(result.current.scenario.impact.inAreaVehicleIds).toEqual(['sl:bus-1']);
+      // ...but never created anything in the Anomaly→Incident pipeline, and the
+      // active scenario is not itself an Incident.
+      expect(result.current.incidents).toHaveLength(0);
+      expect(result.current.incidents).not.toContain(result.current.scenario.active);
+    });
+
+    it('recomputes against the live buffer each poll — impact retracts when the vehicle leaves the box', () => {
+      let t = 0;
+      const now = () => t;
+      const { result, rerender } = renderHook(({ v }) => useIncidents(v, { now }), {
+        initialProps: { v: movingInSlussen(18.070) },
+      });
+      act(() => { result.current.scenario.loadPreset(); });
+      expect(result.current.scenario.impact.inAreaVehicleIds).toEqual(['sl:bus-1']);
+
+      act(() => { t = 1 * MIN; });
+      rerender({ v: [{ id: 'sl:bus-1', operator: 'sl', line: '2', latitude: 59.40, longitude: 18.20 }] });
+
+      expect(result.current.scenario.impact.inAreaVehicleIds).toEqual([]);
+    });
+  });
+
   it('selecting an incident exposes a focus on its subject and involved vehicles', () => {
     let t = 0;
     const now = () => t;
