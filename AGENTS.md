@@ -21,7 +21,7 @@ Real-time Leaflet map of Swedish public-transport vehicles, polled ~2s from Traf
 **Never push to `main` or `develop` — always open a PR.** Branch protection requires it.
 
 ### Feature work
-1. Branch off `develop` (git flow; `main` is release-only).
+1. Branch off `develop` (git flow; `main` is release-only). **Branch name: `feature/<kebab-slug>`** (e.g. `feature/opencode-poc`). Hotfixes off `main` use `hotfix/<slug>`.
 2. Read [CONTEXT.md](CONTEXT.md) (domain glossary — use its terms) + relevant [docs/adr/](docs/adr/).
 3. Implement; verify in the browser via `npm run dev` (or the [observe-running-app](.agents/skills/observe-running-app/SKILL.md) skill).
 4. `npm test` must pass; add tests beside the file. Code review before committing.

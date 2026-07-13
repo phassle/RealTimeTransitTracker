@@ -2,5 +2,6 @@
   "plugin": [
     "@bergetai/opencode-auth@1.0.24"
   ],
+  "lsp": true,
   "$schema": "https://opencode.ai/config.json"
 }
